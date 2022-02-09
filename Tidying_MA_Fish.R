@@ -34,6 +34,15 @@ head(sample_data)
 str(sample_data)
 names(sample_data)
 
+mthod <- sample_data %>% 
+  filter(!is.na(method)) %>% 
+  filter(method != "Water Quality")
+ggplot(data = mthod)+
+  stat_count(mapping = aes(x = method))+
+  theme(axis.text.x = element_text(angle = 90))
+  
+
+
 #make a query for the sample data df so that when we bind it with the others it's not such a large file
 qry1 <- "SELECT sample_id, saris_palis, sample_date, sample_type, method, agency, snapped_latitude, snapped_longitude FROM sample_data"
 sample_data <- sqlQuery(con2, qry1)

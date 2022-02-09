@@ -1,3 +1,9 @@
+library(RODBC)    
+library(tidyverse)
+library(lubridate)
+library(sf)
+library(readxl)
+
 #########################################################
 
 ################### New Hampshire DES ###################
@@ -5,8 +11,10 @@
 #########################################################
 
 
-des <- read.csv("C:/Users/Jenny/Documents/JennySCCWRP/Application materials/UMassPostDoc/spp_data/NH DES Fish Data/20220119_NHDES_Fish Data_yrs 2000-2021.csv",
+des <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DES Fish Data/20220119_NHDES_Fish Data_yrs 2000-2021.csv",
                 skip = 1)
+des <- des %>% 
+  filter(!is.na(Lat_Dec))
 des$CollDate <- mdy(des$CollDate)
 des$year <- year(des$CollDate)
 des$month <- month(des$CollDate)
@@ -21,6 +29,19 @@ names(des) <-  c("date", "waterbody", "town", "activityID", "EMDStationID_Curren
                  "year", "month")
 
 table(des$FishSamps_FishSampID == des$FishValues_FishSampID)
+
+
+#make shapefile the same crs as NHD
+#load NHD data
+MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
+
+
+#make the fish dataframe an sf object so it can be plotted spatially
+shp <- st_as_sf(x = des,                         
+                coords = c("Long_Dec", "Lat_Dec"),
+                crs = st_crs(MAflowline))
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DES Fish Data/20220119_NHDES_Fish Data_yrs 2000-2021.shp")
+
 
 #########################################################
 
@@ -53,3 +74,17 @@ f <- test %>% filter(Project.x != Project.y) %>% select(ACT_ID, Town.x, Town.y, 
 dat$year2 <- year(ymd(dat$Date))
 table(dat$year2 == dat$Year)
 f <- dat %>% filter(year2 != Year)
+
+
+
+#make shapefile the same crs as NHD
+#load NHD data
+MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
+
+
+#make the fish dataframe an sf object so it can be plotted spatially
+dat <- data.frame(dat)
+shp <- st_as_sf(x = dat,                         
+                coords = c("Long_Start", "Lat_Start"),
+                crs = st_crs(MAflowline))
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Data 1983-2020_20210519- DONT ALTER.shp")
