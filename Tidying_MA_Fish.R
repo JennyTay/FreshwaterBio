@@ -19,58 +19,36 @@ con2 <- odbcConnectAccess2007(db)
 #get a list of the table names
 sqlTables(con2, tableType = "TABLE")$TABLE_NAME
 
-#bring in 4 of the tables into R as dataframes: sample_data, fish_data, species_data, waterbody_data
-sample_data <- sqlFetch(con2, "sample_data")
-fish_data <- sqlFetch(con2, "fish_data")
-species_data <- sqlFetch(con2, "species_data")
-backpack_data <- sqlFetch(con2, "backpack_data")
+#bring in 3 of the tables into R as dataframes
 gillnet_data <- sqlFetch(con2, "gillnet_data")
 seine_data <- sqlFetch(con2, "seine_data")
 water_chem <- sqlFetch(con2, "water_chemistry")
-waterbody_data <- sqlFetch(con2, "waterbody_data")
-boat_data <- sqlFetch(con2, "boat_barge_data")
 
-head(sample_data)
-str(sample_data)
-names(sample_data)
-
-mthod <- sample_data %>% 
-  filter(!is.na(method)) %>% 
-  filter(method != "Water Quality")
-ggplot(data = mthod)+
-  stat_count(mapping = aes(x = method))+
-  theme(axis.text.x = element_text(angle = 90))
-  
-
+#bring in remainder of tables as qrys so that we can reduce the size of the table
 
 #make a query for the sample data df so that when we bind it with the others it's not such a large file
 qry1 <- "SELECT sample_id, saris_palis, sample_date, sample_type, method, agency, snapped_latitude, snapped_longitude FROM sample_data"
 sample_data <- sqlQuery(con2, qry1)
 
 #make a query for the fish_data to reduce object size
-names(fish_data)
 qry2 <- "SELECT sample_id, fish_code, length, weight FROM fish_data"
 fish_data <- sqlQuery(con2, qry2)
 
 #make a query for the species data to reduce object size
-names(species_data)
 qry3 <- "SELECT fish_code, common_name, family, scientific_name, origin, pt, temp, function, River_size, listed_status FROM species_data"
 species_data <- sqlQuery(con2, qry3)
 
 #make a query for the waterbody data
-names(waterbody_data)
 qry4 <- "SELECT saris_palis, watershed, waterbody, town, FROM waterbody_data"
 waterbody_data <- sqlQuery(con2, qry4)
 
 #make a query for the backpack_data to reduce size
-names(backpack_data)
 qry5 <- "SELECT sample_id, number_of_passes, seconds_pass_1, seconds_pass_2, seconds_pass_3,
 total_seconds, reach_length, reach_avg_width, reach_avg_depth, reach_max_depth, percent_reach_sampled, amps, volts, pf, pw, number_backpacks
 FROM backpack_data"
 backpack_data <- sqlQuery(con2, qry5)
 
 #make a query for the boat_barge_data to reduce size
-names(boat_data)
 qry6 <- "SELECT sample_id, hull_type, gpp_size, seconds, volts, amps, range, percent_of_range, pps_and_mode, reach_length, reach_avg_width, reach_avg_depth, 
 reach_max_depth,  percent_reach_sampled, sample_period, number_of_runs FROM boat_barge_data"
 boat_data <- sqlQuery(con2, qry6)
@@ -161,8 +139,12 @@ for( i in 1:length(unique(test$common_name))){
   
 }
 
+
+#prepare tables that will be joined with tables in other states
+
+
 #prepare sampling event df
-event <- sample_data %>% 
+ma_event <- sample_data %>% 
   select(sample_id, sample_date, snapped_latitude, snapped_longitude, agency) %>% 
   mutate(state = "MA",
          source = "MassWildlife - JasonStolarski",
@@ -176,7 +158,7 @@ event <- sample_data %>%
 #prepare fish df. I am goin to use common name for each state, and then I'll go back and create an ID because the fish codes differ by state.
 tmp <- left_join(fish_data, species_data, by = "fish_code")
 
-fish <- tmp %>% 
+ma_fish <- tmp %>% 
   select(sample_id, common_name, length, weight) %>% 
   mutate(UID = paste("MA", sample_id, sep = "_")) %>% 
   select(-sample_id) %>% 
@@ -184,16 +166,53 @@ fish <- tmp %>%
 rm(tmp)
 
 #prepare species df
-species <- species_data %>% 
+ma_species <- species_data %>% 
   select(common_name, scientific_name, origin, temp, pt, "function", River_size) %>% 
   rename(tolerance = pt,
          eco_function = "function",
          stream_preference = River_size)
 
 #prepare method df
+names(backpack_data)
+names(boat_data)
+names(seine_data)
+names(gillnet_data)
+
+#there are many of the same columns in the boat_data and backpack_data so we will need to combine these
+
 tmp <- left_join(sample_data, backpack_data, by = "sample_id")
 tmp <- left_join(tmp, boat_data, by = "sample_id")
 tmp <- left_join(tmp, seine_data, by = "sample_id")
 tmp <- left_join(tmp, gillnet_data, by = "sample_id")
 
+tmp$amps <- ifelse(is.na(tmp$amps.x), tmp$amps.y, tmp$amps.x)
+tmp$volts <- ifelse(is.na(tmp$volts.x), tmp$volts.y, tmp$volts.x)
+tmp$reach_length <- ifelse(is.na(tmp$reach_length.x), tmp$reach_length.y, tmp$reach_length.x)
+tmp$reach_avg_depth <- ifelse(is.na(tmp$reach_avg_depth.x), tmp$reach_avg_depth.x, tmp$reach_avg_depth.x)
+tmp$reach_avg_width <- ifelse(is.na(tmp$reach_avg_width.x), tmp$reach_avg_width.y, tmp$reach_avg_width.x)
+tmp$reach_max_depth <- ifelse(is.na(tmp$reach_max_depth.x), tmp$reach_max_depth.y, tmp$reach_max_depth.x)
+tmp$percent_reach_sampled <- ifelse(is.na(tmp$percent_reach_sampled.x), tmp$percent_reach_sampled.y, tmp$percent_reach_sampled.x)
+tmp$sample_period <- ifelse(is.na(tmp$sample_period.x), tmp$sample_period.y, tmp$sample_period.x)
+tmp$total_seconds <- ifelse(is.na(tmp$total_seconds), tmp$seconds, tmp$total_seconds)
+tmp$number_of_passes <- ifelse(is.na(tmp$number_of_passes), tmp$number_of_runs, tmp$number_of_passes)
+
+tmp <- tmp %>% 
+  select(-amps.x, -amps.y, -volts.x, -volts.y,
+         -reach_length.x, -reach_length.y, -reach_avg_depth.x, -reach_avg_depth.y,
+         -reach_avg_width.x, -reach_avg_width.y, -reach_max_depth.x, -reach_max_depth.y,
+         -percent_reach_sampled.x, -percent_reach_sampled.y,
+         -sample_period.x, -sample_period.y, -seconds, -number_of_runs) %>% 
+  rename(reach_length_m = reach_length, avg_reach_width_m = reach_avg_width,
+         goal = sample_type, gear = method, efish_runs = number_of_passes,
+         efish_duration_s = total_seconds, efish_volts = volts, efish_amps = amps,
+         gillnet_mesh_size = mesh_category, gillnet_length_avg = avg_net_length, gillnet_net_num = num_nets,
+         seine_hauls_num = num_hauls,daylight = sample_period) %>% 
+  mutate(UID = paste("MA", sample_id, sep = "_")) %>% 
+  select(-sample_id)
+
+ma_method <- tmp %>% 
+  select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs, efish_duration_s, efish_volts, efish_amps,
+         gillnet_mesh_size, gillnet_length_avg, gillnet_net_num, seine_hauls_num, seine_length, daylight)
+
+rm(tmp)
 
