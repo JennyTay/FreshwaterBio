@@ -44,12 +44,12 @@ waterbody_data <- sqlQuery(con2, qry4)
 
 #make a query for the backpack_data to reduce size
 qry5 <- "SELECT sample_id, number_of_passes, seconds_pass_1, seconds_pass_2, seconds_pass_3,
-total_seconds, reach_length, reach_avg_width, reach_avg_depth, reach_max_depth, percent_reach_sampled, amps, volts, pf, pw, number_backpacks
+total_seconds, reach_length, reach_avg_width, reach_avg_depth, reach_max_depth, percent_reach_sampled, number_backpacks
 FROM backpack_data"
 backpack_data <- sqlQuery(con2, qry5)
 
 #make a query for the boat_barge_data to reduce size
-qry6 <- "SELECT sample_id, hull_type, gpp_size, seconds, volts, amps, range, percent_of_range, pps_and_mode, reach_length, reach_avg_width, reach_avg_depth, 
+qry6 <- "SELECT sample_id, seconds, reach_length, reach_avg_width, reach_avg_depth, 
 reach_max_depth,  percent_reach_sampled, sample_period, number_of_runs FROM boat_barge_data"
 boat_data <- sqlQuery(con2, qry6)
 
@@ -185,8 +185,6 @@ tmp <- left_join(tmp, boat_data, by = "sample_id")
 tmp <- left_join(tmp, seine_data, by = "sample_id")
 tmp <- left_join(tmp, gillnet_data, by = "sample_id")
 
-tmp$amps <- ifelse(is.na(tmp$amps.x), tmp$amps.y, tmp$amps.x)
-tmp$volts <- ifelse(is.na(tmp$volts.x), tmp$volts.y, tmp$volts.x)
 tmp$reach_length <- ifelse(is.na(tmp$reach_length.x), tmp$reach_length.y, tmp$reach_length.x)
 tmp$reach_avg_depth <- ifelse(is.na(tmp$reach_avg_depth.x), tmp$reach_avg_depth.x, tmp$reach_avg_depth.x)
 tmp$reach_avg_width <- ifelse(is.na(tmp$reach_avg_width.x), tmp$reach_avg_width.y, tmp$reach_avg_width.x)
@@ -197,22 +195,29 @@ tmp$total_seconds <- ifelse(is.na(tmp$total_seconds), tmp$seconds, tmp$total_sec
 tmp$number_of_passes <- ifelse(is.na(tmp$number_of_passes), tmp$number_of_runs, tmp$number_of_passes)
 
 tmp <- tmp %>% 
-  select(-amps.x, -amps.y, -volts.x, -volts.y,
-         -reach_length.x, -reach_length.y, -reach_avg_depth.x, -reach_avg_depth.y,
+  select(-reach_length.x, -reach_length.y, -reach_avg_depth.x, -reach_avg_depth.y,
          -reach_avg_width.x, -reach_avg_width.y, -reach_max_depth.x, -reach_max_depth.y,
          -percent_reach_sampled.x, -percent_reach_sampled.y,
          -sample_period.x, -sample_period.y, -seconds, -number_of_runs) %>% 
   rename(reach_length_m = reach_length, avg_reach_width_m = reach_avg_width,
          goal = sample_type, gear = method, efish_runs = number_of_passes,
-         efish_duration_s = total_seconds, efish_volts = volts, efish_amps = amps,
-         gillnet_mesh_size = mesh_category, gillnet_length_avg = avg_net_length, gillnet_net_num = num_nets,
-         seine_hauls_num = num_hauls,daylight = sample_period) %>% 
+         efish_duration_s = total_seconds, daylight = sample_period) %>% 
   mutate(UID = paste("MA", sample_id, sep = "_")) %>% 
   select(-sample_id)
 
 ma_method <- tmp %>% 
-  select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs, efish_duration_s, efish_volts, efish_amps,
-         gillnet_mesh_size, gillnet_length_avg, gillnet_net_num, seine_hauls_num, seine_length, daylight)
+  select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs, efish_duration_s, daylight) %>% 
+  left_join(ma_fish, by = "UID") %>% group_by(UID, fish) %>% summarise(count = n())
+  mutate(target = ifelse(goal == "Selective Pick-up", fish, NA)) %>%  #need to fix this bc some activity IDs have multiple fish meaning they targeted multiple fish or even though it was selective, they still noted more that they found.
+  select(-fish, - length, -weight) %>% 
+  unique()
 
 rm(tmp)
 
+
+####################################
+#save dataframe
+save(ma_method, file = "ma_method.RData")
+save(ma_event, file = "ma_event.RData")
+save(ma_fish, file = "ma_fish.RData")
+save(ma_species, file = "ma_species.RData")
