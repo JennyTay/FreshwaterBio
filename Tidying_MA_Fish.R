@@ -207,8 +207,9 @@ tmp <- tmp %>%
 
 ma_method <- tmp %>% 
   select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs, efish_duration_s, daylight) %>% 
-  left_join(ma_fish, by = "UID") %>% group_by(UID, fish) %>% summarise(count = n())
-  mutate(target = ifelse(goal == "Selective Pick-up", fish, NA)) %>%  #need to fix this bc some activity IDs have multiple fish meaning they targeted multiple fish or even though it was selective, they still noted more that they found.
+  left_join(ma_fish, by = "UID") %>% group_by(UID) %>% 
+  mutate(target = ifelse(goal == "Selective Pick-up", paste(unique(fish, sep = "_")), NA)) %>%  #need to fix this bc some activity IDs have multiple fish meaning they targeted multiple fish or even though it was selective, they still noted more that they found.
+  ungroup() %>% 
   select(-fish, - length, -weight) %>% 
   unique()
 
