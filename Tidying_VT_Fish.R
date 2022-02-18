@@ -54,8 +54,9 @@ dec_fish <- vt %>%
   rename(common_name = Species) %>% 
   pivot_longer(cols = 3:5, names_to = "run_num", values_to = "count" ) %>% 
   select(UID, common_name, count, run_num) 
+dec_fish$run_num <- str_replace_all(dec_fish$run_num, "Run", "")
 
-keep <- complete.cases(dec_fish)
+keep <- complete.cases(dec_fish) #remove rows that did not do a 2nd or 3rd pass 
 dec_fish$keep <- keep
 dec_fish <- dec_fish %>% 
   filter(keep == TRUE) %>% 
@@ -68,10 +69,16 @@ dec_methods <- vt %>%
          goal = "Total Pick-up") %>% 
   select(UID, gear, goal, reach_length_m, reach_width_avg_m) %>% 
   unique()
-dec_methods$gear[dec_methods$gear == "ES"] <- "efish"
+dec_methods$gear[dec_methods$gear == "ES"] <- "backpack"
 dec_methods$gear[dec_methods$gear == "SN"] <- "seine"
 
-dec_species <- vt %>% 
-  select(Common.Name, FinalID) %>% 
-  rename(common_name = Common.Name, scientific_name = FinalID) %>% 
-  unique()
+
+fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).xlsx",
+                   col_names = TRUE, sheet = "Fish Library", range = cell_cols("A:I"))
+dec_species <- fish %>% 
+  select(FishID, Species, NonnativeToState, WaterTypeID, Tolerance, FishFunctionLookupID) %>% 
+  rename(species_code = FishID, common_name = Species, temperature = WaterTypeID, tolerance = Tolerance, fishfunction = FishFunctionLookupID) %>% 
+  unique() %>% 
+  mutate(orgin = ifelse(NonnativeToState == "Y", "nonnative", "native")) %>% 
+  select(-NonnativeToState)
+dec_species$orgin[is.na(dec_species$orgin)] <- "native"
