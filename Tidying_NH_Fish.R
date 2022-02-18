@@ -49,7 +49,7 @@ des_event <- des %>%
   mutate(source = "NHDES - AndyChapman",
          UID = paste("NH", ActivityID, sep = "_"),
          project = "des",
-         state = NH) %>% 
+         state = "NH") %>% 
   rename(latitude = Lat_Dec, longitude = Long_Dec, date = CollDate) %>% 
   select(UID, state, date, latitude, longitude, project, source) %>% 
   unique()
@@ -58,7 +58,7 @@ des_fish <- des %>%
   select(ActivityID, Common.Name, Individuals, run_num) %>% 
   mutate(UID = paste("NH", ActivityID, sep = "_")) %>% 
   rename(common_name = Common.Name, count = Individuals) %>% 
-  select(UID, fish, count, run_num)
+  select(UID, common_name, count, run_num)
 
 des_methods <- des %>% 
   select(ActivityID, CollMeth, Duration..sec., StLength) %>% 
@@ -128,7 +128,7 @@ fg_event <- dat %>%
          state = "NH") %>% 
   rename(latitude = Lat_Start, longitude = Long_Start) %>% 
   select(UID, state, Date, latitude, longitude, Project, source)
-names(fg_event) <- tolower(names(fg_event))
+names(fg_event)[2:7] <- tolower(names(fg_event)[2:7])
 
 fg_fish <- fish %>% 
   select("ACT_ID", "Common Name", "Length mm", "Weight g", "Total_Num", "Run_Num") %>% 
@@ -138,7 +138,7 @@ fg_fish <- fish %>%
   select(UID, common_name, count, length_mm, weight_g, Run_Num) %>% 
   mutate(length_mm = as.numeric(length_mm),
          weight_g = as.numeric(weight_g))
-names(fg_fish) <- tolower(names(fg_fish))
+names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
 
 fg_methods <- dat %>% 
   select(ACT_ID, Gear, goal, target, N_Runs, 
@@ -174,8 +174,8 @@ st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/N
 
 
 #### combine the NH datasets
-str(des_event)
-str(fg_event)
+names(des_event)
+names(fg_event)
 
 names(fg_fish)
 names(des_fish)
