@@ -63,11 +63,14 @@ dec_fish <- dec_fish %>%
   select(-keep)
 
 dec_methods <- vt %>% 
-  select(EventID, GearID, SectionWidth, SectionLength) %>% 
+  select(EventID, GearID, SectionWidth, SectionLength, Run1, Run2, Run3) %>% 
   rename(gear = GearID, reach_length_m = SectionLength, reach_width_avg_m = SectionWidth) %>% 
   mutate(UID = paste("VT", EventID, sep = "_"),
-         goal = "Total Pick-up") %>% 
-  select(UID, gear, goal, reach_length_m, reach_width_avg_m) %>% 
+         goal = "Total Pick-up",
+         efish_run_num = ifelse(!is.na(Run3), 3,
+                                ifelse(!is.na(Run2) & is.na(Run3), 2, 
+                                       ifelse(is.na(Run1), NA, 1)))) %>% 
+  select(UID, gear, goal, reach_length_m, reach_width_avg_m, efish_run_num) %>% 
   unique()
 dec_methods$gear[dec_methods$gear == "ES"] <- "backpack"
 dec_methods$gear[dec_methods$gear == "SN"] <- "seine"

@@ -1,4 +1,4 @@
-library(RODBC)    
+
 library(tidyverse)
 library(lubridate)
 library(sf)
@@ -18,6 +18,9 @@ des <- des %>%
   mutate(Long_Dec = ifelse(Long_Dec>0, -Long_Dec, Long_Dec),
          CollMeth = tolower(CollMeth))
 des$CollMeth[des$CollMeth == "singlepass"] <- "backpack"
+
+str(des)
+des$CollDate <- mdy(des$CollDate)
 
 # these four are duplicated because there were multiple pass: "F03P-02", "F97C-155", "F97C-157", "F97M-158"
 #add a column for pass number and make them all one except for the 4 that Andy identified as being a second pass.
@@ -48,7 +51,7 @@ des_event <- des %>%
   select(CollDate, Lat_Dec, Long_Dec, ActivityID) %>% 
   mutate(source = "NHDES - AndyChapman",
          UID = paste("NH", ActivityID, sep = "_"),
-         project = "des",
+         project = "NHDES",
          state = "NH") %>% 
   rename(latitude = Lat_Dec, longitude = Long_Dec, date = CollDate) %>% 
   select(UID, state, date, latitude, longitude, project, source) %>% 
@@ -57,8 +60,10 @@ des_event <- des %>%
 des_fish <- des %>% 
   select(ActivityID, Common.Name, Individuals, run_num) %>% 
   mutate(UID = paste("NH", ActivityID, sep = "_")) %>% 
-  rename(common_name = Common.Name, count = Individuals) %>% 
+  rename(common_name = Common.Name, count = Individuals) %>%
+  separate(common_name, into = c("common_name", "delete"), sep = "[(]" ) %>% 
   select(UID, common_name, count, run_num)
+
 
 des_methods <- des %>% 
   select(ActivityID, CollMeth, Duration..sec., StLength) %>% 
@@ -70,12 +75,14 @@ des_methods <- des %>%
   group_by(UID, gear, goal, reach_length_m) %>% 
   summarise(efish_duration_s = sum(efish_duration_s)) %>% 
   mutate(target = NA,
-         efish_run_num = ifelse(UID %in% c("NH_F03P-02", "NH_F97C-155", "NH_F97C-157", "NH_F97M-158"), 2,
+         efish_runs = ifelse(UID %in% c("NH_F03P-02", "NH_F97C-155", "NH_F97C-157", "NH_F97M-158"), 2,
                                 ifelse(gear %in% c("seine", "gillnet"), NA, 1)))
 
 des_species <- des %>% 
-  select(Common.Name, FinalID) %>% 
-  rename(common_name = Common.Name, scientific_name = FinalID) %>% 
+  select(Common.Name, FinalID) %>%
+  separate(Common.Name, into = c("common_name", "delete"), sep = "[(]" ) %>% 
+  rename(scientific_name = FinalID) %>% 
+  select(-delete) %>% 
   unique()
 
 #########################################################
@@ -92,11 +99,18 @@ dat <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH 
 goal <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/project_goal.xlsx",
                    col_names = TRUE, col_types = "text")
 dat <- left_join(dat, goal, by = "Project") %>% 
-  filter(Project != "NHDES") %>% 
+  filter(Project != "NHDES") %>%  #remove DES data because we got that separately from Andy
   separate(EFISH_time_total, into = c("tmp", "unit"), sep = " ") %>%  #clean total duration column
   mutate(tmp = as.numeric(tmp)) %>% 
-  mutate(EFISH_time_total = ifelse(!is.na(unit), tmp*3600, tmp)) %>% 
-  select(-tmp, -unit)
+  mutate(EFISH_time_total = ifelse(!is.na(unit), tmp*3600, tmp)) %>% #most were in seconds, but a few were in hours and these had a unit 
+  select(-tmp, -unit) %>% 
+  filter(!Date == "0") %>% 
+  mutate(Date = ymd(Date),
+         Lat_Start = as.numeric(Lat_Start),
+         Long_Start = as.numeric(Long_Start),
+         EFISH_length = as.numeric(EFISH_length),
+         EFISH_Avg_Width = as.numeric(EFISH_Avg_Width),
+         EFISH_width_estimated = as.numeric(EFISH_width_estimated))
 
 
 #read in fish data
@@ -105,7 +119,8 @@ fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH
                   col_types = "text", range = cell_cols("A:W"))
 fish <- fish %>% 
   filter(Project != "NHDES") %>% 
-  mutate(Species = toupper(Species))
+  mutate(Species = toupper(Species)) %>% 
+  filter(!Date == "0")
 #there are 5 rows where weight was rated '>1' and these rows were removed when reading in the data because it is not numeric. I would have removed them anyways, so I left it this way.
 
 
@@ -114,11 +129,10 @@ spp <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH 
                    skip = 2, col_names = TRUE)
 names(spp)[3] <- "Species"
 
-#need to figure out what EBT_H, BT_H and RT_H should be, because there is no look up for them in the look up table
 fish <- left_join(fish, spp, by = "Species")
-
-
-
+#some spp codes did not align with with a spp - need to ask matt
+unique(fish$Species[is.na(fish$`Common Name`)])
+#[1] "GSF"     "NO_FISH" "UNKNOWN" "MS"      "BH"      "RH"      "RFS"     "CLM"     "CFS"  
 
 # tidy data
 fg_event <- dat %>% 
@@ -137,8 +151,12 @@ fg_fish <- fish %>%
   rename(common_name = "Common Name", count = Total_Num, length_mm = "Length mm", weight_g = "Weight g") %>% 
   select(UID, common_name, count, length_mm, weight_g, Run_Num) %>% 
   mutate(length_mm = as.numeric(length_mm),
-         weight_g = as.numeric(weight_g))
+         weight_g = as.numeric(weight_g),
+         Run_Num =as.numeric(Run_Num))
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
+#count is measured for fish that are not measured. we want to sum the count per trip for even the ones when the fish was measured
+
+
 
 fg_methods <- dat %>% 
   select(ACT_ID, Gear, goal, target, N_Runs, 

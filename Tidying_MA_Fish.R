@@ -31,7 +31,7 @@ qry1 <- "SELECT sample_id, saris_palis, sample_date, sample_type, method, agency
 sample_data <- sqlQuery(con2, qry1)
 
 #make a query for the fish_data to reduce object size
-qry2 <- "SELECT sample_id, fish_code, length, weight FROM fish_data"
+qry2 <- "SELECT run_num, sample_id, fish_code, length, weight FROM fish_data"
 fish_data <- sqlQuery(con2, qry2)
 
 #make a query for the species data to reduce object size
@@ -144,6 +144,8 @@ for( i in 1:length(unique(test$common_name))){
 
 
 #prepare sampling event df
+names(sample_data)
+
 ma_event <- sample_data %>% 
   select(sample_id, sample_date, snapped_latitude, snapped_longitude, agency) %>% 
   mutate(state = "MA",
@@ -157,26 +159,30 @@ ma_event <- sample_data %>%
 
 #prepare fish df. I am goin to use common name for each state, and then I'll go back and create an ID because the fish codes differ by state.
 tmp <- left_join(fish_data, species_data, by = "fish_code")
+head(tmp)
 
 ma_fish <- tmp %>% 
-  select(sample_id, common_name, length, weight) %>% 
+  select(sample_id, common_name, run_num, length, weight) %>% 
   mutate(UID = paste("MA", sample_id, sep = "_")) %>% 
-  select(-sample_id) %>% 
-  rename(fish = common_name)
+  select(-sample_id) %>%  
+  rename(length_mm = length, weight_g = weight) %>% 
+  select(UID, common_name, length_mm, weight_g, run_num)
 rm(tmp)
 
 #prepare species df
 ma_species <- species_data %>% 
   select(common_name, scientific_name, origin, temp, pt, "function", River_size) %>% 
-  rename(tolerance = pt,
+  rename(temperature_preference = temp, 
+         tolerance = pt,
          eco_function = "function",
          stream_preference = River_size)
+names(ma_species)
+head(ma_species)
+
+
 
 #prepare method df
-names(backpack_data)
-names(boat_data)
-names(seine_data)
-names(gillnet_data)
+
 
 #there are many of the same columns in the boat_data and backpack_data so we will need to combine these
 
@@ -194,31 +200,20 @@ tmp$sample_period <- ifelse(is.na(tmp$sample_period.x), tmp$sample_period.y, tmp
 tmp$total_seconds <- ifelse(is.na(tmp$total_seconds), tmp$seconds, tmp$total_seconds)
 tmp$number_of_passes <- ifelse(is.na(tmp$number_of_passes), tmp$number_of_runs, tmp$number_of_passes)
 
-tmp <- tmp %>% 
-  select(-reach_length.x, -reach_length.y, -reach_avg_depth.x, -reach_avg_depth.y,
-         -reach_avg_width.x, -reach_avg_width.y, -reach_max_depth.x, -reach_max_depth.y,
-         -percent_reach_sampled.x, -percent_reach_sampled.y,
-         -sample_period.x, -sample_period.y, -seconds, -number_of_runs) %>% 
-  rename(reach_length_m = reach_length, avg_reach_width_m = reach_avg_width,
+ma_method <- tmp %>% 
+   rename(reach_length_m = reach_length, avg_reach_width_m = reach_avg_width,
          goal = sample_type, gear = method, efish_runs = number_of_passes,
          efish_duration_s = total_seconds, daylight = sample_period) %>% 
   mutate(UID = paste("MA", sample_id, sep = "_")) %>% 
-  select(-sample_id)
+  select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs, efish_duration_s, daylight)
 
-ma_method <- tmp %>% 
-  select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs, efish_duration_s, daylight) %>% 
-  left_join(ma_fish, by = "UID") %>% group_by(UID) %>% 
-  mutate(target = ifelse(goal == "Selective Pick-up", paste(unique(fish, sep = "_")), NA)) %>%  #need to fix this bc some activity IDs have multiple fish meaning they targeted multiple fish or even though it was selective, they still noted more that they found.
-  ungroup() %>% 
-  select(-fish, - length, -weight) %>% 
-  unique()
 
 rm(tmp)
 
 
 ####################################
 #save dataframe
-save(ma_method, file = "ma_method.RData")
-save(ma_event, file = "ma_event.RData")
-save(ma_fish, file = "ma_fish.RData")
-save(ma_species, file = "ma_species.RData")
+save(ma_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_method.RData")
+save(ma_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_event.RData")
+save(ma_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_fish.RData")
+save(ma_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_species.RData")
