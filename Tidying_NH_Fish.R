@@ -155,25 +155,44 @@ fg_fish <- fish %>%
          Run_Num =as.numeric(Run_Num))
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
 #count is measured for fish that are not measured. we want to sum the count per trip for even the ones when the fish was measured
-
-
+tmp <- fg_fish %>% 
+  group_by(UID, common_name, run_num) %>% 
+  summarise(countnew = sum(count))
+fg_fish <- fg_fish %>% 
+  left_join(tmp, by = c("UID","common_name", "run_num")) %>% 
+  select(-count) %>% 
+  rename(count = countnew)
+rm(tmp)
 
 fg_methods <- dat %>% 
-  select(ACT_ID, Gear, goal, target, N_Runs, 
-         EFISH_time_total, EFISH_length,
-         EFISH_Avg_Width, EFISH_width_estimated, 
-         Comments, Data_Comments)%>% 
+  select(ACT_ID, 
+         Gear, 
+         goal, 
+         target, 
+         N_Runs, 
+         EFISH_time_total, 
+         EFISH_length,
+         EFISH_Avg_Width, 
+         EFISH_width_estimated, 
+         Comments, 
+         Data_Comments)%>% 
   mutate(UID = paste("fg", ACT_ID, sep = "_"),
-         avg_reach_width_m = ifelse(EFISH_Avg_Width == 0, EFISH_width_estimated, EFISH_Avg_Width)) %>% 
-  rename(gear = Gear, efish_run_num = N_Runs, efish_duration_s = EFISH_time_total, 
+         avg_reach_width_m = ifelse(EFISH_Avg_Width == 0, 
+                                    EFISH_width_estimated, 
+                                    EFISH_Avg_Width)) %>% 
+  rename(gear = Gear, 
+         efish_runs = N_Runs, 
+         efish_duration_s = EFISH_time_total, 
          reach_length_m = EFISH_length) %>% 
-  select(-EFISH_Avg_Width, -EFISH_width_estimated, -ACT_ID) %>% 
-  mutate(efish_run_num = as.numeric(ifelse(efish_run_num == 0, NA, efish_run_num)),
+  select(-EFISH_Avg_Width, 
+         -EFISH_width_estimated, 
+         -ACT_ID) %>% 
+  mutate(efish_runs = as.numeric(ifelse(efish_runs == 0, NA, efish_runs)),
          efish_duration_s = as.numeric(ifelse(efish_duration_s == 0, NA, efish_duration_s)),
          reach_length_m = as.numeric(ifelse(reach_length_m == 0, NA, reach_length_m)),
          avg_reach_width_m = as.numeric(ifelse(avg_reach_width_m == 0, NA, avg_reach_width_m)),
          gear = ifelse(gear == 0, NA, gear)) %>% 
-  select(UID, gear, goal, reach_length_m, efish_duration_s, efish_run_num, target, avg_reach_width_m, Comments, Data_Comments)
+  select(UID, gear, goal, reach_length_m, efish_duration_s, efish_runs, target, avg_reach_width_m, Comments, Data_Comments)
 
   
 
@@ -200,3 +219,16 @@ names(des_fish)
 
 names(des_methods)
 names(fg_methods)
+ 
+nh_event <- bind_rows(des_event, fg_event)
+nh_fish <- bind_rows(des_fish, fg_fish)
+nh_method <- bind_rows(des_methods, fg_methods)
+nh_species <- des_species
+
+
+####################################
+#save dataframe
+save(nh_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_method.RData")
+save(nh_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_event.RData")
+save(nh_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_fish.RData")
+save(nh_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_species.RData")
