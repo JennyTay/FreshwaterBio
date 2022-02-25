@@ -58,11 +58,10 @@ des_event <- des %>%
   unique()
 
 des_fish <- des %>% 
-  select(ActivityID, Common.Name, Individuals, run_num) %>% 
+  select(ActivityID, FinalID , Individuals, run_num) %>% 
   mutate(UID = paste("NH", ActivityID, sep = "_")) %>% 
-  rename(common_name = Common.Name, count = Individuals) %>%
-  separate(common_name, into = c("common_name", "delete"), sep = "[(]" ) %>% 
-  select(UID, common_name, count, run_num)
+  rename(scientific_name = FinalID , count = Individuals) %>% 
+  select(UID, scientific_name, count, run_num)
 
 
 des_methods <- des %>% 
@@ -145,21 +144,21 @@ fg_event <- dat %>%
 names(fg_event)[2:7] <- tolower(names(fg_event)[2:7])
 
 fg_fish <- fish %>% 
-  select("ACT_ID", "Common Name", "Length mm", "Weight g", "Total_Num", "Run_Num") %>% 
+  select("ACT_ID", "Scientific Name", "Length mm", "Weight g", "Total_Num", "Run_Num") %>% 
   mutate(UID = paste("fg", ACT_ID, sep = "_"),
          Total_Num = as.numeric(ifelse(Total_Num == "NE", NA, Total_Num))) %>% 
-  rename(common_name = "Common Name", count = Total_Num, length_mm = "Length mm", weight_g = "Weight g") %>% 
-  select(UID, common_name, count, length_mm, weight_g, Run_Num) %>% 
+  rename(scientific_name = "Scientific Name", count = Total_Num, length_mm = "Length mm", weight_g = "Weight g") %>% 
+  select(UID, scientific_name, count, length_mm, weight_g, Run_Num) %>% 
   mutate(length_mm = as.numeric(length_mm),
          weight_g = as.numeric(weight_g),
          Run_Num =as.numeric(Run_Num))
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
 #count is measured for fish that are not measured. we want to sum the count per trip for even the ones when the fish was measured
 tmp <- fg_fish %>% 
-  group_by(UID, common_name, run_num) %>% 
+  group_by(UID, scientific_name, run_num) %>% 
   summarise(countnew = sum(count))
 fg_fish <- fg_fish %>% 
-  left_join(tmp, by = c("UID","common_name", "run_num")) %>% 
+  left_join(tmp, by = c("UID","scientific_name", "run_num")) %>% 
   select(-count) %>% 
   rename(count = countnew)
 rm(tmp)

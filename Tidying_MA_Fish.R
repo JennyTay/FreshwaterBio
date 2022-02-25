@@ -157,16 +157,16 @@ ma_event <- sample_data %>%
          date = sample_date) %>% 
   select(UID, state, date, latitude, longitude, project, source, -sample_id)
 
-#prepare fish df. I am goin to use common name for each state, and then I'll go back and create an ID because the fish codes differ by state.
+#prepare fish df. I am goin to use scientific name for each state, and then I'll go back and create an ID because the fish codes differ by state.
 tmp <- left_join(fish_data, species_data, by = "fish_code")
 head(tmp)
 
 ma_fish <- tmp %>% 
-  select(sample_id, common_name, run_num, length, weight) %>% 
+  select(sample_id, scientific_name, run_num, length, weight) %>% 
   mutate(UID = paste("MA", sample_id, sep = "_")) %>% 
   select(-sample_id) %>%  
   rename(length_mm = length, weight_g = weight) %>% 
-  select(UID, common_name, length_mm, weight_g, run_num)
+  select(UID, scientific_name, length_mm, weight_g, run_num)
 rm(tmp)
 
 #prepare species df

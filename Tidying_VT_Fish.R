@@ -1,3 +1,5 @@
+#load libraries
+
 library(tidyverse)
 library(lubridate)
 library(sf)
@@ -10,6 +12,9 @@ library(readxl)
 ################### Vermont DEC ########################
 
 #########################################################
+
+
+
 vt <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).xlsx",
                  col_names = TRUE, sheet = "VDEC Fish Data")
 
@@ -55,6 +60,7 @@ dec_fish <- vt %>%
   pivot_longer(cols = 3:5, names_to = "run_num", values_to = "count" ) %>% 
   select(UID, common_name, count, run_num) 
 dec_fish$run_num <- str_replace_all(dec_fish$run_num, "Run", "")
+dec_fish$run_num <- as.numeric(dec_fish$run_num)
 
 keep <- complete.cases(dec_fish) #remove rows that did not do a 2nd or 3rd pass 
 dec_fish$keep <- keep
@@ -62,26 +68,37 @@ dec_fish <- dec_fish %>%
   filter(keep == TRUE) %>% 
   select(-keep)
 
-dec_methods <- vt %>% 
+dec_method <- vt %>% 
   select(EventID, GearID, SectionWidth, SectionLength, Run1, Run2, Run3) %>% 
   rename(gear = GearID, reach_length_m = SectionLength, reach_width_avg_m = SectionWidth) %>% 
   mutate(UID = paste("VT", EventID, sep = "_"),
          goal = "Total Pick-up",
-         efish_run_num = ifelse(!is.na(Run3), 3,
+         efish_runs = ifelse(!is.na(Run3), 3,
                                 ifelse(!is.na(Run2) & is.na(Run3), 2, 
                                        ifelse(is.na(Run1), NA, 1)))) %>% 
-  select(UID, gear, goal, reach_length_m, reach_width_avg_m, efish_run_num) %>% 
+  select(UID, gear, goal, reach_length_m, reach_width_avg_m, efish_runs) %>% 
   unique()
-dec_methods$gear[dec_methods$gear == "ES"] <- "backpack"
+dec_methods$gear[dec_methods$gear == "ES"] <- "electroshock"
 dec_methods$gear[dec_methods$gear == "SN"] <- "seine"
 
 
 fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).xlsx",
                    col_names = TRUE, sheet = "Fish Library", range = cell_cols("A:I"))
 dec_species <- fish %>% 
-  select(FishID, Species, NonnativeToState, WaterTypeID, Tolerance, FishFunctionLookupID) %>% 
-  rename(species_code = FishID, common_name = Species, temperature = WaterTypeID, tolerance = Tolerance, fishfunction = FishFunctionLookupID) %>% 
+  filter(Species != "NO FISH!") %>% 
+  select(Species, NonnativeToState, WaterTypeID, Tolerance, FishFunctionLookupID) %>% 
+  rename(common_name = Species, temperature_preference = WaterTypeID, tolerance = Tolerance, eco_function = FishFunctionLookupID) %>% 
   unique() %>% 
   mutate(orgin = ifelse(NonnativeToState == "Y", "nonnative", "native")) %>% 
   select(-NonnativeToState)
 dec_species$orgin[is.na(dec_species$orgin)] <- "native"
+
+
+
+####################################
+#save dataframe
+save(dec_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_method.RData")
+save(dec_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_event.RData")
+save(dec_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_fish.RData")
+save(dec_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_species.RData")
+
