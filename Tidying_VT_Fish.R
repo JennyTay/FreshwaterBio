@@ -14,11 +14,10 @@ library(readxl)
 #########################################################
 
 
+vt <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
+                 col_names = TRUE, sheet = "All VDEC Fish Data w TE Species")
 
-vt <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).xlsx",
-                 col_names = TRUE, sheet = "VDEC Fish Data")
-
-fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).xlsx",
+fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
                  col_names = TRUE, sheet = "Fish Library", range = cell_cols("A:I"))
 fish <- fish %>% 
   select(FishID, Species)
@@ -38,7 +37,7 @@ MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialD
 shp <- st_as_sf(x = vt,                         
                 coords = c("Longitude (DD)", "Latitude (DD)"),
                 crs = st_crs(MAflowline))
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).shp")
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).shp")
 
 
 
@@ -78,11 +77,12 @@ dec_method <- vt %>%
                                        ifelse(is.na(Run1), NA, 1)))) %>% 
   select(UID, gear, goal, reach_length_m, reach_width_avg_m, efish_runs) %>% 
   unique()
-dec_methods$gear[dec_methods$gear == "ES"] <- "electroshock"
-dec_methods$gear[dec_methods$gear == "SN"] <- "seine"
+
+dec_method$gear[dec_method$gear == "ES"] <- "electroshock"
+dec_method$gear[dec_method$gear == "SN"] <- "seine"
 
 
-fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (no TE).xlsx",
+fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
                    col_names = TRUE, sheet = "Fish Library", range = cell_cols("A:I"))
 dec_species <- fish %>% 
   filter(Species != "NO FISH!") %>% 
