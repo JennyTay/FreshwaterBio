@@ -29,8 +29,21 @@ str(dec_event)
 str(nh_event)
 str(ma_event)
 
-#combine datasets from the four states
-fish_event <- bind_rows(ct_event, dec_event, nh_event, ma_event)
+
+
+
+
+#### combine event dataframes ####
+event <- bind_rows(ct_event, dec_event, nh_event, ma_event)
+
+
+
+
+
+
+
+#### combine fish dataframes ####
+
 
 fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish)
 fish$scientific_name <- tolower(fish$scientific_name)
@@ -123,7 +136,7 @@ fish$common_name[fish$scientific_name =="pimephales notatus"] <- "bluntnose minn
 fish$common_name[fish$scientific_name =="pimephales promelas"] <- "fathead minnow"
 fish$common_name[fish$scientific_name =="pomoxis annularis"] <- "white crappie"
 fish$common_name[fish$scientific_name =="pomoxis nigromaculatus"] <- "black crappie"
-fish$common_name[fish$scientific_name =="prionotus evolans"] <- "Prionotus evolans"
+fish$common_name[fish$scientific_name =="prionotus evolans"] <- "striped searobin"
 fish$common_name[fish$scientific_name =="prosopium cylindraceum"] <- "round whitefish"
 fish$common_name[fish$scientific_name =="pungitius pungitius"] <- "ninespine stickleback"
 fish$common_name[fish$scientific_name =="rhinichthys atratulus"] <- "Eastern blacknose dace"
@@ -142,8 +155,12 @@ fish$common_name[fish$scientific_name =="syngnathus fuscus"] <- "northern pipefi
 fish$common_name[fish$scientific_name =="trinectes maculatus"] <- "hogchoker"
 fish$common_name[fish$scientific_name =="umbra limi"] <- "central mudminnow"
 fish$common_name[fish$scientific_name =="unknown"] <- "unknown"
+fish$common_name[fish$scientific_name =="salmo trutta_hatchery"] <- "brown trout_hatchery"
+fish$common_name[fish$scientific_name =="salvelinus fontinalis_hatchery"] <- "brook trout_hatchery"
+fish$common_name[fish$scientific_name =="oncorhynchus mykiss_hatchery"] <- "rainbow trout_hatchery"
+fish$common_name[fish$scientific_name =="alosa spp."] <- "river herring"
 
-#The vermont DEC data did not have scientific names, just common names, so I want to make a serparate table to join
+#The vermont DEC data did not have scientific names, just common names, so I want to make a separatetable to join
 fish$common_name <- tolower(fish$common_name)
 fish$common_name <- trimws(fish$common_name)
 join <- fish %>% 
@@ -155,7 +172,7 @@ fish <- fish %>%
   select(-scientific_name) %>% 
   left_join(join, by = "common_name")
 
-unique(fish$common_name[is.na(fish$scientific_name)]) #31 common names differ from the ones above
+unique(fish$common_name[is.na(fish$scientific_name)]) #34 common names differ from the ones above
 fish$common_name[fish$common_name =="blacknose dace"] <- "eastern blacknose dace"
 fish$common_name[fish$common_name =="unidentified cyprinid"] <- "minnow family"
 fish$common_name[fish$common_name =="no fish!"] <- "no fish"
@@ -196,9 +213,90 @@ fish$scientific_name[fish$common_name =="northern pearl dace"] <- "margariscus n
 fish$scientific_name[fish$common_name =="greater redhorse"] <- "moxostoma valenciennesi"
 fish$scientific_name[fish$common_name =="tench"] <- "tinca tinca"
 fish$scientific_name[fish$common_name =="rudd"] <- "scardinius spp."
+fish$scientific_name[fish$common_name =="eastern sand darter"] <- "Ammocrypta pellucida"
+fish$scientific_name[fish$common_name =="channel darter"] <- "Percina copelandi"
+fish$scientific_name[fish$common_name =="stonecat"] <- "Noturus flavus"
+fish$scientific_name[fish$common_name =="northern brook lamprey"] <- "Ichthyomyzon fossor"
 
+test <- fish %>% 
+  filter(is.na(common_name))
+#66 observations from MA do not have a common name or a scientific name.. go back to ma data and figure it out
 
 fishspp <- fish %>% group_by(common_name, scientific_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
 write.csv(fishspp, "fishspp_lookup.csv")
 
-fish_method <- bind_rows(ma_event, ct_event, nh_event, dec_event)
+
+
+
+
+#### combine method dataframes ####
+
+method <- bind_rows(ma_method, ct_method, nh_method, dec_method)
+method$gear <- tolower(method$gear)
+unique(method$gear)
+method$gear[method$gear == "backpack shocking"] <- "electroshock"
+method$gear[method$gear == "boat shocking"] <- "electroshock"
+method$gear[method$gear == "electroshock (other)"] <- "electroshock"
+method$gear[method$gear == "backpack shocking"] <- "electroshock"
+method$gear[method$gear == "efish"] <- "electroshock"
+method$gear[method$gear == "barge and backpack shocking"] <- "electroshock"
+method$gear[method$gear == "barge shocking"] <- "electroshock"
+method$gear[method$gear == "barge"] <- "electroshock"
+method$gear[method$gear == "boat"] <- "electroshock"
+method$gear[method$gear == "eboat"] <- "electroshock"
+method$gear[method$gear == "backpack"] <- "electroshock"
+
+method$gear[method$gear == "gillnet"] <- "gill net"
+method$gear[method$gear == "gill"] <- "gill net"
+
+method$gear[method$gear == "dipnet"] <- "dip net"
+method$gear[method$gear == "fyke"] <- "fyke net"
+method$gear[method$gear == "minnowtrap"] <- "minnow trap"
+method$gear[method$gear == "not stated"] <- NA
+
+unique(method$goal)
+method$goal <- tolower(method$goal)
+method$goal[method$goal == "selective pick up"] <- "selective pick-up"
+method$goal[method$goal == "total pick up"] <- "total pick-up"
+
+unique(method$target)
+
+
+
+#### describing methods move to a new script after I decide where to save the dataframes
+
+
+test <- method %>% 
+  group_by(goal) %>% 
+  summarise(count = n())
+
+test <- method %>%  #how many surveys were targeted by spp
+  filter(goal == "selective pick-up") %>% 
+  group_by(target) %>% 
+  summarise(count = n())
+write.csv(test, "tmpfigures/table.csv")
+
+test2 <- fish %>% #total surveys for each spp that also had the targeted surveys so we can see what percentage the targeted surveys were of the total
+  filter(common_name %in% test$target) %>% 
+  group_by(common_name) %>% 
+  summarize(count = n())
+
+test <- method %>% #gear by state
+  left_join(event, by = "UID") %>% 
+  group_by(state, gear) %>% 
+  summarise(count = n()) %>% 
+  pivot_wider(names_from = state, values_from = count)
+write.csv(test, "tmpfigures/table.csv")
+
+test <- fish %>% #fish missed by only including efish
+  left_join(method, by = "UID") %>% 
+  group_by(gear, common_name) %>% 
+  summarise(count = n()) %>% 
+  pivot_wider(names_from = gear, values_from = count) %>% 
+  filter(is.na(electroshock) | electroshock <100) %>% 
+  arrange(electroshock)
+write.csv(test, "tmpfigures/table1.csv")
+
+fishspp <- fish %>% group_by(common_name, scientific_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
+write.csv(fishspp, "tmpfigures/fishspp.csv")
+

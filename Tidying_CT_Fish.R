@@ -113,7 +113,8 @@ ct_method <- ct %>%
          efish_runs = ifelse(efish_runs == "fish1pass", 1 , efish_runs),
          SampleCollectionEquipmentName = ifelse(SampleCollectionEquipmentName == "Backpack Electroshock", "backpack", SampleCollectionEquipmentName))%>% 
   rename(gear = SampleCollectionEquipmentName) %>% 
-  select(UID, gear, goal, target, reach_length_m, avg_reach_width_m, efish_duration_s, efish_runs)
+  select(UID, gear, goal, target, reach_length_m, avg_reach_width_m, efish_duration_s, efish_runs) %>% 
+  unique()
 
 
 

@@ -69,13 +69,13 @@ dec_fish <- dec_fish %>%
 
 dec_method <- vt %>% 
   select(EventID, GearID, SectionWidth, SectionLength, Run1, Run2, Run3) %>% 
-  rename(gear = GearID, reach_length_m = SectionLength, reach_width_avg_m = SectionWidth) %>% 
+  rename(gear = GearID, reach_length_m = SectionLength, avg_reach_width_m = SectionWidth) %>% 
   mutate(UID = paste("VT", EventID, sep = "_"),
          goal = "Total Pick-up",
          efish_runs = ifelse(!is.na(Run3), 3,
                                 ifelse(!is.na(Run2) & is.na(Run3), 2, 
                                        ifelse(is.na(Run1), NA, 1)))) %>% 
-  select(UID, gear, goal, reach_length_m, reach_width_avg_m, efish_runs) %>% 
+  select(UID, gear, goal, reach_length_m, avg_reach_width_m, efish_runs) %>% 
   unique()
 
 dec_method$gear[dec_method$gear == "ES"] <- "electroshock"

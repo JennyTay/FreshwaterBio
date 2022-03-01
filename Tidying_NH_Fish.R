@@ -50,7 +50,7 @@ st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/N
 des_event <- des %>% 
   select(CollDate, Lat_Dec, Long_Dec, ActivityID) %>% 
   mutate(source = "NHDES - AndyChapman",
-         UID = paste("NH", ActivityID, sep = "_"),
+         UID = paste("des", ActivityID, sep = "_"),
          project = "NHDES",
          state = "NH") %>% 
   rename(latitude = Lat_Dec, longitude = Long_Dec, date = CollDate) %>% 
@@ -59,7 +59,7 @@ des_event <- des %>%
 
 des_fish <- des %>% 
   select(ActivityID, FinalID , Individuals, run_num) %>% 
-  mutate(UID = paste("NH", ActivityID, sep = "_")) %>% 
+  mutate(UID = paste("des", ActivityID, sep = "_")) %>% 
   rename(scientific_name = FinalID , count = Individuals) %>% 
   select(UID, scientific_name, count, run_num)
 
@@ -67,7 +67,7 @@ des_fish <- des %>%
 des_methods <- des %>% 
   select(ActivityID, CollMeth, Duration..sec., StLength) %>% 
   rename(gear = CollMeth, efish_duration_s = Duration..sec., reach_length_m = StLength) %>% 
-  mutate(UID = paste("NH", ActivityID, sep = "_"),
+  mutate(UID = paste("des", ActivityID, sep = "_"),
          goal = "Total Pick-up") %>% 
   select(UID, gear, goal, reach_length_m, efish_duration_s) %>% 
   unique() %>% 
@@ -91,8 +91,9 @@ des_species <- des %>%
 #########################################################
 
 #read in sample data
-dat <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Data 1983-2020_20210519- DONT ALTER.xlsx",
+dat <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Data 1983-2021-1-27-22.xlsx",
                   col_names = TRUE, sheet = "Activity data", col_types = "text")
+
 
 #read in metadata that has the project goal (total pick up or selective pick up that i characterized based on the metadata)
 goal <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/project_goal.xlsx",
@@ -113,31 +114,35 @@ dat <- left_join(dat, goal, by = "Project") %>%
 
 
 #read in fish data
-fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Data 1983-2020_20210519- DONT ALTER.xlsx",
-                  col_names = TRUE, sheet = "Fish data",
-                  col_types = "text", range = cell_cols("A:W"))
+
+fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Data 1983-2021-1-27-22.xlsx",
+                   col_names = TRUE, sheet = "Fish data",
+                   col_types = "text", range = cell_cols("A:W"))
+
+
 fish <- fish %>% 
   filter(Project != "NHDES") %>% 
   mutate(Species = toupper(Species)) %>% 
   filter(!Date == "0")
+fish$Species[fish$Species == "CFS"] <- "CSF" #typo confirmed by Matt Carpenter
 #there are 5 rows where weight was rated '>1' and these rows were removed when reading in the data because it is not numeric. I would have removed them anyways, so I left it this way.
 
 
 #read in the fish spp code look up table
-spp <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Species Codes.xls",
-                   skip = 2, col_names = TRUE)
-names(spp)[3] <- "Species"
+spp <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Species Codes.xlsx",
+                   col_names = TRUE)
+names(spp)[1] <- "Species"
 
 fish <- left_join(fish, spp, by = "Species")
-#some spp codes did not align with with a spp - need to ask matt
+#confirm that all spp codes align with a name
 unique(fish$Species[is.na(fish$`Common Name`)])
-#[1] "GSF"     "NO_FISH" "UNKNOWN" "MS"      "BH"      "RH"      "RFS"     "CLM"     "CFS"  
+ 
 
 # tidy data
 fg_event <- dat %>% 
   select(ACT_ID, Lat_Start, Long_Start, Project, Date) %>% 
   mutate(source = "NHFG - MattCarpenter",
-         UID = paste("NH", ACT_ID, sep = "_"),
+         UID = paste("fg", ACT_ID, sep = "_"),
          state = "NH") %>% 
   rename(latitude = Lat_Start, longitude = Long_Start) %>% 
   select(UID, state, Date, latitude, longitude, Project, source)
@@ -191,7 +196,8 @@ fg_methods <- dat %>%
          reach_length_m = as.numeric(ifelse(reach_length_m == 0, NA, reach_length_m)),
          avg_reach_width_m = as.numeric(ifelse(avg_reach_width_m == 0, NA, avg_reach_width_m)),
          gear = ifelse(gear == 0, NA, gear)) %>% 
-  select(UID, gear, goal, reach_length_m, efish_duration_s, efish_runs, target, avg_reach_width_m, Comments, Data_Comments)
+  select(UID, gear, goal, reach_length_m, efish_duration_s, efish_runs, target, avg_reach_width_m, Comments, Data_Comments) %>% 
+  unique()
 
   
 
