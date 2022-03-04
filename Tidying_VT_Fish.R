@@ -28,18 +28,6 @@ range(vt$Date)
 str(vt)
 
 
-#make shapefile the same crs as NHD
-#load NHD data
-MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
-
-
-#make the fish dataframe an sf object so it can be plotted spatially
-shp <- st_as_sf(x = vt,                         
-                coords = c("Longitude (DD)", "Latitude (DD)"),
-                crs = st_crs(MAflowline))
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).shp")
-
-
 
 # tidy data
 dec_event <- vt %>% 
@@ -66,6 +54,8 @@ dec_fish$keep <- keep
 dec_fish <- dec_fish %>% 
   filter(keep == TRUE) %>% 
   select(-keep)
+
+#note that the count field is the number of spp per survey and per run - I did not calculate this, its what they record (they do not do the individual measuresments)
 
 dec_method <- vt %>% 
   select(EventID, GearID, SectionWidth, SectionLength, Run1, Run2, Run3) %>% 

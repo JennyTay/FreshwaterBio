@@ -33,18 +33,6 @@ des$run_num <- ifelse(des$ActivityID == "F03P-02" & des$Duration..sec. == 983, 2
 
 
 
-#make shapefile the same crs as NHD
-#load NHD data
-MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
-
-
-#make the fish dataframe an sf object so it can be plotted spatially
-shp <- st_as_sf(x = des,                         
-                coords = c("Long_Dec", "Lat_Dec"),
-                crs = st_crs(MAflowline))
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DES Fish Data/20220119_NHDES_Fish Data_yrs 2000-2021.shp")
-
-
 
 # tidy data
 des_event <- des %>% 
@@ -158,6 +146,8 @@ fg_fish <- fish %>%
          weight_g = as.numeric(weight_g),
          Run_Num =as.numeric(Run_Num))
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
+
+
 #count is measured for fish that are not measured. we want to sum the count per trip for even the ones when the fish was measured
 tmp <- fg_fish %>% 
   group_by(UID, scientific_name, run_num) %>% 
@@ -200,19 +190,6 @@ fg_methods <- dat %>%
   unique()
 
   
-
-#make shapefile the same crs as NHD
-#load NHD data
-MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
-
-
-#make the fish dataframe an sf object so it can be plotted spatially
-dat <- data.frame(dat)
-shp <- st_as_sf(x = dat,                         
-                coords = c("Long_Start", "Lat_Start"),
-                crs = st_crs(MAflowline))
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH DFG Fish Data/Fish Data 1983-2020_20210519- DONT ALTER.shp")
-
 
 
 #### combine the NH datasets

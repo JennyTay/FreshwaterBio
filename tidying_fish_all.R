@@ -33,8 +33,25 @@ str(ma_event)
 
 
 
+###################################
+
 #### combine event dataframes ####
+
+###################################
+
 event <- bind_rows(ct_event, dec_event, nh_event, ma_event)
+event$date <- substr(event$date, start=1, stop=10)
+event$date <- ymd(event$date)
+event$year <- year(event$date)
+event$month <- month(event$date)
+event <- event %>% 
+  select(UID, state, date, year, month, latitude, longitude, project, source)
+
+str(event)
+table(event$state)
+table(event$year)
+
+save(event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 
 
 
@@ -42,7 +59,19 @@ event <- bind_rows(ct_event, dec_event, nh_event, ma_event)
 
 
 
-#### combine fish dataframes ####
+
+
+###################################
+
+##### combine fish dataframes #####
+
+###################################
+
+
+
+
+
+
 
 
 fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish)
@@ -57,6 +86,9 @@ fish$scientific_name[fish$scientific_name == 'apeltes quadracas'] <- "apeltes qu
 fish$scientific_name[fish$scientific_name == 'unknown 1'] <- "unknown"
 fish$scientific_name[fish$scientific_name == 'unknown 2'] <- "unknown"
 fish$scientific_name[fish$scientific_name == 'sander vitreus'] <- "stizostedion vitreum" 
+fish$scientific_name[fish$scientific_name == 'lampetra appendix'] <- "lethenteron appendix" 
+fish$scientific_name[fish$scientific_name == 'phoxinus eos'] <- "chrosomus eos" #per rebeccas correction
+
 
 #need to add in common names
 fish$common_name[fish$scientific_name =="acipenser brevirostrum"] <- "shortnose sturgeon"
@@ -64,7 +96,7 @@ fish$common_name[fish$scientific_name =="alosa aestivalis"] <- "blueback herring
 fish$common_name[fish$scientific_name =="alosa pseudoharengus"] <- "alewife"
 fish$common_name[fish$scientific_name =="alosa sapidissima"] <- "American shad"
 fish$common_name[fish$scientific_name =="ambloplites rupestris"] <- "rock bass"
-fish$common_name[fish$scientific_name =="ameiurus catus"] <- "white bullhead"
+fish$common_name[fish$scientific_name =="ameiurus catus"] <- "white catfish"
 fish$common_name[fish$scientific_name =="ameiurus natalis"] <- "yellow bullhead"
 fish$common_name[fish$scientific_name =="ameiurus nebulosus"] <- "brown bullhead"
 fish$common_name[fish$scientific_name =="amia calva"] <- "bowfin"
@@ -75,6 +107,7 @@ fish$common_name[fish$scientific_name =="catostomus catostomus"] <- "longnose su
 fish$common_name[fish$scientific_name =="catostomus commersonii"] <- "white sucker"
 fish$common_name[fish$scientific_name =="centrarchidae"] <- "sunfish family"
 fish$common_name[fish$scientific_name =="channa sp."] <- "snakehead genus"
+fish$common_name[fish$scientific_name =="chrosomus eos"] <- "redbelly dace"
 fish$common_name[fish$scientific_name =="clinostomus funduloides"] <- "rosyside dace"
 fish$common_name[fish$scientific_name =="coregonus clupeaformis"] <- "lake whitefish"
 fish$common_name[fish$scientific_name =="cottus cognatus"] <- "slimy sculpin"
@@ -85,9 +118,9 @@ fish$common_name[fish$scientific_name =="enneacanthus obesus"] <- "banded sunfis
 fish$common_name[fish$scientific_name =="erimyzon oblongus"] <- "creek chubsucker"
 fish$common_name[fish$scientific_name =="esox americanus"] <- "American pickerel"
 fish$common_name[fish$scientific_name =="esox americanus americanus"] <- "redfin pickerel"
-fish$common_name[fish$scientific_name =="esox americanus americanus x esox niger"] <- "redfin pickerel x chain pickerel"
+fish$common_name[fish$scientific_name =="esox americanus americanus x esox niger"] <- "redfin pickerel x chain pickerel hybrid"
 fish$common_name[fish$scientific_name =="esox lucius"] <- "northern pike"
-fish$common_name[fish$scientific_name =="esox lucius x esox masquinongy"] <- "northern pike x muskellunge"
+fish$common_name[fish$scientific_name =="esox lucius x esox masquinongy"] <- "northern pike x muskellunge hybrid"
 fish$common_name[fish$scientific_name =="esox niger"] <- "chain pickerel"
 fish$common_name[fish$scientific_name =="etheostoma fusiforme"] <- "swamp darter"
 fish$common_name[fish$scientific_name =="etheostoma olmstedi"] <- "tessellated darter"
@@ -101,12 +134,11 @@ fish$common_name[fish$scientific_name =="gasterosteus aculeatus"] <- "three-spin
 fish$common_name[fish$scientific_name =="gobiosoma bosc"] <- "naked goby"
 fish$common_name[fish$scientific_name =="hybognathus regius"] <- "eastern silvery minnow"
 fish$common_name[fish$scientific_name =="ictalurus punctatus"] <- "channel catfish"
-fish$common_name[fish$scientific_name =="lampetra appendix"] <- "American brook lamprey"
 fish$common_name[fish$scientific_name =="lepomis auritus"] <- "redbreast sunfish"
 fish$common_name[fish$scientific_name =="lepomis cyanellus"] <- "green sunfish"
 fish$common_name[fish$scientific_name =="lepomis gibbosus"] <- "pumpkinseed"
 fish$common_name[fish$scientific_name =="lepomis macrochirus"] <- "bluegill"
-fish$common_name[fish$scientific_name =="lepomis macrochirus x lepomis gibbosus"] <- "bluegill x pumpkinseed"
+fish$common_name[fish$scientific_name =="lepomis macrochirus x lepomis gibbosus"] <- "bluegill x pumpkinseed hybrid"
 fish$common_name[fish$scientific_name =="lepomis sp"] <- "sunfish genus"
 fish$common_name[fish$scientific_name =="lethenteron appendix"] <- "American brook lamprey"
 fish$common_name[fish$scientific_name =="lota lota"] <- "burbot"
@@ -130,7 +162,6 @@ fish$common_name[fish$scientific_name =="oncorhynchus mykiss"] <- "rainbow trout
 fish$common_name[fish$scientific_name =="osmerus mordax"] <- "rainbow smelt"
 fish$common_name[fish$scientific_name =="perca flavescens"] <- "yellow perch"
 fish$common_name[fish$scientific_name =="petromyzon marinus"] <- "sea lamprey"
-fish$common_name[fish$scientific_name =="phoxinus eos"] <- "northern redbelly dace"
 fish$common_name[fish$scientific_name =="phoxinus neogaeus"] <- "finescale dace"
 fish$common_name[fish$scientific_name =="pimephales notatus"] <- "bluntnose minnow"
 fish$common_name[fish$scientific_name =="pimephales promelas"] <- "fathead minnow"
@@ -145,7 +176,7 @@ fish$common_name[fish$scientific_name =="salmo"] <- "salmon and trout genus"
 fish$common_name[fish$scientific_name =="salmo salar"] <- "Atlantic salmon"
 fish$common_name[fish$scientific_name =="salmo trutta"] <- "brown trout"
 fish$common_name[fish$scientific_name =="salvelinus fontinalis"] <- "brook trout"
-fish$common_name[fish$scientific_name =="salvelinus fontinalis x salmo trutta"] <- "brook trout x brown trout"
+fish$common_name[fish$scientific_name =="salvelinus fontinalis x salmo trutta"] <- "brook trout x brown trout hybrid"
 fish$common_name[fish$scientific_name =="salvelinus namaycush"] <- "lake trout"
 fish$common_name[fish$scientific_name =="semotilus atromaculatus"] <- "creek chub"
 fish$common_name[fish$scientific_name =="semotilus corporalis"] <- "fallfish "
@@ -222,29 +253,126 @@ test <- fish %>%
   filter(is.na(common_name))
 #66 observations from MA do not have a common name or a scientific name.. go back to ma data and figure it out
 
-fishspp <- fish %>% group_by(common_name, scientific_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
-write.csv(fishspp, "fishspp_lookup.csv")
+#remove observations at the family or higher taxonomic level
+fish <- fish %>% 
+  filter(!grepl("order|family|hybrid|no fish|unknown", common_name))
+
+
+#add columns for genus and family and remove the genus and family names in the spp column
+tmp <- fish %>% 
+  select(scientific_name) %>% 
+  separate(scientific_name, into = c("genus", "remove"), sep = " ") %>% 
+  select(-remove)
+fish <- cbind(fish, tmp)
+
+
+#Remove the genus level that is recorded in spp level
+fish$common_name[fish$common_name == "snakehead genus"] <- NA
+fish$common_name[fish$common_name == "sunfish genus"] <- NA
+fish$common_name[fish$common_name == "river herring"] <- NA
+fish$common_name[fish$common_name == "log perch genus"] <- NA
+fish$common_name[fish$common_name == "redhorse genus"] <- NA
+fish$common_name[fish$common_name == "rudd"] <- NA
+fish$common_name[fish$common_name == "salmon and trout genus"] <- NA
+
+fish$scientific_name[fish$scientific_name == "channa sp."] <- NA
+fish$scientific_name[fish$scientific_name == "lepomis sp"] <- NA
+fish$scientific_name[fish$scientific_name == "alosa spp."] <- NA
+fish$scientific_name[fish$scientific_name == "percina spp."] <- NA
+fish$scientific_name[fish$scientific_name == "moxostoma spp."] <- NA
+fish$scientific_name[fish$scientific_name == "scardinius spp."] <- NA
+fish$scientific_name[fish$scientific_name == "salmo"] <- NA
+
+head(fish)
+
+#want two fish datasets: a spp count by run and survey; and one with spp lengths
+fish_count <- fish %>% 
+  select(UID, run_num, count, common_name, scientific_name, genus) %>% 
+  group_by(UID, run_num, common_name, scientific_name, genus) %>% 
+  summarise(count = sum(count))
+
+fish_size <- fish  %>% 
+  filter(!is.na(length_mm)) %>% 
+  select(-count) #dont want to do unique() here because there may be the same spp with the same lengths in the same survey
+  
+
+#save
+save(fish_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+save(fish_size, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 
 
 
 
+#fish look up tables
+fishspp <- fish %>% group_by(scientific_name, common_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
+write.csv(fishspp, "tmpfigures/fishspp_lookup.csv")
+
+fishgenus <- fish %>% group_by(genus) %>% summarise(count = n()) %>% arrange(genus)
+write.csv(fishgenus, "tmpfigures/fishgenus_lookup.csv")
+
+
+
+
+
+
+
+
+
+
+###################################
 
 #### combine method dataframes ####
+
+###################################
+
+
+
+
+
+
+
+
 
 method <- bind_rows(ma_method, ct_method, nh_method, dec_method)
 method$gear <- tolower(method$gear)
 unique(method$gear)
-method$gear[method$gear == "backpack shocking"] <- "electroshock"
-method$gear[method$gear == "boat shocking"] <- "electroshock"
-method$gear[method$gear == "electroshock (other)"] <- "electroshock"
-method$gear[method$gear == "backpack shocking"] <- "electroshock"
-method$gear[method$gear == "efish"] <- "electroshock"
-method$gear[method$gear == "barge and backpack shocking"] <- "electroshock"
-method$gear[method$gear == "barge shocking"] <- "electroshock"
-method$gear[method$gear == "barge"] <- "electroshock"
-method$gear[method$gear == "boat"] <- "electroshock"
-method$gear[method$gear == "eboat"] <- "electroshock"
-method$gear[method$gear == "backpack"] <- "electroshock"
+
+#the gears that are unclear - need to confirm with each agency
+
+# t <- method$UID[method$gear == "electroshock (other)"] #CT #Chris confirmed these are efish_barge
+# 
+# t <- method$UID[method$gear == "efish"]  #Matt confirmed backpack electrofish
+# t <- substr(t, start = 1, stop = 3)
+# t <- unique(t) #FG
+# 
+# t <- method$UID[method$gear == "barge and backpack shocking"] 
+# t <- substr(t, start = 1, stop = 3)
+# t <- unique(t) #MA
+# 
+# 
+# t <- method$UID[method$gear == "barge"] 
+# t <- substr(t, start = 1, stop = 3)
+# t <- unique(t) #MA
+# 
+# t <- method$UID[method$gear == "boat"] #Andy confirmed electroshock boat 
+# t <- substr(t, start = 1, stop = 3)
+# t <- unique(t) #des
+
+t <- method$UID[method$gear == "electroshock"] 
+t <- substr(t, start = 1, stop = 3)
+t <- unique(t) #VT
+
+method$gear[method$gear == "backpack shocking"] <- "efish_backpack"
+method$gear[method$gear == "boat shocking"] <- "efish_boat"
+method$gear[method$gear == "electroshock (other)"] <- "efish_barge"
+method$gear[method$gear == "efish"] <- "efish_backpack"
+method$gear[method$gear == "barge and backpack shocking"] <- "efish_misc"
+method$gear[method$gear == "barge shocking"] <- "efish_barge"
+method$gear[method$gear == "barge"] <- "efish_barge"
+method$gear[method$gear == "boat"] <- "efish_boat" #confirmed by Andy
+method$gear[method$gear == "eboat"] <- "efish_boat"
+method$gear[method$gear == "backpack"] <- "efish_backpack"
+method$gear[method$gear == "electroshock"] <- "efish_backpack" #ned to confirm with Jim
 
 method$gear[method$gear == "gillnet"] <- "gill net"
 method$gear[method$gear == "gill"] <- "gill net"
@@ -262,41 +390,6 @@ method$goal[method$goal == "total pick up"] <- "total pick-up"
 unique(method$target)
 
 
-
-#### describing methods move to a new script after I decide where to save the dataframes
-
-
-test <- method %>% 
-  group_by(goal) %>% 
-  summarise(count = n())
-
-test <- method %>%  #how many surveys were targeted by spp
-  filter(goal == "selective pick-up") %>% 
-  group_by(target) %>% 
-  summarise(count = n())
-write.csv(test, "tmpfigures/table.csv")
-
-test2 <- fish %>% #total surveys for each spp that also had the targeted surveys so we can see what percentage the targeted surveys were of the total
-  filter(common_name %in% test$target) %>% 
-  group_by(common_name) %>% 
-  summarize(count = n())
-
-test <- method %>% #gear by state
-  left_join(event, by = "UID") %>% 
-  group_by(state, gear) %>% 
-  summarise(count = n()) %>% 
-  pivot_wider(names_from = state, values_from = count)
-write.csv(test, "tmpfigures/table.csv")
-
-test <- fish %>% #fish missed by only including efish
-  left_join(method, by = "UID") %>% 
-  group_by(gear, common_name) %>% 
-  summarise(count = n()) %>% 
-  pivot_wider(names_from = gear, values_from = count) %>% 
-  filter(is.na(electroshock) | electroshock <100) %>% 
-  arrange(electroshock)
-write.csv(test, "tmpfigures/table1.csv")
-
-fishspp <- fish %>% group_by(common_name, scientific_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
-write.csv(fishspp, "tmpfigures/fishspp.csv")
+#save
+save(method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 

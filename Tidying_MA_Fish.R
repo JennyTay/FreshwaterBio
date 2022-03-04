@@ -27,7 +27,7 @@ water_chem <- sqlFetch(con2, "water_chemistry")
 #bring in remainder of tables as qrys so that we can reduce the size of the table
 
 #make a query for the sample data df so that when we bind it with the others it's not such a large file
-qry1 <- "SELECT sample_id, saris_palis, sample_date, sample_type, method, agency, snapped_latitude, snapped_longitude FROM sample_data"
+qry1 <- "SELECT sample_id, saris_palis, sample_date, sample_type, method, agency, latitude, longitude FROM sample_data"
 sample_data <- sqlQuery(con2, qry1)
 
 #make a query for the fish_data to reduce object size
@@ -54,90 +54,6 @@ reach_max_depth,  percent_reach_sampled, sample_period, number_of_runs FROM boat
 boat_data <- sqlQuery(con2, qry6)
 
 
-#join data tables
-
-dat <- left_join(fish_data, sample_data, by = "sample_id")
-dat <- left_join(dat, species_data, by = "fish_code")
-dat <- left_join(dat, waterbody_data, by = "saris_palis")
-
-head(dat)
-names(dat)
-str(dat)
-
-fish <- dat %>% 
-  select(sample_id, sample_date, saris_palis, watershed, agency, fish_code, common_name, 
-         scientific_name, length, family, method, run_num, origin, 
-         pt, temp, listed_status, waterbody, town, 
-         snapped_latitude, snapped_longitude) %>% 
-  mutate(year = year(sample_date),
-         month = month(sample_date)) %>% 
-  filter(!is.na(snapped_longitude)) %>% 
-  group_by(sample_id, common_name) %>% 
-  mutate(count = n(),
-         common_name = ifelse(common_name == "Hybrid Redfin/Chain Pickerel", "Hybrid Redfin_Chain Pickerel",
-                              ifelse(common_name == "Green Sunfish X Red Breasted Sunfish Hybrid", "Hybrid Green Sunfish_Red Breasted Sunfish",
-                                     ifelse(common_name == "Pumpkinseed X Green Sunfish", "Hybrid Pumpkinseed_Green Sunfish",
-                                            ifelse(common_name == "Hybrid Bluegill/Pumpkinseed", "Hybrid Bluegill_Pumpkinseed",
-                                                   ifelse(common_name == "Pumpkinseed X Red Breasted Sunfish Hybrid", "Hybrid Pumpkinseed_Red Breasted Sunfish",
-                                                          ifelse(common_name == "Tiger Trout (Hybrid Brook Trout/Brown Trout)", "Hybrid Brook Trout_Brown Trout)",
-                                                                 common_name)))))))
-
-#explore data
-table(fish$common_name)
-length(unique(fish$common_name))
-table(fish$watershed)
-head(fish)
-
-
-#plot fish distriubtion on a map to view annually
-#first need to make it a spatial file and then load in watershed data, and stream data, and state data
-
-#load NHD data
-MAflowline <- st_read("C:/Users/Jenny/Documents/JennySCCWRP/Application materials/UMassPostDoc/NDH/Shape/NHDFlowline.shp")
-MAflowline <- MAflowline %>% 
-  st_zm()
-
-MAflowline2 <- st_read("C:/Users/Jenny/Documents/JennySCCWRP/Application materials/UMassPostDoc/NDH/Shape/NHDFlowline2.shp")
-MAflowline2 <- MAflowline2 %>% 
-  st_zm()
-
-MAflowline_combined <- rbind(MAflowline, MAflowline2)
-rm(MAflowline, MAflowline2)
-
-MAhuc8 <- st_read("C:/Users/Jenny/Documents/JennySCCWRP/Application materials/UMassPostDoc/NDH/Shape/WBDHU8.shp")
-
-
-#make the fish dataframe an sf object so it can be plotted spatially
-test <- st_as_sf(x = fish,                         
-                 coords = c("snapped_longitude", "snapped_latitude"),
-                 crs = st_crs(MAflowline_combined))
-
-table(test$common_name)
-
-for( i in 1:length(unique(test$common_name))){
-  
-  ggplot()+
-    # geom_sf(data = MAflowline_combined)+
-    geom_sf(data = MAhuc8, color = "green", fill = NA)+
-    geom_sf(data = test[test$common_name == unique(test$common_name)[i], ], color = "red")+
-    theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank())+
-    ggtitle(label = paste(unique(test$common_name)[i], (unique(test$scientific_name)[i]), sep = ", "))
-  
-  ggsave(
-    filename = paste("MA fish plots/", unique(test$common_name)[i], ".png", sep = ""),
-    plot = last_plot(),
-    width = 9,
-    height = 7,
-    units = "cm",
-    dpi = 300
-  )
-  
-  print(i)
-  
-}
 
 
 #prepare tables that will be joined with tables in other states
@@ -147,13 +63,11 @@ for( i in 1:length(unique(test$common_name))){
 names(sample_data)
 
 ma_event <- sample_data %>% 
-  select(sample_id, sample_date, snapped_latitude, snapped_longitude, agency) %>% 
+  select(sample_id, sample_date, latitude, longitude, agency) %>% 
   mutate(state = "MA",
          source = "MassWildlife - JasonStolarski",
          UID = paste("MA", sample_id, sep = "_")) %>% 
   rename(project = agency,
-         latitude = snapped_latitude,
-         longitude = snapped_longitude,
          date = sample_date) %>% 
   select(UID, state, date, latitude, longitude, project, source, -sample_id)
 
@@ -168,6 +82,15 @@ ma_fish <- tmp %>%
   rename(length_mm = length, weight_g = weight) %>% 
   select(UID, scientific_name, length_mm, weight_g, run_num)
 rm(tmp)
+
+#then create a count field that is the sum of the spp observed per site and per run.
+tmp <- ma_fish %>% 
+  group_by(UID, scientific_name, run_num) %>% 
+  summarise(count = n()) %>% 
+  ungroup() 
+
+ma_fish <- left_join(ma_fish, tmp, by = c("UID", "scientific_name", "run_num"))
+
 
 #prepare species df
 ma_species <- species_data %>% 
@@ -217,3 +140,4 @@ save(ma_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_dat
 save(ma_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_event.RData")
 save(ma_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_fish.RData")
 save(ma_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_species.RData")
+

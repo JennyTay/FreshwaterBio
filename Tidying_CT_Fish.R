@@ -21,18 +21,6 @@ ct <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/CT E
 str(ct)
 hist(as.numeric(ct$ReachLengthMeasureValue))
 
-#make shapefile the same crs as NHD
-#load NHD data
-MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
-
-
-#make the fish dataframe an sf object so it can be plotted spatially
-shp <- st_as_sf(x = ct,                         
-                 coords = c("xlong", "ylat"),
-                 crs = st_crs(MAflowline))
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/CT EEP Fish Data/ABM_FishData_2016_2021_012422.shp")
-
-
 
 
 #prepare the 4 files:; ct_event, ct_fish, ct_method, ct_species
@@ -70,8 +58,10 @@ ct_fish <- ct %>%
 
 ct_fish$length_mm[ct_fish$length_mm == -990] <- NA #some were recorded as -99 (-990 mm), which means no length was measured, so I made these NA
 # in this dataset, count refers to the number of each spp in a certain length class. This is differnt than the other datasets when count is the total number of spp.
+
 #to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
-#then create a count field that is the sum of the spp observed per site.
+
+#then create a count field that is the sum of the spp observed per site per run.
 
 n <-  ct_fish$count
 ct_fish <- ct_fish[rep(seq_len(nrow(ct_fish)), n),]
