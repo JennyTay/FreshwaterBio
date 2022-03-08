@@ -6,7 +6,7 @@ output: html_document
 ---
 
 
-load libraries and data
+load libraries 
 ```{r }
 
 
@@ -14,7 +14,11 @@ load libraries and data
 library(tidyverse)
 library(sf)
 
+```
 
+
+Load fish data
+``` {r}
 
 #load data
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
@@ -164,9 +168,49 @@ write.csv(test, "tmpfigures/tmp.csv")
 
 
 Here we look at the data spatially 
+We want to download the HUC 8, 10, and 12 shapefiles and merge them togeth
+we also want to downlaod all the flowlines for each state and merge them together
+then we want to attribute each spp code with a HUC 8,,10, 12, flow line id
 
 ``` {r}
 
+#load HUC8 data
+MAhuc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/WBDHU8.shp")
+VThuc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/VT/Shape/WBDHU8.shp")
+NHhuc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/NH/Shape/WBDHU8.shp")
+CThuc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/CT/Shape/WBDHU8.shp")
+RIhuc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/RI/Shape/WBDHU8.shp")
+
+#need to make the names all lowercase
+names(MAhuc8) <- tolower(names(MAhuc8))
+names(CThuc8) <- tolower(names(CThuc8))
+names(NHhuc8) <- tolower(names(NHhuc8))
+names(VThuc8) <- tolower(names(VThuc8))
+names(RIhuc8) <- tolower(names(RIhuc8))
+
+#rbind HUC8
+dat <- bind_rows(MAhuc8, VThuc8, NHhuc8, CThuc8, RIhuc8)
+
+rm(MAhuc8, CThuc8, VThuc8, NHhuc8, RIhuc8)
+length(unique(dat$huc8)) #50  - there should be 50 rows
+
+#there are duplicate entries becaseu some watersheds cross state lines
+dat8 <- dat[!duplicated(dat$huc8),]
+
+unique(dat8$name)
+
+
+#load fish data
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+
+
+#make the fish data frame an sf object so it can be plotted spatially
+shp <- st_as_sf(x = event,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(dat8))
+
+#add the huc8 name to the fish event dataframe
+shp <- st_join(shp, left = TRUE, dat8["name"])
 
 #plot fish distriubtion on a map to view annually
 #first need to make it a spatial file and then load in watershed data, and stream data, and state data
@@ -175,7 +219,7 @@ Here we look at the data spatially
 
 #make shapefile the same crs as NHD
 #load NHD data
-MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
+MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/NHDFlowline.shp")
 
 
 #make the fish dataframe an sf object so it can be plotted spatially
@@ -184,10 +228,6 @@ shp <- st_as_sf(x = event,
                 crs = st_crs(MAflowline))
 st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
 
-
-
-#load NHD data
-MAhuc8 <- st_read("C:/Users/Jenny/Documents/JennySCCWRP/Application materials/UMassPostDoc/NDH/Shape/WBDHU8.shp")
 
 
 
