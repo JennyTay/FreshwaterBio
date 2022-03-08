@@ -92,3 +92,32 @@ save(dec_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_dat
 save(dec_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_fish.RData")
 save(dec_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_species.RData")
 
+
+
+
+
+
+
+
+
+
+
+
+
+#########################################################
+
+################### Vermont DFG ########################
+
+#########################################################
+
+
+
+
+
+dfg <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DFG Fish Data/Vermont electrofishing data 1954-2020.xlsx",
+                 col_names = TRUE)
+
+table(dfg$SPP)
+names(dfg) <- tolower(names(dfg))
+dfg$date <- ymd(dfg$date)
+dfg$year <- year(dfg$date)

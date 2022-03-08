@@ -1,0 +1,222 @@
+---
+title: "fish survey data exploration"
+author: "Jenny Rogers"
+date: "3/4/2022"
+output: html_document
+---
+
+
+load libraries and data
+```{r }
+
+
+#load libraries
+library(tidyverse)
+library(sf)
+
+
+
+#load data
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+
+
+
+```
+
+
+
+In this next chunk, we want to make plots that explore the data.
+1. survey events by year and state
+2. proportion of surveys using which types of gear
+3. table of fish counts by gear - do we miss anyone?
+4. proportaion of the counts of each spp where lengths were measured (to do life history)
+5. proportion of surveys with second pass by state, HUC
+6. spp observed in surveys of with a second pass
+7. how many surveys occur within the same HUC in the same season? - space for time
+8. histograms of reach length and efish duration, by state
+9. mean spp diversity and range by differnet sized HUCs .huc on x axis, diversity on y axis, at some point it will increase sharply
+
+``` {r}
+
+#surveys by year and state
+table(event$year)
+ggplot(data = event)+
+  geom_bar(mapping = aes(x = year, fill = state))+
+  theme(axis.line = element_line(colour = "black"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "grey90"))+
+  labs(x = "Year", y = "Count", fill = "State")
+  
+
+#proportion of surveys using which types of gear
+test <- method %>%
+  left_join(event, by = "UID") %>% 
+  filter(!is.na(gear),
+         gear != "water quality")
+ggplot(data = test)+
+  geom_bar(mapping = aes(x = state, fill = gear),
+                         position = "fill")+
+  theme(axis.line = element_line(colour = "black"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "grey90"))+
+  labs(x = "State", y = "Proportion", fill = "Gear")
+
+
+#gear by HUC
+
+
+
+#table of fish counts by gear - do we miss anyone?
+test <- fish_count %>%
+  left_join(method, by = "UID") %>% 
+  group_by(gear, common_name) %>% 
+  summarise(count = sum(count, na.rm = T)) %>% 
+  pivot_wider(names_from = gear, values_from = count) 
+write.csv(test, "tmpfigures/table1.csv")
+
+#make figure showing proporation of fish count by gear for the fish where <75% of observations were done by backpack efish
+
+test <- fish_count %>%
+  left_join(method, by = "UID") %>% #add gear type
+  group_by(gear, common_name) %>% 
+  summarise(count = sum(count, na.rm = T)) %>% #get total counts of each spp by gear
+  filter(!is.na(gear) & !is.na(common_name))
+
+#make temporary df of total counts for each spp
+tmp <- test %>% 
+  group_by(common_name) %>% 
+  summarize(tot = sum(count, na.rm=T)) #total counts of spp from all gear combined
+test <- test %>% 
+  left_join(tmp, by = "common_name") %>%  #add total counts column
+  mutate(prop = count/tot) %>%  #add proportion of count from each gear type out of total
+  select(-count, -tot) %>% 
+  pivot_wider(names_from = gear, values_from = prop) %>% #wide format 
+  filter(efish_backpack < 0.75) %>%  #remove fish whose counts are 75%+ from backpack efish
+  pivot_longer(cols = 3:20, names_to = "gear", values_to = "prop") #long format
+  
+  
+ggplot(data = test)+
+  geom_bar(mapping = aes(x = common_name, y = prop, fill = gear),
+                         position = "fill", stat = "identity")+
+  theme(axis.line = element_line(colour = "black"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "grey90"),
+        axis.text.x = element_text(angle = 90))+
+  labs(x = "Fish", y = "Proportion", fill = "Gear")
+ggsave(
+    filename = "tmpfigures/test.png",
+    plot = last_plot(),
+    width = 17,
+    height = 15,
+    units = "cm",
+    dpi = 300
+  )
+  
+
+
+#counts of survey goals (total pick up vs selective pick up)
+test <- method %>% 
+  group_by(goal) %>% 
+  summarise(count = n())
+
+
+#how many surveys were targeted by spp
+test <- method %>%  
+  filter(goal == "selective pick-up") %>% 
+  group_by(target) %>% 
+  summarise(count = n())
+write.csv(test, "tmpfigures/table.csv")
+
+
+#total surveys for each spp that also had the targeted surveys so we can see what percentage the targeted surveys were of the total
+test2 <- fish %>% 
+  filter(common_name %in% test$target) %>% 
+  group_by(common_name) %>% 
+  summarize(count = n())
+
+
+
+#date range of surveys by state
+test <- event %>% #range of surveys by state
+  group_by(state) %>% 
+  summarise(min = min(date, na.rm = T),
+            max = max(date, na.rm = T)) %>% 
+  unite(min, max, sep = "-", col = "range")
+write.csv(test, "tmpfigures/tmp.csv")
+
+
+#number of surveys for each number of passes
+test <- method %>% 
+  group_by(efish_runs) %>% 
+  summarise(count = n())
+write.csv(test, "tmpfigures/tmp.csv")
+
+
+
+```
+
+
+
+
+
+
+Here we look at the data spatially 
+
+``` {r}
+
+
+#plot fish distriubtion on a map to view annually
+#first need to make it a spatial file and then load in watershed data, and stream data, and state data
+
+
+
+#make shapefile the same crs as NHD
+#load NHD data
+MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/Shape/NHDFlowline.shp")
+
+
+#make the fish dataframe an sf object so it can be plotted spatially
+shp <- st_as_sf(x = event,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(MAflowline))
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+
+
+#load NHD data
+MAhuc8 <- st_read("C:/Users/Jenny/Documents/JennySCCWRP/Application materials/UMassPostDoc/NDH/Shape/WBDHU8.shp")
+
+
+
+
+table(test$common_name)
+
+for( i in 1:length(unique(test$common_name))){
+  
+  ggplot()+
+    geom_sf(data = MAhuc8, color = "green", fill = NA)+
+    geom_sf(data = test[test$common_name == unique(test$common_name)[i], ], color = "red")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = paste(unique(test$common_name)[i], (unique(test$scientific_name)[i]), sep = ", "))
+  
+  ggsave(
+    filename = paste("MA fish plots/", unique(test$common_name)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 9,
+    height = 7,
+    units = "cm",
+    dpi = 300
+  )
+  
+  print(i)
+  
+}
+
+
+```

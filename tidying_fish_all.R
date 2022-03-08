@@ -286,10 +286,16 @@ fish$scientific_name[fish$scientific_name == "salmo"] <- NA
 head(fish)
 
 #want two fish datasets: a spp count by run and survey; and one with spp lengths
+#this is not right, the counts are too high becauase some counts were repeated and now we are adding them, and some counts were not repeated.
 fish_count <- fish %>% 
   select(UID, run_num, count, common_name, scientific_name, genus) %>% 
   group_by(UID, run_num, common_name, scientific_name, genus) %>% 
-  summarise(count = sum(count))
+  summarise(count = sum(count, na.rm = T)) #thi shoudl just be unique
+
+fish_count <- fish %>% 
+  select(UID, run_num, count, common_name, scientific_name, genus) %>% 
+  unique()
+  #thi shoudl just be unique
 
 fish_size <- fish  %>% 
   filter(!is.na(length_mm)) %>% 
