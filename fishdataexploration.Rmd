@@ -170,9 +170,9 @@ write.csv(test, "tmpfigures/tmp.csv")
 Here we look at the data spatially 
 We want to download the HUC 8, 10, and 12 shapefiles and merge them togeth
 we also want to downlaod all the flowlines for each state and merge them together
-then we want to attribute each spp code with a HUC 8,,10, 12, flow line id
 
 ``` {r}
+
 
 #load HUC8 data
 MAhuc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/WBDHU8.shp")
@@ -196,12 +196,126 @@ length(unique(dat$huc8)) #50  - there should be 50 rows
 
 #there are duplicate entries becaseu some watersheds cross state lines
 dat8 <- dat[!duplicated(dat$huc8),]
-
 unique(dat8$name)
+
+
+
+
+
+
+#load HUC10 data
+MAhuc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/WBDHU10.shp")
+VThuc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/VT/Shape/WBDHU10.shp")
+NHhuc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/NH/Shape/WBDHU10.shp")
+CThuc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/CT/Shape/WBDHU10.shp")
+RIhuc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/RI/Shape/WBDHU10.shp")
+
+#need to make the names all lowercase
+names(MAhuc10) <- tolower(names(MAhuc10))
+names(CThuc10) <- tolower(names(CThuc10))
+names(NHhuc10) <- tolower(names(NHhuc10))
+names(VThuc10) <- tolower(names(VThuc10))
+names(RIhuc10) <- tolower(names(RIhuc10))
+
+#rbind HUC10
+dat <- bind_rows(MAhuc10, VThuc10, NHhuc10, CThuc10, RIhuc10)
+
+rm(MAhuc10, CThuc10, VThuc10, NHhuc10, RIhuc10)
+length(unique(dat$huc10)) #50  - there should be 315 rows
+
+#there are duplicate entries becaseu some watersheds cross state lines
+dat10 <- dat[!duplicated(dat$huc10),]
+unique(dat10$name)
+
+
+
+
+
+
+
+#load HUC12 data
+MAhuc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/WBDHU12.shp")
+VThuc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/VT/Shape/WBDHU12.shp")
+NHhuc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/NH/Shape/WBDHU12.shp")
+CThuc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/CT/Shape/WBDHU12.shp")
+RIhuc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/RI/Shape/WBDHU12.shp")
+
+#need to make the names all lowercase
+names(MAhuc12) <- tolower(names(MAhuc12))
+names(CThuc12) <- tolower(names(CThuc12))
+names(NHhuc12) <- tolower(names(NHhuc12))
+names(VThuc12) <- tolower(names(VThuc12))
+names(RIhuc12) <- tolower(names(RIhuc12))
+
+#rbind HUC12
+dat <- bind_rows(MAhuc12, VThuc12, NHhuc12, CThuc12, RIhuc12)
+
+rm(MAhuc12, CThuc12, VThuc12, NHhuc12, RIhuc12)
+length(unique(dat$huc12)) #1403 
+
+#there are duplicate entries becaseu some watersheds cross state lines
+dat12 <- dat[!duplicated(dat$huc12),]
+unique(dat12$name)
+
+
+
+
+#load NHDflowline data
+MAline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/NHDflowline.shp")
+MAline2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/NHDflowline2.shp")
+VTline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/VT/Shape/NHDflowline.shp")
+NHline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/NH/Shape/NHDflowline.shp")
+CTline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/CT/Shape/NHDflowline.shp")
+RIline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/RI/Shape/NHDflowline.shp")
+
+#need to make the names all lowercase
+names(MAline) <- tolower(names(MAline))
+names(MAline2) <- tolower(names(MAline2))
+names(VTline) <- tolower(names(VTline))
+names(NHline) <- tolower(names(NHline))
+names(CTline) <- tolower(names(CTline))
+names(RIline) <- tolower(names(RIline))
+
+#rbind flowlines
+flowline <- bind_rows(MAline, MAline2, CTline, RIline, VTline, NHline)
+
+rm(MAline, MAline2, CTline, RIline, VTline, NHline)
+length(unique(flowline$reachcode)) #245577
+
+#there are duplicate entries because some watersheds cross state lines
+flowline <- flowline[!duplicated(flowline$reachcode),]
+flowline <- flowline %>% st_zm()
+
+
+
+
+
+
+
+#save the merged huc files
+st_write(dat8, dsn = "nhd/huc8.shp")
+st_write(dat10, dsn = "nhd/huc10.shp")
+st_write(dat12, dsn = "nhd/huc12.shp")
+st_write(flowline, dsn = "nhd/flowline.shp")
+
+```
+
+
+
+here, we want to attribute each spp code with a HUC 8, 10, 12, flow line ID
+
+```{r}
+#load the merged HUC boundary files
+dat8 <- st_read("nhd/huc8.shp")
+dat10 <- st_read("nhd/huc10.shp")
+dat12 <- st_read("nhd/huc12.shp")
+flowline <- st_read("nhd/flowline.shp")
 
 
 #load fish data
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+
+
 
 
 #make the fish data frame an sf object so it can be plotted spatially
@@ -209,26 +323,152 @@ shp <- st_as_sf(x = event,
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
 
-#add the huc8 name to the fish event dataframe
+
+
+#add the HUCs and flowline name to the fish event dataframe
 shp <- st_join(shp, left = TRUE, dat8["name"])
+names(shp)[9] <- "huc8name"
+
+shp <- st_join(shp, left = TRUE, dat10["name"])
+names(shp)[10] <- "huc10name"
+
+shp <- st_join(shp, left = TRUE, dat12["name"])
+names(shp)[11] <- "huc12name"
+
+# need tofigure this out with nearest lines
+#shp <- st_join(shp, left = TRUE, flowline["name"])
+
+
 
 #plot fish distriubtion on a map to view annually
 #first need to make it a spatial file and then load in watershed data, and stream data, and state data
 
 
 
-#make shapefile the same crs as NHD
-#load NHD data
-MAflowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/MA/Shape/NHDFlowline.shp")
 
-
-#make the fish dataframe an sf object so it can be plotted spatially
-shp <- st_as_sf(x = event,                         
-                coords = c("longitude", "latitude"),
-                crs = st_crs(MAflowline))
 st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
 
 
+```
+
+
+here we want to plot the number of surveys that have occured at each HUC size
+
+
+```{r}
+
+
+#join event data to each huc shapefile
+shp <- data.frame(shp) #need to make this a dataframe in order to join with an sf object
+
+
+
+#HUC8
+names(dat8)[13] <- "huc8name"
+
+test <- dat8 %>% #join the fish event dataframe to the huc 8 object
+  left_join(shp, by = "huc8name") %>%
+  data.frame() %>% #make a dataframe so it runs faster
+  group_by(huc8name) %>%
+  summarise(count = n()) #count the number of surveys per huc8 over the entire timeline of the data
+
+dat8 <- dat8 %>% #join the counts with the spatial object so we can plot it.
+  left_join(test, by = "huc8name") %>% 
+  select(huc8name, count) %>% 
+  unique()
+
+ggplot(data = dat8)+ #plot of the number of surveys at each HUC8
+  geom_sf(aes(fill = count, color = count))
+  
+ggsave(
+    filename = "tmpfigures/huc8.png",
+    plot = last_plot(),
+    width = 13,
+    height = 15,
+    units = "cm",
+    dpi = 300
+  )
+
+quantile(dat8$count, c(.25, .5, .75, .99))
+
+
+
+#plot of the number of years of surveys at each HUC8
+test <- dat8 %>% #join the fish event dataframe to the huc 8 object
+  left_join(shp, by = "huc8name") %>%
+  data.frame() %>% #make a dataframe so it runs faster
+  select(huc8name, year) %>% 
+  unique() %>% 
+  group_by(huc8name) %>%
+  summarise(count = n()) #count the number of years surveys were done at each watershed
+
+dat8 <- dat8 %>% #join the counts with the spatial object so we can plot it.
+  left_join(test, by = "huc8name") %>% 
+  select(huc8name, count) %>% 
+  unique()
+ggplot(data = dat8)+ #plot of the number of years of surveys at each HUC8
+  geom_sf(aes(fill = count, color = count))
+  
+
+
+
+
+
+#HUC10
+names(dat10)[13] <- "huc10name"
+
+test <- dat10 %>% #join the fish event dataframe to the huc 8 object
+  left_join(shp, by = "huc10name") %>%
+  data.frame() %>% #make a dataframe so it runs faster
+  group_by(huc10name) %>%
+  summarise(count = n()) #count the number of surveys per huc8 over the entire timeline of the data
+
+dat10 <- dat10 %>% #join the counts with the spatial object so we can plot it.
+  left_join(test, by = "huc10name") %>% 
+  select(huc10name, count) %>% 
+  unique()
+
+ggplot(data = dat10)+ #plot of the number of surveys at each HUC8
+  geom_sf(aes(fill = count, color = count))
+
+ggsave(
+    filename = "tmpfigures/huc10.png",
+    plot = last_plot(),
+    width = 13,
+    height = 15,
+    units = "cm",
+    dpi = 300
+  )
+
+quantile(dat10$count, c(.25, .5, .75, .99))
+
+#HUC12
+names(dat12)[13] <- "huc12name"
+
+test <- dat12 %>% #join the fish event dataframe to the huc 8 object
+  left_join(shp, by = "huc12name") %>%
+  data.frame() %>% #make a dataframe so it runs faster
+  group_by(huc12name) %>%
+  summarise(count = n()) #count the number of surveys per huc8 over the entire timeline of the data
+
+dat12 <- dat12 %>% #join the counts with the spatial object so we can plot it.
+  left_join(test, by = "huc12name") %>% 
+  select(huc12name, count) %>% 
+  unique()
+
+ggplot(data = dat12)+ #plot of the number of surveys at each HUC8
+  geom_sf(aes(fill = count, color = count))
+
+ggsave(
+    filename = "tmpfigures/huc12.png",
+    plot = last_plot(),
+    width = 13,
+    height = 15,
+    units = "cm",
+    dpi = 300
+  )
+
+quantile(dat12$count, c(.25, .5, .75, .99))
 
 
 
