@@ -353,10 +353,10 @@ flowline <- flowline %>% st_zm()
 
 
 #save the merged huc files
-st_write(dat8, dsn = "nhd/huc8.shp")
-st_write(dat10, dsn = "nhd/huc10.shp")
-st_write(dat12, dsn = "nhd/huc12.shp")
-st_write(flowline, dsn = "nhd/flowline.shp")
+st_write(dat8, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp")
+st_write(dat10, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc10.shp")
+st_write(dat12, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc12.shp")
+st_write(flowline, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/flowline.shp")
 
 ```
 
@@ -366,10 +366,10 @@ here, we want to attribute each spp code with a HUC 8, 10, 12, flow line ID
 
 ```{r}
 #load the merged HUC boundary files
-dat8 <- st_read("nhd/huc8.shp")
-dat10 <- st_read("nhd/huc10.shp")
-dat12 <- st_read("nhd/huc12.shp")
-flowline <- st_read("nhd/flowline.shp")
+dat8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp")
+dat10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc10.shp")
+dat12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc12.shp")
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/flowline.shp")
 
 
 #load fish data
@@ -426,26 +426,40 @@ shp <- data.frame(shp) #need to make this a dataframe in order to join with an s
 
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+
+
 dat <- fish_count %>% 
   left_join( shp, by = "UID") %>% 
   select(year, common_name, huc8name, huc10name, huc12name) %>% 
   unique() %>%  #need to do unique because some surveys has multiple runs so the same spp could be recorded for the same UID
   group_by(year, huc10name) %>% 
-  mutate(huc10richness = n_distinct(common_name)) %>% 
+  mutate(huc10 = n_distinct(common_name)) %>% 
   ungroup() %>% 
   group_by(year, huc12name) %>% 
-  mutate(huc12richness = n_distinct(common_name)) %>% 
+  mutate(huc12 = n_distinct(common_name)) %>% 
   ungroup() %>% 
   group_by(year, huc8name) %>% 
-  mutate(huc8richness = n_distinct(common_name)) %>% 
+  mutate(huc8 = n_distinct(common_name)) %>% 
   ungroup() %>% 
   pivot_longer(cols = 6:8, names_to = "area", values_to = "richness")
+dat$area <- factor(dat$area, levels = c("huc12", "huc10", "huc8"))
+
 
 ggplot(data = dat, aes(x = area, y = richness))+
-  geom_boxplot()
+  geom_boxplot()+
+  theme(axis.line = element_line(colour = "black"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "grey90"))+
+  labs(x = "Area", y = "Richness")
 
-
-
+ggsave(
+    filename = "tmpfigures/richnessbyhuc.png",
+    plot = last_plot(),
+    width = 13,
+    height = 8,
+    units = "cm",
+    dpi = 300
+  )
 
 
 
