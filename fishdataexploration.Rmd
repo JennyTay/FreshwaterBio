@@ -52,8 +52,27 @@ ggplot(data = event)+
   theme(axis.line = element_line(colour = "black"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "grey90"))+
-  labs(x = "Year", y = "Count", fill = "State")
+  labs(x = "Year", y = "Count", fill = "State")+
+  geom_vline(xintercept = 2004.5, color = "red", linetype = "dashed")+
+  geom_vline(xintercept = 1995.5, color = "red", linetype = "dashed")
+ggsave(
+    filename = "tmpfigures/surveybyyear.png",
+    plot = last_plot(),
+    width = 15,
+    height = 10,
+    units = "cm",
+    dpi = 300
+  )
   
+
+#number of surveys that are backpack e fish vs other
+dat <- fish_count %>%
+  filter(!is.na(count)) %>% 
+ select(UID) %>% 
+  unique()
+dat <- fish_size %>% 
+  select(UID) %>% 
+  unique()
 
 #proportion of surveys using which types of gear
 test <- method %>%
@@ -108,13 +127,13 @@ ggplot(data = test)+
   theme(axis.line = element_line(colour = "black"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "grey90"),
-        axis.text.x = element_text(angle = 90))+
+        axis.text.x = element_text(angle = 45, hjust=1, size = 13))+
   labs(x = "Fish", y = "Proportion", fill = "Gear")
 ggsave(
     filename = "tmpfigures/test.png",
     plot = last_plot(),
-    width = 17,
-    height = 15,
+    width = 26,
+    height = 17,
     units = "cm",
     dpi = 300
   )
@@ -125,6 +144,9 @@ ggsave(
 test <- method %>% 
   group_by(goal) %>% 
   summarise(count = n())
+
+
+
 
 
 #how many surveys were targeted by spp
@@ -159,8 +181,46 @@ test <- method %>%
 write.csv(test, "tmpfigures/tmp.csv")
 
 
+#histogram showing proportion of surveys that recorded each species and the spp was measured, vs just counted
 
+tmp <- fish_size %>% #make a df showing number of surveys of each fish that was measured
+  select(UID, scientific_name, common_name) %>% 
+  unique() %>% 
+  group_by(scientific_name, common_name) %>% 
+  summarise(count_num = n())
+
+tmp2 <- fish_count %>% #make a df showing number of surveys of each fish that was counted
+  select(UID, scientific_name, common_name) %>% 
+  unique() %>% 
+  group_by(scientific_name, common_name) %>% 
+  summarise(count_denom = n())
+
+dat <- left_join(tmp2, tmp, by = c("scientific_name", "common_name")) %>%  #join the two togeter and create column that shows proportion of surveys where each fish was measured, vs the total number of surveys that documented a fish
+  mutate(prop = round(count_num/count_denom, 2)) %>% 
+  arrange(desc(prop))
+
+write.csv(dat, "tmpfigures/tmp.csv")
+
+
+
+# number of fish found in first vs second pass
+test <- fish_count %>%
+  select(UID, run_num, common_name, scientific_name) %>% 
+  group_by(UID, run_num) %>%
+  summarise(richness = n()) %>% 
+  filter(!is.na(run_num))%>% 
+  ungroup() %>% 
+  group_by(run_num) %>% 
+  summarise(richness_mean = round(mean(richness),2),
+            n = n()) 
+write.csv(test, "tmpfigures/richnessbyrun.csv")
+
+ggplot(data = test, aes(x = run_num, y = richness_mean)) +
+  geom_bar(stat = "identity")
 ```
+
+
+
 
 
 
@@ -352,14 +412,41 @@ st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialDat
 ```
 
 
-here we want to plot the number of surveys that have occured at each HUC size
+here we want to plot:
+the species richness by HUC size
+number of surveys that have occured at each HUC size
+
 
 
 ```{r}
-
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
 
 #join event data to each huc shapefile
 shp <- data.frame(shp) #need to make this a dataframe in order to join with an sf object
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+dat <- fish_count %>% 
+  left_join( shp, by = "UID") %>% 
+  select(year, common_name, huc8name, huc10name, huc12name) %>% 
+  unique() %>%  #need to do unique because some surveys has multiple runs so the same spp could be recorded for the same UID
+  group_by(year, huc10name) %>% 
+  mutate(huc10richness = n_distinct(common_name)) %>% 
+  ungroup() %>% 
+  group_by(year, huc12name) %>% 
+  mutate(huc12richness = n_distinct(common_name)) %>% 
+  ungroup() %>% 
+  group_by(year, huc8name) %>% 
+  mutate(huc8richness = n_distinct(common_name)) %>% 
+  ungroup() %>% 
+  pivot_longer(cols = 6:8, names_to = "area", values_to = "richness")
+
+ggplot(data = dat, aes(x = area, y = richness))+
+  geom_boxplot()
+
+
+
+
 
 
 
