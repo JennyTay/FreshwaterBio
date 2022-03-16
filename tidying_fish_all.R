@@ -303,11 +303,17 @@ save(fish_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_da
 save(fish_size, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 
 
-
+test <- fish_count %>% 
+  group_by(common_name, scientific_name) %>% 
+  summarize(count = sum(count, na.rm = T)) %>% 
+  arrange(scientific_name)
 
 #fish look up tables
 fishspp <- fish %>% group_by(scientific_name, common_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
 write.csv(fishspp, "tmpfigures/fishspp_lookup.csv")
+
+
+
 
 fishgenus <- fish %>% group_by(genus) %>% summarise(count = n()) %>% arrange(genus)
 write.csv(fishgenus, "tmpfigures/fishgenus_lookup.csv")

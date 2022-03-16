@@ -55,6 +55,15 @@ dec_fish <- dec_fish %>%
   filter(keep == TRUE) %>% 
   select(-keep)
 
+
+#to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
+
+n <-  dec_fish$count
+dec_fish <- dec_fish[rep(seq_len(nrow(dec_fish)), n),]
+
+
+
+
 #note that the count field is the number of spp per survey and per run - I did not calculate this, its what they record (they do not do the individual measuresments)
 
 dec_method <- vt %>% 

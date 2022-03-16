@@ -51,6 +51,12 @@ des_fish <- des %>%
   rename(scientific_name = FinalID , count = Individuals) %>% 
   select(UID, scientific_name, count, run_num)
 
+#to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
+
+n <-  des_fish$count
+des_fish <- des_fish[rep(seq_len(nrow(des_fish)), n),]
+
+
 
 des_methods <- des %>% 
   select(ActivityID, CollMeth, Duration..sec., StLength) %>% 
