@@ -290,6 +290,7 @@ head(fish)
 
 
 fish_count <- fish %>% 
+  filter(!is.na(count)) %>% 
   select(UID, run_num, count, common_name, scientific_name, genus) %>% 
   unique()  #thi shoudl just be unique
 
@@ -309,7 +310,11 @@ test <- fish_count %>%
   arrange(scientific_name)
 
 #fish look up tables
-fishspp <- fish %>% group_by(scientific_name, common_name) %>% summarize(count = n() ) %>% arrange(scientific_name)
+fishspp <- fish %>% 
+  filter(!is.na(count)) %>% 
+  group_by(scientific_name, common_name) %>% 
+  summarize(count = n() ) %>% 
+  arrange(scientific_name)
 write.csv(fishspp, "tmpfigures/fishspp_lookup.csv")
 
 

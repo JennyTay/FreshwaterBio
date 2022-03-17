@@ -142,6 +142,8 @@ fg_event <- dat %>%
   select(UID, state, Date, latitude, longitude, Project, source)
 names(fg_event)[2:7] <- tolower(names(fg_event)[2:7])
 
+
+
 fg_fish <- fish %>% 
   select("ACT_ID", "Scientific Name", "Length mm", "Weight g", "Total_Num", "Run_Num") %>% 
   mutate(UID = paste("fg", ACT_ID, sep = "_"),
@@ -154,15 +156,34 @@ fg_fish <- fish %>%
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
 
 
-#count is measured for fish that are not measured. we want to sum the count per trip for even the ones when the fish was measured
-tmp <- fg_fish %>% 
-  group_by(UID, scientific_name, run_num) %>% 
-  summarise(countnew = sum(count))
-fg_fish <- fg_fish %>% 
-  left_join(tmp, by = c("UID","scientific_name", "run_num")) %>% 
+
+#to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
+tmp <- fg_fish %>% filter(count>1) #filter for the rows where count >1 - these are the rows we want to replicate based on count
+tmp2 <- fg_fish %>% filter(count == 1) #filter for counts of 1 - these we dont do anything to
+tmp3 <- fg_fish %>% filter(is.na(count)) #filter for NA counts - these spp were measured or counted, they are present - we dont do anything to these observations
+n <-  tmp$count
+tmp <- tmp[rep(seq_len(nrow(tmp)), n),]
+
+tmp4 <- rbind(tmp, tmp2)# dont want to add in the NA counts yet because these do not get a count
+
+#now that there is one row per fish observation, we remove the count column and group by UID, name, and run number and sum the total counts to get
+#total counts for the fish that were measured and the fish that were counted
+tmp5 <- tmp4 %>% 
   select(-count) %>% 
-  rename(count = countnew)
-rm(tmp)
+  group_by(UID, scientific_name, run_num) %>% 
+  summarise(count = n())
+
+#join to the tmp4 df, which is the list of all observations.
+fg_fish <- tmp4 %>% 
+  select(-count) %>% 
+  left_join(tmp5, by = c("UID", "scientific_name", "run_num")) %>% 
+  select(UID, scientific_name, count, length_mm, weight_g, run_num)
+
+fg_fish <- rbind(fg_fish, tmp3) #add in fish with NA counts
+
+
+
+
 
 fg_methods <- dat %>% 
   select(ACT_ID, 
@@ -220,3 +241,4 @@ save(nh_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_dat
 save(nh_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_event.RData")
 save(nh_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_fish.RData")
 save(nh_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/nh_fish_species.RData")
+
