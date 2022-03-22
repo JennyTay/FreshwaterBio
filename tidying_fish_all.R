@@ -116,7 +116,7 @@ fish$common_name[fish$scientific_name =="cyprinidae"] <- "minnow family"
 fish$common_name[fish$scientific_name =="cyprinus carpio"] <- "common carp"
 fish$common_name[fish$scientific_name =="enneacanthus obesus"] <- "banded sunfish"
 fish$common_name[fish$scientific_name =="erimyzon oblongus"] <- "creek chubsucker"
-fish$common_name[fish$scientific_name =="esox americanus"] <- "American pickerel"
+fish$common_name[fish$scientific_name =="esox americanus"] <- "redfin pickerel"
 fish$common_name[fish$scientific_name =="esox americanus americanus"] <- "redfin pickerel"
 fish$common_name[fish$scientific_name =="esox americanus americanus x esox niger"] <- "redfin pickerel x chain pickerel hybrid"
 fish$common_name[fish$scientific_name =="esox lucius"] <- "northern pike"
@@ -285,8 +285,7 @@ fish$scientific_name[fish$scientific_name == "salmo"] <- NA
 
 head(fish)
 
-#want two fish datasets: a spp count by run and survey; and one with spp lengths
-#this is not right, the counts are too high becauase some counts were repeated and now we are adding them, and some counts were not repeated.
+#want three fish datasets: a spp count by run and survey; and one with spp lengths; and a spp presence absence
 
 
 fish_count <- fish %>% 
@@ -298,16 +297,16 @@ fish_size <- fish  %>%
   filter(!is.na(length_mm)) %>% 
   select(-count) #dont want to do unique() here because there may be the same spp with the same lengths in the same survey
   
+fish_presence <- fish %>% 
+  select(UID, common_name, scientific_name, genus) %>% 
+  unique()
 
 #save
 save(fish_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
 save(fish_size, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+save(fish_presence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 
 
-test <- fish_count %>% 
-  group_by(common_name, scientific_name) %>% 
-  summarize(count = sum(count, na.rm = T)) %>% 
-  arrange(scientific_name)
 
 #fish look up tables
 fishspp <- fish %>% 
@@ -315,13 +314,17 @@ fishspp <- fish %>%
   group_by(scientific_name, common_name) %>% 
   summarize(count = n() ) %>% 
   arrange(scientific_name)
-write.csv(fishspp, "tmpfigures/fishspp_lookup.csv")
+write.csv(fishspp, "fishspp_count.csv")
 
 
 
 
-fishgenus <- fish %>% group_by(genus) %>% summarise(count = n()) %>% arrange(genus)
-write.csv(fishgenus, "tmpfigures/fishgenus_lookup.csv")
+fishgenus <- fish %>% 
+  filter(!is.na(count)) %>% 
+  group_by(genus) %>% 
+  summarise(count = n()) %>% 
+  arrange(genus)
+write.csv(fishgenus, "fishgenus_count.csv")
 
 
 

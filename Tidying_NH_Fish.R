@@ -36,14 +36,21 @@ des$run_num <- ifelse(des$ActivityID == "F03P-02" & des$Duration..sec. == 983, 2
 
 # tidy data
 des_event <- des %>% 
-  select(CollDate, Lat_Dec, Long_Dec, ActivityID) %>% 
+  select(CollDate, Lat_Dec, Long_Dec, ActivityID, WaterbodyName) %>% 
   mutate(source = "NHDES - AndyChapman",
          UID = paste("des", ActivityID, sep = "_"),
          project = "NHDES",
-         state = "NH") %>% 
+         state = "NH",
+         waterbody = ifelse(grepl("Pond$", WaterbodyName), "lentic",      #identify lotic or lentic by searching for lakes or ponds at the end of the locatioName
+                            ifelse(grepl("Lake$", WaterbodyName), "lentic", "lotic"))) %>%  
   rename(latitude = Lat_Dec, longitude = Long_Dec, date = CollDate) %>% 
-  select(UID, state, date, latitude, longitude, project, source) %>% 
+  select(UID, state, date, waterbody, latitude, longitude, project, source) %>% 
   unique()
+
+#the three waterbodies that were identified at lentic are actually lotic so I will change these 
+#"Trib to Sip Pond", "Snow Brook, DS of Conway Lake", "Snow Brook, US of Conway Lake"
+des_event$waterbody[des_event$waterbody == "lentic"] <- "lotic"
+
 
 des_fish <- des %>% 
   select(ActivityID, FinalID , Individuals, run_num) %>% 
@@ -134,12 +141,15 @@ unique(fish$Species[is.na(fish$`Common Name`)])
 
 # tidy data
 fg_event <- dat %>% 
-  select(ACT_ID, Lat_Start, Long_Start, Project, Date) %>% 
+  select(ACT_ID, Lat_Start, Long_Start, Project, Date, Water_Body) %>% 
   mutate(source = "NHFG - MattCarpenter",
          UID = paste("fg", ACT_ID, sep = "_"),
-         state = "NH") %>% 
+         state = "NH",
+         waterbody = ifelse(grepl("Pond$", Water_Body), "lentic",      #identify lotic or lentic by lake, pond, reservoir at the end of the Water_Body
+                            ifelse(grepl("Lake$", Water_Body), "lentic", 
+                                   ifelse(grepl("Reservoir$", Water_Body), "lentic","lotic")))) %>% 
   rename(latitude = Lat_Start, longitude = Long_Start) %>% 
-  select(UID, state, Date, latitude, longitude, Project, source)
+  select(UID, state, Date, waterbody, latitude, longitude, Project, source)
 names(fg_event)[2:7] <- tolower(names(fg_event)[2:7])
 
 

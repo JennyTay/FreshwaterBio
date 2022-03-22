@@ -98,7 +98,7 @@ test <- fish_count %>%
   group_by(gear, common_name) %>% 
   summarise(count = sum(count, na.rm = T)) %>% 
   pivot_wider(names_from = gear, values_from = count) 
-write.csv(test, "tmpfigures/table1.csv")
+write.csv(test, "tmpfigures/fishcountbygear.csv")
 
 #make figure showing proporation of fish count by gear for the fish where <75% of observations were done by backpack efish
 
