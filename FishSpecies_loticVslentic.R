@@ -41,16 +41,16 @@ tmp <- tmp %>%
 
 
 
-#calcuate the fish found in lotic habitats/total lotic surveys and the fish found in lentic habitats/lentic surveys
+#calculate the fish found in lotic habitats/total lotic surveys and the fish found in lentic habitats/lentic surveys
 
-lotic <- nrow(event[event$waterbody == "lotic",])
-lentic <- nrow(event[event$waterbody == "lentic",])
-
-tmp <- fish_count %>% 
-  left_join(event, by = "UID") %>% 
-  select(common_name, waterbody, count) %>% 
-  group_by(common_name, waterbody) %>% 
-  summarise(count = sum(count)) %>% 
-  mutate(fishpersurvey = round(ifelse(waterbody == "lotic", count/lotic, count/lentic),3)) %>% 
-  select(common_name, waterbody, fishpersurvey) %>% 
-  pivot_wider(names_from = waterbody, values_from = fishpersurvey)
+# lotic <- nrow(event[event$waterbody == "lotic",])
+# lentic <- nrow(event[event$waterbody == "lentic",])
+# 
+# tmp <- fish_count %>% 
+#   left_join(event, by = "UID") %>% 
+#   select(common_name, waterbody, count) %>% 
+#   group_by(common_name, waterbody) %>% 
+#   summarise(count = sum(count)) %>% 
+#   mutate(fishpersurvey = round(ifelse(waterbody == "lotic", count/lotic, count/lentic),3)) %>% 
+#   select(common_name, waterbody, fishpersurvey) %>% 
+#   pivot_wider(names_from = waterbody, values_from = fishpersurvey)

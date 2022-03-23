@@ -23,7 +23,7 @@ hist(as.numeric(ct$ReachLengthMeasureValue))
 
 
 
-#prepare the 4 files:; ct_event, ct_fish, ct_method, ct_species
+#prepare the 3 files:; ct_event, ct_fish, ct_method
 
 #ct_event
 ct_event <- ct %>% 
