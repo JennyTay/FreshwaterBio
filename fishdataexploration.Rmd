@@ -31,6 +31,54 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/
 ```
 
 
+First we want to remove the lentic site events from all the datasets
+
+```{r}
+
+event <- event %>% 
+  filter(waterbody == "lotic")
+
+
+
+#What methods are removed by only looking at lotic
+method2 <- method %>% 
+  filter(UID %in% event$UID)
+
+tmp <- method %>% 
+  filter(! gear %in% method2$gear) %>% 
+  select(gear) %>% 
+  unique()
+
+#what spp are removed by only looking at lotic
+
+fish_count2 <- fish_count %>% 
+  filter(UID %in% event$UID)
+
+tmp <- fish_count %>% 
+  filter(! common_name %in% fish_count2$common_name) %>% 
+  select(common_name) %>% 
+  unique()
+
+
+rm(tmp, method2, fish_count2)
+
+
+
+
+#make new dfs with only the lotic surveys
+fish_count <- fish_count %>% 
+  filter(UID %in% event$UID)
+
+fish_size <- fish_size %>% 
+  filter(UID %in% event$UID)
+
+method <- method %>% 
+  filter(UID %in% event$UID)
+
+```
+
+
+
 
 In this next chunk, we want to make plots that explore the data.
 1. survey events by year and state
@@ -56,7 +104,7 @@ ggplot(data = event)+
   geom_vline(xintercept = 2004.5, color = "red", linetype = "dashed")+
   geom_vline(xintercept = 1995.5, color = "red", linetype = "dashed")
 ggsave(
-    filename = "tmpfigures/surveybyyear.png",
+    filename = "tmpfigures/loticsurveybyyear.png",
     plot = last_plot(),
     width = 15,
     height = 10,
@@ -98,7 +146,7 @@ test <- fish_count %>%
   group_by(gear, common_name) %>% 
   summarise(count = sum(count, na.rm = T)) %>% 
   pivot_wider(names_from = gear, values_from = count) 
-write.csv(test, "tmpfigures/fishcountbygear.csv")
+write.csv(test, "tmpfigures/loticfishcountbygear.csv")
 
 #make figure showing proporation of fish count by gear for the fish where <75% of observations were done by backpack efish
 
@@ -112,16 +160,16 @@ test <- fish_count %>%
 tmp <- test %>% 
   group_by(common_name) %>% 
   summarize(tot = sum(count, na.rm=T)) #total counts of spp from all gear combined
-test <- test %>% 
+test2 <- test %>% 
   left_join(tmp, by = "common_name") %>%  #add total counts column
   mutate(prop = count/tot) %>%  #add proportion of count from each gear type out of total
   select(-count, -tot) %>% 
   pivot_wider(names_from = gear, values_from = prop) %>% #wide format 
   filter(efish_backpack < 0.75) %>%  #remove fish whose counts are 75%+ from backpack efish
-  pivot_longer(cols = 3:20, names_to = "gear", values_to = "prop") #long format
+  pivot_longer(cols = 2:17, names_to = "gear", values_to = "prop") #long format
   
   
-ggplot(data = test)+
+ggplot(data = test2)+
   geom_bar(mapping = aes(x = common_name, y = prop, fill = gear),
                          position = "fill", stat = "identity")+
   theme(axis.line = element_line(colour = "black"),
@@ -130,7 +178,7 @@ ggplot(data = test)+
         axis.text.x = element_text(angle = 45, hjust=1, size = 13))+
   labs(x = "Fish", y = "Proportion", fill = "Gear")
 ggsave(
-    filename = "tmpfigures/test.png",
+    filename = "tmpfigures/test2.png",
     plot = last_plot(),
     width = 26,
     height = 17,

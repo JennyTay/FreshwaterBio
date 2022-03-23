@@ -31,13 +31,16 @@ str(vt)
 
 # tidy data
 dec_event <- vt %>% 
-  select(Date, "Latitude (DD)", "Longitude (DD)", EventID) %>% 
+  select(Date, "Latitude (DD)", "Longitude (DD)", EventID, Location) %>% 
   mutate(source = "VTDEC - JimDeshler",
          UID = paste("VT", EventID, sep = "_"),
          project = "VTDEC",
-         state = "VT") %>% 
+         state = "VT",
+         waterbody = ifelse(grepl("Pond$", Location), "lentic",      #identify lotic or lentic by lake, pond, reservoir at the end of the Water_Body
+                   ifelse(grepl("Lake$", Location), "lentic", 
+                          ifelse(grepl("Reservoir$", Location), "lentic","lotic")))) %>% 
   rename(latitude = "Latitude (DD)", longitude = "Longitude (DD)", date = Date) %>% 
-  select(UID, state, date, latitude, longitude, project, source) %>% 
+  select(UID, state, date, waterbody, latitude, longitude, project, source) %>% 
   unique()
 
 dec_fish <- vt %>% 

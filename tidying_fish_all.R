@@ -45,7 +45,7 @@ event$date <- ymd(event$date)
 event$year <- year(event$date)
 event$month <- month(event$date)
 event <- event %>% 
-  select(UID, state, date, year, month, latitude, longitude, project, source)
+  select(UID, state, date, year, month, waterbody, latitude, longitude, project, source)
 
 str(event)
 table(event$state)
@@ -88,7 +88,7 @@ fish$scientific_name[fish$scientific_name == 'unknown 2'] <- "unknown"
 fish$scientific_name[fish$scientific_name == 'sander vitreus'] <- "stizostedion vitreum" 
 fish$scientific_name[fish$scientific_name == 'lampetra appendix'] <- "lethenteron appendix" 
 fish$scientific_name[fish$scientific_name == 'phoxinus eos'] <- "chrosomus eos" #per rebeccas correction
-
+fish$scientific_name[fish$scientific_name == 'esox americanus'] <- "esox americanus americanus"
 
 #need to add in common names
 fish$common_name[fish$scientific_name =="acipenser brevirostrum"] <- "shortnose sturgeon"
@@ -116,7 +116,6 @@ fish$common_name[fish$scientific_name =="cyprinidae"] <- "minnow family"
 fish$common_name[fish$scientific_name =="cyprinus carpio"] <- "common carp"
 fish$common_name[fish$scientific_name =="enneacanthus obesus"] <- "banded sunfish"
 fish$common_name[fish$scientific_name =="erimyzon oblongus"] <- "creek chubsucker"
-fish$common_name[fish$scientific_name =="esox americanus"] <- "redfin pickerel"
 fish$common_name[fish$scientific_name =="esox americanus americanus"] <- "redfin pickerel"
 fish$common_name[fish$scientific_name =="esox americanus americanus x esox niger"] <- "redfin pickerel x chain pickerel hybrid"
 fish$common_name[fish$scientific_name =="esox lucius"] <- "northern pike"
@@ -408,4 +407,37 @@ unique(method$target)
 
 #save
 save(method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+
+
+
+
+
+
+#################
+
+#make fish data spatial
+
+
+
+#load the merged HUC boundary files
+dat8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp") #this is the crs that we want
+
+
+#load fish data
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+
+dat <- left_join(fish_count, event, by = "UID")
+
+#23 unique fish survey UID do not have corresponding event data. 8 from MA and 15 from NH DFG.  
+#remove the surveys with no location information
+dat <- dat %>% 
+  filter(!is.na(latitude))
+
+#make the fish data frame an sf object so it can be plotted spatially
+shp <- st_as_sf(x = dat,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(dat8))
+
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 

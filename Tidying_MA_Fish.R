@@ -63,13 +63,14 @@ boat_data <- sqlQuery(con2, qry6)
 names(sample_data)
 
 ma_event <- sample_data %>% 
-  select(sample_id, sample_date, latitude, longitude, agency) %>% 
+  select(sample_id, saris_palis, sample_date, latitude, longitude, agency) %>% 
   mutate(state = "MA",
          source = "MassWildlife - JasonStolarski",
-         UID = paste("MA", sample_id, sep = "_")) %>% 
+         UID = paste("MA", sample_id, sep = "_"),
+         waterbody = ifelse(saris_palis > 99999, "lotic", "lentic")) %>% 
   rename(project = agency,
          date = sample_date) %>% 
-  select(UID, state, date, latitude, longitude, project, source, -sample_id)
+  select(UID, state, date, waterbody, latitude, longitude, project, source, -sample_id)
 
 #prepare fish df. I am goin to use scientific name for each state, and then I'll go back and create an ID because the fish codes differ by state.
 tmp <- left_join(fish_data, species_data, by = "fish_code")

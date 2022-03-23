@@ -27,16 +27,18 @@ hist(as.numeric(ct$ReachLengthMeasureValue))
 
 #ct_event
 ct_event <- ct %>% 
-  select(ActivityIdentifier, ActivityStartDate, ylat, xlong, ProjectIdentifier) %>% 
+  select(ActivityIdentifier, ActivityStartDate, ylat, xlong, ProjectIdentifier, locationName) %>% 
   mutate(state = "CT", 
          source = "ChrisBellucci - CTDEEP",
-         UID = paste("CT", ActivityIdentifier, sep = "_")) %>% 
+         UID = paste("CT", ActivityIdentifier, sep = "_"),
+         waterbody = ifelse(grepl("Pond$", locationName), "lentic",      #identify lotic or lentic by searching for lakes or ponds at the end of the locatioName
+                            ifelse(grepl("Lake$", locationName), "lentic", "lotic"))) %>% 
   rename(date = ActivityStartDate, 
          latitude = ylat, 
          longitude = xlong, 
          project = ProjectIdentifier) %>% 
-  select(UID, state, date, latitude, longitude, project, source,
-         -ActivityIdentifier, ) %>% 
+  select(UID, state, date, waterbody, latitude, longitude, project, source,
+         -ActivityIdentifier, -locationName) %>% 
   unique()
 
 ct_fish <- ct %>% 
@@ -52,7 +54,7 @@ ct_fish <- ct %>%
          run_num = Pass) %>% 
   mutate(length = as.numeric(length),
          length_mm = ifelse(FrequencyClassDescriptorUnitCode == "cm", length*10, length),
-         UID = paste("CT", ActivityIdentifier, by = "_"),
+         UID = paste("CT", ActivityIdentifier, sep = "_"),
          count = as.numeric(count)) %>% 
   select(UID, scientific_name, length_mm, count, run_num)
 
