@@ -122,6 +122,7 @@ ri_fish <- ri %>%
          scientific_name, 
          total_num_specimens_for_each_spp_collected, #this is the count
          length_mm) %>% #fish measurement
+  mutate(scientific_name = tolower(scientific_name))
   rename(count = total_num_specimens_for_each_spp_collected) %>% 
   select(UID, scientific_name, length_mm, count)
 
@@ -142,6 +143,23 @@ ri_fish$count[ri_fish$count == 21579] <- NA
 
 
 
+#ri_method
+
+#clean up the gear column
+unique(ri$gear)
+ri$gear[ri$gear == "backpack shocker"] <- "efish_backpack"
+ri$gear[ri$gear == "boat shocking"] <- "efish_boat"
+ri$gear[ri$gear == "backpack"] <- "efish_backpack"
+ri$gear[ri$gear == "boat shocker"] <- "efish_boat"
+ri$gear[ri$gear == "backpack shocking"] <- "efish_backpack"
+ri$gear[ri$gear == "boat schcking"] <- "efish_boat"
+ri$gear[ri$gear == "boatshocker"] <- "efish_boat"
+ri$gear[ri$gear == "backpack(2)"] <- "efish_backpack"
+ri$gear[ri$gear == "boatshocking"] <- "efish_boat"
+ri$gear[ri$gear == "backpackshocker"] <- "efish_backpack"
+ri$gear[ri$gear == "backpack on boat"] <- "efish_backpack"
+ri$gear[ri$gear == "trapnetting"] <- "trapnet"
+ri$gear[ri$gear == "trap"] <- "trapnet"
 
 ri_method <- ri %>% 
   select(UID, 
@@ -156,6 +174,7 @@ ri_method <- ri %>%
          efish_runs = 1 )%>%  #Alan said mostly do single pass
   select(UID, gear, goal, target, reach_length_m, avg_reach_width_m, efish_duration_s, efish_runs) %>% 
   unique()
+
 
 
 
