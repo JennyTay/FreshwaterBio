@@ -121,10 +121,17 @@ ri_fish <- ri %>%
   select(UID, 
          scientific_name, 
          total_num_specimens_for_each_spp_collected, #this is the count
+         subsample,
          length_mm) %>% #fish measurement
-  mutate(scientific_name = tolower(scientific_name))
+  mutate(scientific_name = tolower(scientific_name)) %>% 
   rename(count = total_num_specimens_for_each_spp_collected) %>% 
-  select(UID, scientific_name, length_mm, count)
+  select(UID, scientific_name, length_mm, subsample, count)
+
+ri_fish$subsample <- gsub("~", "", ri_fish$subsample) #remove the ~approx symbol 
+ri_fish$subsample[is.na(as.numeric(ri_fish$subsample))] <- NA #turn the non numerical entires into NA
+ri_fish$subsample <- as.numeric(ri_fish$subsample)
+ri_fish$subsample[ri_fish$subsample == 0] <- NA
+
 
 ri_fish$length_mm <- gsub("~", "", ri_fish$length_mm) #remove the ~approx symbol from the lengths, becuase exact measurement doesnt matter for us
 ri_fish$length_mm[is.na(as.numeric(ri_fish$length_mm))] <- NA #turn the non numerical entires into NA

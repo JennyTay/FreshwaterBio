@@ -11,7 +11,25 @@ library(tidyverse)
 #load data
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+
+
+#how many lotic vs lentic sites was each species observed at
+tmp <- fish_presence %>% 
+  left_join(event, by = "UID") %>% 
+  select(common_name, waterbody) %>% 
+  group_by(common_name, waterbody) %>% 
+  summarise(count = n()) %>%   #site count in lotic vs lentic.
+  pivot_wider(names_from = waterbody, values_from = count) %>% 
+  mutate(lifehistory = 
+           ifelse(common_name %in% c("american eel", "sea lamprey", "american shad", "rainbow smelt", 
+                                                 "blueback herring", "alewife"), 
+                              "diadromous", 
+                  ifelse(common_name %in% c("mummichog", "hogchoker", "atlantic silverside", "spotfin killifish",
+                                            "northern pipefish", "naked goby", "atlantic needlefish", "striped killifish"), 
+                         "estuarine",
+                         "freshwater resident")))
 
 #ratio of lotic to lentic sampling events
 rat <- nrow(event[event$waterbody == "lotic",])/nrow(event[event$waterbody == "lentic",])
@@ -37,8 +55,10 @@ tmp <- tmp %>%
                                "diadromous", 
                                "freshwater resident"),
          occurrence = ifelse(lotic < quantile(tmp$lotic, 0.2), "rare", 
-                             ifelse(lotic < quantile(tmp$lotic, 0.5) & lotic >= quantile(tmp$lotic, 0.2), "common","very common")))
+                             ifelse(lotic < quantile(tmp$lotic, 0.5) & lotic >= quantile(tmp$lotic, 0.2), "common","very common"))) %>% 
+  arrange(habitat_found, lifehistory, occurrence)
 
+write.csv(tmp, "tmpfigures/fishannotation.csv")
 
 
 #calculate the fish found in lotic habitats/total lotic surveys and the fish found in lentic habitats/lentic surveys
