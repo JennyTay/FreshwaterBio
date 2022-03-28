@@ -125,7 +125,8 @@ ri_fish <- ri %>%
          length_mm) %>% #fish measurement
   mutate(scientific_name = tolower(scientific_name)) %>% 
   rename(count = total_num_specimens_for_each_spp_collected) %>% 
-  select(UID, scientific_name, length_mm, subsample, count)
+  select(UID, scientific_name, length_mm, subsample, count) %>% 
+  filter(scientific_name != "no fish")
 
 ri_fish$subsample <- gsub("~", "", ri_fish$subsample) #remove the ~approx symbol 
 ri_fish$subsample[is.na(as.numeric(ri_fish$subsample))] <- NA #turn the non numerical entires into NA
@@ -145,15 +146,46 @@ ri_fish$count <- as.numeric(ri_fish$count)
 ri_fish$count[ri_fish$count == 21579] <- NA
 
 
+
 # in this dataset, they measure up to 30 fish, and then count the rest.we want to get it into a format of one row per indidividual - so for the 
 #spp that had a greater count then the number measured, we need to replcate those rows with NA for the spp  length
+
+
+tmp <- ri_fish %>% 
+  group_by(UID, scientific_name) %>% 
+  summarise(sample = n())
+  
+tmp2 <- ri_fish %>% 
+  select(UID, scientific_name, count) %>% 
+  unique() 
+
+tmp3 <- left_join(tmp, tmp2, by = c("UID", "scientific_name")) %>% 
+  mutate(notmeasured = count - sample) %>% #calculate how many rows need to be added to make the number of rows = to the count
+  filter(notmeasured > 0) %>% #filter for the samples that had a higher count than the number measured
+  select(UID, scientific_name, notmeasured, count) #select just the uid, name, and number of additional times we need to replicate the row
+  
+n <-  tmp3$notmeasured
+tmp4 <- tmp3[rep(seq_len(nrow(tmp3)), n),] #replicate the rows
+
+ri_fish <- bind_rows(ri_fish, tmp4) %>% #bind the replicated rows with no fish lenght information back into the ri_fish dataframe
+  arrange(UID, scientific_name) %>% 
+  select(-subsample, -notmeasured)
+  
+#thre were some rows where the count was not correct (the count was smallwer than the sample (so the count- sample was negative))
+tmp5 <- ri_fish %>% 
+  group_by(UID, scientific_name) %>% 
+  summarise(countnew = n()) #calucate the count by summing the rows per fish spp per UID
+ri_fish <- left_join(ri_fish, tmp5, by = c("UID", "scientific_name")) %>% 
+  select(-count) %>%  #remove the original count
+  rename(count = countnew) #rename the new count to the be count
+
 
 
 
 #ri_method
 
 #clean up the gear column
-unique(ri$gear)
+table(ri$gear)
 ri$gear[ri$gear == "backpack shocker"] <- "efish_backpack"
 ri$gear[ri$gear == "boat shocking"] <- "efish_boat"
 ri$gear[ri$gear == "backpack"] <- "efish_backpack"
@@ -164,16 +196,25 @@ ri$gear[ri$gear == "boatshocker"] <- "efish_boat"
 ri$gear[ri$gear == "backpack(2)"] <- "efish_backpack"
 ri$gear[ri$gear == "boatshocking"] <- "efish_boat"
 ri$gear[ri$gear == "backpackshocker"] <- "efish_backpack"
-ri$gear[ri$gear == "backpack on boat"] <- "efish_backpack"
+ri$gear[ri$gear == "backpack on boat"] <- "remove"
 ri$gear[ri$gear == "trapnetting"] <- "trapnet"
 ri$gear[ri$gear == "trap"] <- "trapnet"
+ri$gear[ri$gear == "shocker"] <- "efish_backpack"
+ri$gear[ri$gear == "shkr"] <- "efish_backpack"
+ri$gear[ri$gear == "shocking"] <- "efish_backpack"
+ri$gear[ri$gear == "shock"] <- "efish_backpack"
+ri$gear[ri$gear == "dive"] <- "snorkel"
+ri$gear[ri$gear == "observations"] <- "observed"
+ri$gear[ri$gear == "seine,electro"] <- "efish_backpack/seine"
+ri$gear[ri$gear == "seine/shock"] <- "efish_backpack/seine"
 
 ri_method <- ri %>% 
   select(UID, 
          gear, #gear
-         station_length, #reach length - CONFIRM WITH ALAN
-         station_width, #reach width - CONFIRM WITH ALAN
+         station_length, #reach length - alan confirmed
+         station_width, #reach width - - alan confirmed
          efish_duration_s) %>%  #survey duration 
+  filter(gear != "remove") %>%  #I removed the gear type backpack on boat bc alan said this was not an efficient survey
   rename(reach_length_m = station_length,
          avg_reach_width_m = station_width) %>% 
   mutate(target = NA,
@@ -181,6 +222,10 @@ ri_method <- ri %>%
          efish_runs = 1 )%>%  #Alan said mostly do single pass
   select(UID, gear, goal, target, reach_length_m, avg_reach_width_m, efish_duration_s, efish_runs) %>% 
   unique()
+
+ri_method$efish_duration_s <- gsub("~", "", ri_method$efish_duration_s) #remove the ~approx symbol from the lengths, becuase exact measurement doesnt matter for us
+ri_method$efish_duration_s[is.na(as.numeric(ri_method$efish_duration_s))] <- NA #turn the non numerical entires into NA 
+ri_method$efish_duration_s <- as.numeric(ri_method$efish_duration_s)
 
 
 
