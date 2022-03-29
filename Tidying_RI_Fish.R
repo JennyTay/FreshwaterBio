@@ -17,6 +17,9 @@ library(stringi)
 
 #########################################################
 
+#in the raw data from Alan, the date column was offset by one (ie there is a blank cell in the first row for date only) I fixed this in the excel spreadsheet.
+
+
 #read in sample data
 ri <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Fish Data/jenrogers data request.xls",
                  skip = 56, col_names = FALSE)
@@ -71,16 +74,16 @@ ri$scientific_name[ri$spp_code == "unknown"] <- "unknown"
 
 #ri_event
 ri_event <- ri %>% 
-  select(UID, date, latitude, longitude, waterbody_roadcrossing) %>% 
+  select(UID, date, latitude, longitude) %>% 
   mutate(state = "RI", 
          source = "Allan Liby - RIDEM",
          project = "fish_community_RI_streams_Rivers",
+         waterbody = "lotic", #reviewed the water bodies and all were river, brook, stream, or tributary. no lentic waterbodies listed
          date2 = round(date, 0),
          date3 = ifelse(date2 < 1000000, paste(19, date2, sep = ""), 
                         ifelse(date2>999999, sub(".", "20", date2), date2)),
-         date4 = ymd(date3)) %>%
-  separate(waterbody_roadcrossing, into = c("waterbody", "roadcrossing"), sep = "/") %>% 
-  select(-date, -date2, -date3, -roadcrossing) %>% 
+         date4 = ymd(date3)) %>% 
+  select(-date, -date2, -date3) %>% 
   rename(date = date4) %>% 
   select(UID, state, date, waterbody, latitude, longitude, project, source) %>% 
   unique()
@@ -115,6 +118,10 @@ tmp2 <- tmp2 %>% #keep and rename the final latitude and longitude columns
 ri_event <- rbind(tmp, tmp2) #rbind the converted coordinate df to the df that was orignally in dec degrees
 rm(tmp, tmp2, code)
 
+#fix longitude
+ri_event$longitude[ri_event$UID == "RI_2_1_14_930723"] <- -71.79167 #this was a typo and was originally -41.79167
+#fix latitude based on the cross street and the brook crossing
+ri_event$latitude[ri_event$UID == "RI_4_4_5_980716"] <- 41.588950 #I got this from google mapoing Fisherville B./Pardon Joslin Rd.
 
 #RI fish
 ri_fish <- ri %>% 
@@ -219,8 +226,9 @@ ri_method <- ri %>%
          avg_reach_width_m = station_width) %>% 
   mutate(target = NA,
          goal = "Total Pick Up", #Alan said they do all total pick up
-         efish_runs = 1 )%>%  #Alan said mostly do single pass
-  select(UID, gear, goal, target, reach_length_m, avg_reach_width_m, efish_duration_s, efish_runs) %>% 
+         efish_runs = 1, #Alan said mostly do single pass
+         daylight = ifelse(gear == "efish_boat", "Night", NA))%>%  
+  select(UID, gear, goal, target, reach_length_m, avg_reach_width_m, efish_duration_s, efish_runs, daylight) %>% 
   unique()
 
 ri_method$efish_duration_s <- gsub("~", "", ri_method$efish_duration_s) #remove the ~approx symbol from the lengths, becuase exact measurement doesnt matter for us

@@ -92,6 +92,10 @@ tmp <- ma_fish %>%
 
 ma_fish <- left_join(ma_fish, tmp, by = c("UID", "scientific_name", "run_num"))
 
+#identify stocked fish to exclude. this is a combination of there being less than 5 trout in a sample and the trout being >200mm
+# stocked <- ma_fish %>% 
+#   filter(grepl("Oncorhynchus mykiss|Salvelinus fontinalis|Salmo trutta", scientific_name)) %>% 
+#   filter(count < 2)
 
 #prepare species df
 ma_species <- species_data %>% 

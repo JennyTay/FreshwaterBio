@@ -39,7 +39,7 @@ str(ma_event)
 
 ###################################
 
-event <- bind_rows(ct_event, dec_event, nh_event, ma_event)
+event <- bind_rows(ct_event, dec_event, nh_event, ma_event, ri_event)
 event$date <- substr(event$date, start=1, stop=10)
 event$date <- ymd(event$date)
 event$year <- year(event$date)
@@ -74,7 +74,7 @@ save(event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ti
 
 
 
-fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish)
+fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish, ri_fish)
 fish$scientific_name <- tolower(fish$scientific_name)
 fish$scientific_name <- trimws(fish$scientific_name)
 fish$scientific_name[fish$scientific_name == 'catostomus commersoni'] <- "catostomus commersonii"
@@ -89,6 +89,7 @@ fish$scientific_name[fish$scientific_name == 'sander vitreus'] <- "stizostedion 
 fish$scientific_name[fish$scientific_name == 'lampetra appendix'] <- "lethenteron appendix" 
 fish$scientific_name[fish$scientific_name == 'phoxinus eos'] <- "chrosomus eos" #per rebeccas correction
 fish$scientific_name[fish$scientific_name == 'esox americanus'] <- "esox americanus americanus"
+fish$scientific_name[fish$scientific_name == 'lepomis spp.'] <- "lepomis sp"
 
 #need to add in common names
 fish$common_name[fish$scientific_name =="acipenser brevirostrum"] <- "shortnose sturgeon"
@@ -189,6 +190,29 @@ fish$common_name[fish$scientific_name =="salmo trutta_hatchery"] <- "brown trout
 fish$common_name[fish$scientific_name =="salvelinus fontinalis_hatchery"] <- "brook trout_hatchery"
 fish$common_name[fish$scientific_name =="oncorhynchus mykiss_hatchery"] <- "rainbow trout_hatchery"
 fish$common_name[fish$scientific_name =="alosa spp."] <- "river herring"
+fish$common_name[fish$scientific_name =="ictaluridae"] <- "catfish family"
+fish$common_name[fish$scientific_name =="menidia beryllina"] <- "inland silverside"
+fish$common_name[fish$scientific_name =="salmonidae"] <- "salmonid family"
+fish$common_name[fish$scientific_name =="dorosoma cepedianum"] <- "gizzard shad"
+fish$common_name[fish$scientific_name =="anchoa mitchilli"] <- "bay anchovy"
+fish$common_name[fish$scientific_name =="brevoortia tyrannus"] <- "Atlantic menhaden"
+fish$common_name[fish$scientific_name =="caranx hippos"] <- "crevalle jack"
+fish$common_name[fish$scientific_name =="cynoscion regalis"] <- "weakfish"
+fish$common_name[fish$scientific_name =="leiostomus xanthurus"] <- "spot"
+fish$common_name[fish$scientific_name =="paralichthys dentatus"] <- "summer flounder"
+fish$common_name[fish$scientific_name =="peprilus triacanthus"] <- "butterfish"
+fish$common_name[fish$scientific_name =="pomatomus saltatrix"] <- "bluefish"
+fish$common_name[fish$scientific_name =="prionotus carolinus"] <- "northern searobin"
+fish$common_name[fish$scientific_name =="pseudopleuronectes americanus"] <- "winter flounder"
+fish$common_name[fish$scientific_name =="scomberomorus cavalla"] <- "king mackerel"
+fish$common_name[fish$scientific_name =="eucinostomus argentous"] <- "spotfin mojarra"
+fish$common_name[fish$scientific_name =="menticirrhus saxatilis"] <- "northern kingfish"
+fish$common_name[fish$scientific_name =="alosa mediocris"] <- "hickory shad"
+fish$common_name[fish$scientific_name =="microgadus tomcod"] <- "Atlantic tomcod"
+fish$common_name[fish$scientific_name =="cyprinodon variegatus"] <- "sheepshead minnow"
+fish$common_name[fish$scientific_name =="lucania parva"] <- "rainwater killifish"
+fish$common_name[fish$scientific_name =="poecilia reticulata"] <- "guppy"
+
 
 #The vermont DEC data did not have scientific names, just common names, so I want to make a separatetable to join
 fish$common_name <- tolower(fish$common_name)
@@ -429,7 +453,8 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/
 
 dat <- left_join(fish_count, event, by = "UID")
 
-#23 unique fish survey UID do not have corresponding event data. 8 from MA and 15 from NH DFG.  
+unique(dat$UID[is.na(dat$latitude)])
+#99 unique fish survey UID do not have corresponding event data: 8 from MA, 15 from NH DFG, 76 from RI DEM  
 #remove the surveys with no location information
 dat <- dat %>% 
   filter(!is.na(latitude))

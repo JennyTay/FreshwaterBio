@@ -51,11 +51,15 @@ des_event <- des %>%
 #"Trib to Sip Pond", "Snow Brook, DS of Conway Lake", "Snow Brook, US of Conway Lake"
 des_event$waterbody[des_event$waterbody == "lentic"] <- "lotic"
 
+#want to make a column for total count, which equals individals + DEADnum - NumStocked
+
+des$NumStocked[is.na(des$NumStocked)] <- 0
 
 des_fish <- des %>% 
-  select(ActivityID, FinalID , Individuals, run_num) %>% 
-  mutate(UID = paste("des", ActivityID, sep = "_")) %>% 
-  rename(scientific_name = FinalID , count = Individuals) %>% 
+  select(ActivityID, FinalID , Individuals, run_num, NumStocked) %>% 
+  mutate(UID = paste("des", ActivityID, sep = "_"),
+         totalcount = Individuals - NumStocked) %>% #new count column that subtracts the stocked number. The DEADnum is already included in the individuals column and we want to include these, because they died fromthe eshock
+  rename(scientific_name = FinalID , count = totalcount) %>% 
   select(UID, scientific_name, count, run_num)
 
 #to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
@@ -162,8 +166,10 @@ fg_fish <- fish %>%
   select(UID, scientific_name, count, length_mm, weight_g, Run_Num) %>% 
   mutate(length_mm = as.numeric(length_mm),
          weight_g = as.numeric(weight_g),
-         Run_Num =as.numeric(Run_Num))
+         Run_Num =as.numeric(Run_Num)) %>% 
+  filter(!grepl('_hatchery', scientific_name)) #remove the hatchery fish
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
+
 
 
 

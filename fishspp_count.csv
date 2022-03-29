@@ -1,109 +1,129 @@
 "","scientific_name","common_name","count"
 "1","acipenser brevirostrum","shortnose sturgeon",2
-"2","alosa aestivalis","blueback herring",333
-"3","alosa pseudoharengus","alewife",3686
-"4","alosa sapidissima","american shad",273
-"5","ambloplites rupestris","rock bass",7208
-"6","ameiurus catus","white catfish",15
-"7","ameiurus natalis","yellow bullhead",6774
-"8","ameiurus nebulosus","brown bullhead",8967
-"9","amia calva","bowfin",42
-"10","Ammocrypta pellucida","eastern sand darter",24
-"11","anguilla rostrata","american eel",26138
-"12","apeltes quadracus","fourspine stickleback",792
-"13","carassius auratus","goldfish",134
-"14","catostomus catostomus","longnose sucker",10067
-"15","catostomus commersonii","white sucker",80619
-"16","chrosomus eos","redbelly dace",3899
-"17","clinostomus funduloides","rosyside dace",212
-"18","coregonus clupeaformis","lake whitefish",1
-"19","cottus bairdii","mottled sculpin",117
-"20","cottus cognatus","slimy sculpin",120169
-"21","couesius plumbeus","lake chub",3613
-"22","culaea inconstans","brook stickleback",644
-"23","cyprinella spiloptera","spotfin shiner",445
-"24","cyprinus carpio","common carp",1063
-"25","enneacanthus obesus","banded sunfish",1819
-"26","erimyzon oblongus","creek chubsucker",2032
-"27","esox americanus americanus","redfin pickerel",13804
-"28","esox lucius","northern pike",373
-"29","esox niger","chain pickerel",12009
-"30","etheostoma flabellare","fantail darter",2112
-"31","etheostoma fusiforme","swamp darter",343
-"32","etheostoma olmstedi","tessellated darter",27396
-"33","exoglossum maxillingua","cutlips minnow",4399
-"34","fundulus diaphanus","banded killifish",3362
-"35","fundulus heteroclitus","mummichog",1562
-"36","fundulus luciae","spotfin killifish",23
-"37","fundulus majalis","striped killifish",234
-"38","gambusia affinis","western mosquitofish",2
-"39","gasterosteus aculeatus","three-spined stickleback",29
-"40","gobiosoma bosc","naked goby",13
-"41","hybognathus hankinsoni","brassy minnow",81
-"42","hybognathus regius","eastern silvery minnow",1780
-"43","Ichthyomyzon fossor","northern brook lamprey",1
-"44","ichthyomyzon unicuspis","silver lamprey",23
-"45","ictalurus punctatus","channel catfish",67
-"46","labidesthes sicculus","brook silverside",1
-"47","lepisosteus osseus","longnose gar",3
-"48","lepomis auritus","redbreast sunfish",7603
-"49","lepomis cyanellus","green sunfish",669
-"50","lepomis gibbosus","pumpkinseed",41079
-"51","lepomis macrochirus","bluegill",52786
-"52","lepomis microlophus","redear sunfish",2
-"53","lethenteron appendix","american brook lamprey",513
-"54","lota lota","burbot",1141
-"55","luxilus cornutus","common shiner",86264
-"56","margariscus margarita","allegheny pearl dace",385
-"57","margariscus nachtriebi","northern pearl dace",3
-"58","menidia menidia","atlantic silverside",839
-"59","micropterus dolomieu","smallmouth bass",26560
-"60","micropterus salmoides","largemouth bass",46119
-"61","morone americana","white perch",5003
-"62","morone saxatilis","striped bass",32
-"63","moxostoma macrolepidotum","shorthead redhorse",17
-"64","moxostoma valenciennesi","greater redhorse",5
-"65","notemigonus crysoleucas","golden shiner",20926
-"66","notropis atherinoides","emerald shiner",285
-"67","notropis bifrenatus","bridle shiner",1964
-"68","notropis heterodon","blackchin shiner",16
-"69","notropis heterolepis","blacknose shiner",40
-"70","notropis hudsonius","spottail shiner",11540
-"71","notropis rubellus","rosyface shiner",531
-"72","notropis stramineus","sand shiner",67
-"73","notropis volucellus","mimic shiner",3396
-"74","Noturus flavus","stonecat",25
-"75","noturus gyrinus","tadpole madtom",21
-"76","noturus insignis","margined madtom",3413
-"77","oncorhynchus mykiss","rainbow trout",8722
-"78","oncorhynchus mykiss_hatchery","rainbow trout_hatchery",1585
-"79","osmerus mordax","rainbow smelt",6
-"80","perca flavescens","yellow perch",56038
-"81","Percina copelandi","channel darter",13
-"82","percopsis omiscomaycus","trout perch",427
-"83","petromyzon marinus","sea lamprey",1800
-"84","phoxinus neogaeus","finescale dace",480
-"85","pimephales notatus","bluntnose minnow",16370
-"86","pimephales promelas","fathead minnow",5688
-"87","pomoxis annularis","white crappie",1
-"88","pomoxis nigromaculatus","black crappie",5028
-"89","prionotus evolans","striped searobin",2
-"90","prosopium cylindraceum","round whitefish",443
-"91","pungitius pungitius","ninespine stickleback",362
-"92","rhinichthys atratulus","eastern blacknose dace",483856
-"93","rhinichthys cataractae","longnose dace",152557
-"94","salmo salar","atlantic salmon",54560
-"95","salmo trutta","brown trout",23001
-"96","salmo trutta_hatchery","brown trout_hatchery",381
-"97","salvelinus fontinalis","brook trout",228308
-"98","salvelinus fontinalis_hatchery","brook trout_hatchery",5257
-"99","salvelinus namaycush","lake trout",8234
-"100","semotilus atromaculatus","creek chub",82359
-"101","semotilus corporalis","fallfish",64190
-"102","stizostedion vitreum","walleye",250
-"103","strongylura marina","atlantic needlefish",3
-"104","syngnathus fuscus","northern pipefish",5
-"105","tinca tinca","tench",32
-"106","trinectes maculatus","hogchoker",87
-"107","umbra limi","central mudminnow",1044
-"108",NA,NA,4381
+"2","alosa aestivalis","blueback herring",1107
+"3","alosa mediocris","hickory shad",10
+"4","alosa pseudoharengus","alewife",4560
+"5","alosa sapidissima","american shad",383
+"6","ambloplites rupestris","rock bass",7211
+"7","ameiurus catus","white catfish",179
+"8","ameiurus natalis","yellow bullhead",6927
+"9","ameiurus nebulosus","brown bullhead",9482
+"10","amia calva","bowfin",42
+"11","Ammocrypta pellucida","eastern sand darter",24
+"12","anchoa mitchilli","bay anchovy",1
+"13","anguilla rostrata","american eel",29231
+"14","apeltes quadracus","fourspine stickleback",891
+"15","brevoortia tyrannus","atlantic menhaden",26
+"16","caranx hippos","crevalle jack",37
+"17","carassius auratus","goldfish",135
+"18","catostomus catostomus","longnose sucker",10067
+"19","catostomus commersonii","white sucker",83335
+"20","chrosomus eos","redbelly dace",3899
+"21","clinostomus funduloides","rosyside dace",212
+"22","coregonus clupeaformis","lake whitefish",1
+"23","cottus bairdii","mottled sculpin",117
+"24","cottus cognatus","slimy sculpin",120169
+"25","couesius plumbeus","lake chub",3613
+"26","culaea inconstans","brook stickleback",644
+"27","cynoscion regalis","weakfish",3
+"28","cyprinella spiloptera","spotfin shiner",445
+"29","cyprinodon variegatus","sheepshead minnow",9
+"30","cyprinus carpio","common carp",1107
+"31","dorosoma cepedianum","gizzard shad",4
+"32","enneacanthus obesus","banded sunfish",1911
+"33","erimyzon oblongus","creek chubsucker",2116
+"34","esox americanus americanus","redfin pickerel",15188
+"35","esox lucius","northern pike",381
+"36","esox niger","chain pickerel",12439
+"37","etheostoma flabellare","fantail darter",2112
+"38","etheostoma fusiforme","swamp darter",447
+"39","etheostoma olmstedi","tessellated darter",29342
+"40","eucinostomus argentous","spotfin mojarra",1
+"41","exoglossum maxillingua","cutlips minnow",4399
+"42","fundulus diaphanus","banded killifish",3502
+"43","fundulus heteroclitus","mummichog",2025
+"44","fundulus luciae","spotfin killifish",23
+"45","fundulus majalis","striped killifish",235
+"46","gambusia affinis","western mosquitofish",2
+"47","gasterosteus aculeatus","three-spined stickleback",35
+"48","gobiosoma bosc","naked goby",17
+"49","hybognathus hankinsoni","brassy minnow",81
+"50","hybognathus regius","eastern silvery minnow",1780
+"51","Ichthyomyzon fossor","northern brook lamprey",1
+"52","ichthyomyzon unicuspis","silver lamprey",23
+"53","ictalurus punctatus","channel catfish",67
+"54","labidesthes sicculus","brook silverside",1
+"55","leiostomus xanthurus","spot",1
+"56","lepisosteus osseus","longnose gar",3
+"57","lepomis auritus","redbreast sunfish",7929
+"58","lepomis cyanellus","green sunfish",677
+"59","lepomis gibbosus","pumpkinseed",42376
+"60","lepomis macrochirus","bluegill",54065
+"61","lepomis microlophus","redear sunfish",2
+"62","lethenteron appendix","american brook lamprey",580
+"63","lota lota","burbot",1141
+"64","lucania parva","rainwater killifish",9
+"65","luxilus cornutus","common shiner",86884
+"66","margariscus margarita","allegheny pearl dace",385
+"67","margariscus nachtriebi","northern pearl dace",3
+"68","menidia beryllina","inland silverside",8
+"69","menidia menidia","atlantic silverside",850
+"70","menticirrhus saxatilis","northern kingfish",30
+"71","microgadus tomcod","atlantic tomcod",1
+"72","micropterus dolomieu","smallmouth bass",26665
+"73","micropterus salmoides","largemouth bass",47063
+"74","morone americana","white perch",5368
+"75","morone saxatilis","striped bass",112
+"76","moxostoma macrolepidotum","shorthead redhorse",17
+"77","moxostoma valenciennesi","greater redhorse",5
+"78","notemigonus crysoleucas","golden shiner",21554
+"79","notropis atherinoides","emerald shiner",285
+"80","notropis bifrenatus","bridle shiner",1977
+"81","notropis heterodon","blackchin shiner",16
+"82","notropis heterolepis","blacknose shiner",40
+"83","notropis hudsonius","spottail shiner",11540
+"84","notropis rubellus","rosyface shiner",531
+"85","notropis stramineus","sand shiner",67
+"86","notropis volucellus","mimic shiner",3396
+"87","Noturus flavus","stonecat",25
+"88","noturus gyrinus","tadpole madtom",21
+"89","noturus insignis","margined madtom",3413
+"90","oncorhynchus mykiss","rainbow trout",8780
+"91","oncorhynchus mykiss_hatchery","rainbow trout_hatchery",1585
+"92","osmerus mordax","rainbow smelt",38
+"93","paralichthys dentatus","summer flounder",1
+"94","peprilus triacanthus","butterfish",1
+"95","perca flavescens","yellow perch",57091
+"96","Percina copelandi","channel darter",13
+"97","percopsis omiscomaycus","trout perch",427
+"98","petromyzon marinus","sea lamprey",1802
+"99","phoxinus neogaeus","finescale dace",480
+"100","pimephales notatus","bluntnose minnow",16370
+"101","pimephales promelas","fathead minnow",5688
+"102","poecilia reticulata","guppy",2
+"103","pomatomus saltatrix","bluefish",25
+"104","pomoxis annularis","white crappie",1
+"105","pomoxis nigromaculatus","black crappie",5070
+"106","prionotus carolinus","northern searobin",2
+"107","prionotus evolans","striped searobin",2
+"108","prosopium cylindraceum","round whitefish",443
+"109","pseudopleuronectes americanus","winter flounder",63
+"110","pungitius pungitius","ninespine stickleback",588
+"111","rhinichthys atratulus","eastern blacknose dace",484174
+"112","rhinichthys cataractae","longnose dace",153978
+"113","salmo salar","atlantic salmon",55590
+"114","salmo trutta","brown trout",23124
+"115","salmo trutta_hatchery","brown trout_hatchery",381
+"116","salvelinus fontinalis","brook trout",235261
+"117","salvelinus fontinalis_hatchery","brook trout_hatchery",5257
+"118","salvelinus namaycush","lake trout",8234
+"119","scomberomorus cavalla","king mackerel",1
+"120","semotilus atromaculatus","creek chub",82359
+"121","semotilus corporalis","fallfish",65860
+"122","stizostedion vitreum","walleye",250
+"123","strongylura marina","atlantic needlefish",4
+"124","syngnathus fuscus","northern pipefish",5
+"125","tinca tinca","tench",32
+"126","trinectes maculatus","hogchoker",97
+"127","umbra limi","central mudminnow",1044
+"128",NA,NA,4395
