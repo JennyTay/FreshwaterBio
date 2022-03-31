@@ -88,42 +88,39 @@
 "87","Noturus flavus","stonecat",25
 "88","noturus gyrinus","tadpole madtom",21
 "89","noturus insignis","margined madtom",3413
-"90","oncorhynchus mykiss","rainbow trout",8780
-"91","oncorhynchus mykiss_hatchery","rainbow trout_hatchery",1585
-"92","osmerus mordax","rainbow smelt",38
-"93","paralichthys dentatus","summer flounder",1
-"94","peprilus triacanthus","butterfish",1
-"95","perca flavescens","yellow perch",57091
-"96","Percina copelandi","channel darter",13
-"97","percopsis omiscomaycus","trout perch",427
-"98","petromyzon marinus","sea lamprey",1802
-"99","phoxinus neogaeus","finescale dace",480
-"100","pimephales notatus","bluntnose minnow",16370
-"101","pimephales promelas","fathead minnow",5688
-"102","poecilia reticulata","guppy",2
-"103","pomatomus saltatrix","bluefish",25
-"104","pomoxis annularis","white crappie",1
-"105","pomoxis nigromaculatus","black crappie",5070
-"106","prionotus carolinus","northern searobin",2
-"107","prionotus evolans","striped searobin",2
-"108","prosopium cylindraceum","round whitefish",443
-"109","pseudopleuronectes americanus","winter flounder",63
-"110","pungitius pungitius","ninespine stickleback",588
-"111","rhinichthys atratulus","eastern blacknose dace",484174
-"112","rhinichthys cataractae","longnose dace",153978
-"113","salmo salar","atlantic salmon",55590
-"114","salmo trutta","brown trout",23124
-"115","salmo trutta_hatchery","brown trout_hatchery",381
-"116","salvelinus fontinalis","brook trout",235261
-"117","salvelinus fontinalis_hatchery","brook trout_hatchery",5257
-"118","salvelinus namaycush","lake trout",8234
-"119","scomberomorus cavalla","king mackerel",1
-"120","semotilus atromaculatus","creek chub",82359
-"121","semotilus corporalis","fallfish",65860
-"122","stizostedion vitreum","walleye",250
-"123","strongylura marina","atlantic needlefish",4
-"124","syngnathus fuscus","northern pipefish",5
-"125","tinca tinca","tench",32
-"126","trinectes maculatus","hogchoker",97
-"127","umbra limi","central mudminnow",1044
-"128",NA,NA,4395
+"90","oncorhynchus mykiss","rainbow trout",8716
+"91","osmerus mordax","rainbow smelt",38
+"92","paralichthys dentatus","summer flounder",1
+"93","peprilus triacanthus","butterfish",1
+"94","perca flavescens","yellow perch",57091
+"95","Percina copelandi","channel darter",13
+"96","percopsis omiscomaycus","trout perch",427
+"97","petromyzon marinus","sea lamprey",1802
+"98","phoxinus neogaeus","finescale dace",480
+"99","pimephales notatus","bluntnose minnow",16370
+"100","pimephales promelas","fathead minnow",5688
+"101","poecilia reticulata","guppy",2
+"102","pomatomus saltatrix","bluefish",25
+"103","pomoxis annularis","white crappie",1
+"104","pomoxis nigromaculatus","black crappie",5070
+"105","prionotus carolinus","northern searobin",2
+"106","prionotus evolans","striped searobin",2
+"107","prosopium cylindraceum","round whitefish",443
+"108","pseudopleuronectes americanus","winter flounder",63
+"109","pungitius pungitius","ninespine stickleback",588
+"110","rhinichthys atratulus","eastern blacknose dace",484174
+"111","rhinichthys cataractae","longnose dace",153978
+"112","salmo salar","atlantic salmon",55549
+"113","salmo trutta","brown trout",23051
+"114","salvelinus fontinalis","brook trout",234933
+"115","salvelinus namaycush","lake trout",8234
+"116","scomberomorus cavalla","king mackerel",1
+"117","semotilus atromaculatus","creek chub",82359
+"118","semotilus corporalis","fallfish",65860
+"119","stizostedion vitreum","walleye",250
+"120","strongylura marina","atlantic needlefish",4
+"121","syngnathus fuscus","northern pipefish",5
+"122","tinca tinca","tench",32
+"123","trinectes maculatus","hogchoker",97
+"124","umbra limi","central mudminnow",1044
+"125",NA,NA,4395

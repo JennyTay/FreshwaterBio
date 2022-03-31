@@ -97,6 +97,9 @@ tmp <- ri_event %>%
 tmp2 <- ri_event %>% #these are the ones in degree min sec that need to be converted
   filter(latitude > 100)
 
+tmp3 <- ri_event %>% 
+  filter(is.na(latitude))
+
 tmp2 <- tmp2 %>% 
   mutate(latitude2 = stri_sub_replace(latitude, 3, 2, value = " "), #to use the conv_unit, the dms  needs to have a space in between
          latitude3 = stri_sub_replace(latitude2, 6, 5, value = " "),
@@ -115,8 +118,8 @@ tmp2 <- tmp2 %>% #keep and rename the final latitude and longitude columns
          latitude = as.numeric(latitude),
          longitude = ifelse(longitude > 0, -longitude, longitude))
 
-ri_event <- rbind(tmp, tmp2) #rbind the converted coordinate df to the df that was orignally in dec degrees
-rm(tmp, tmp2, code)
+ri_event <- rbind(tmp, tmp2, tmp3) #rbind the converted coordinate df to the df that was orignally in dec degrees
+rm(tmp, tmp2, tm3, code)
 
 #fix longitude
 ri_event$longitude[ri_event$UID == "RI_2_1_14_930723"] <- -71.79167 #this was a typo and was originally -41.79167

@@ -24,21 +24,28 @@ tmp <- fish_presence %>%
   pivot_wider(names_from = waterbody, values_from = count) %>% 
   mutate(lifehistory = 
            ifelse(common_name %in% c("american eel", "sea lamprey", "american shad", "rainbow smelt", 
-                                                 "blueback herring", "alewife"), 
+                                                 "blueback herring", "alewife", "hickory shad", "ninespine stickleback"), 
                               "diadromous", 
                   ifelse(common_name %in% c("mummichog", "hogchoker", "atlantic silverside", "spotfin killifish",
-                                            "northern pipefish", "naked goby", "atlantic needlefish", "striped killifish"), 
+                                            "northern pipefish", "naked goby", "atlantic needlefish", "striped killifish",
+                                            "bay anchovy", "fourspine stickleback", "atlantic menhaden", "sheepshead minnow", 
+                                            "three-spined stickleback", "rainwater killifish", "inland silverside", 
+                                            "atlantic tomcod", "white perch", "northern searobin", "striped searobin", 
+                                            "striped bass", "spot", "spotfin mojarra", "weakfish", "crevalle jack"), 
                          "estuarine",
-                         "freshwater resident")))
+                         ifelse(common_name %in% c("northern kingfish", "bluefish", "king mackerel","winter flounder", 
+                                                   "summer flounder", "butterfish"),
+                                                   "marine", 
+                                                   "freshwater resident"))))
 
 #ratio of lotic to lentic sampling events
 rat <- nrow(event[event$waterbody == "lotic",])/nrow(event[event$waterbody == "lentic",])
 
-tmp <- fish_count %>% 
+tmp <- fish_presence %>% 
   left_join(event, by = "UID") %>% 
-  select(common_name, waterbody, count) %>% 
+  select(common_name, waterbody) %>% 
   group_by(common_name, waterbody) %>% 
-  summarise(count = sum(count)) %>%   #spp count in lotic vs lentic.
+  summarise(count = n()) %>%   #sum the number of time a spp was found  in lotic vs lentic.
   pivot_wider(names_from = waterbody, values_from = count) %>% 
   mutate(ratioLoticToLentic = round(lotic/lentic,2), #ratio of the counts in lotic to lentic
          final = round(ratioLoticToLentic/rat,2))  #divide the lotic to lentic fish count ratio by the ratio of lotic to lentic survey 
@@ -50,13 +57,9 @@ tmp <- tmp %>%
 tmp <- tmp %>% 
   mutate(habitat_found = ifelse(is.na(lentic) & !is.na(lotic), "lotic", tmp)) %>% 
   select(-tmp) %>% 
-  mutate(lifehistory = ifelse(common_name %in% c("american eel", "sea lamprey", "american shad", "rainbow smelt", 
-                                                  "blueback herring", "alewife"), 
-                               "diadromous", 
-                               "freshwater resident"),
-         occurrence = ifelse(lotic < quantile(tmp$lotic, 0.2), "rare", 
+  mutate(occurrence = ifelse(lotic < quantile(tmp$lotic, 0.3), "rare", 
                              ifelse(lotic < quantile(tmp$lotic, 0.5) & lotic >= quantile(tmp$lotic, 0.2), "common","very common"))) %>% 
-  arrange(habitat_found, lifehistory, occurrence)
+  arrange(habitat_found, occurrence)
 
 write.csv(tmp, "tmpfigures/fishannotation.csv")
 
