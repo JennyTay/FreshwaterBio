@@ -15,13 +15,10 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
 
-#how many lotic vs lentic sites was each species observed at
-tmp <- fish_presence %>% 
-  left_join(event, by = "UID") %>% 
-  select(common_name, waterbody) %>% 
-  group_by(common_name, waterbody) %>% 
-  summarise(count = n()) %>%   #site count in lotic vs lentic.
-  pivot_wider(names_from = waterbody, values_from = count) %>% 
+#add life history information
+tmp1 <- fish_presence%>% 
+  select(common_name) %>% 
+  unique %>%
   mutate(lifehistory = 
            ifelse(common_name %in% c("american eel", "sea lamprey", "american shad", "rainbow smelt", 
                                                  "blueback herring", "alewife", "hickory shad", "ninespine stickleback"), 
@@ -38,30 +35,43 @@ tmp <- fish_presence %>%
                                                    "marine", 
                                                    "freshwater resident"))))
 
-#ratio of lotic to lentic sampling events
-rat <- nrow(event[event$waterbody == "lotic",])/nrow(event[event$waterbody == "lentic",])
 
+#sum the number of time a spp was found  in lotic vs lentic.
 tmp <- fish_presence %>% 
   left_join(event, by = "UID") %>% 
   select(common_name, waterbody) %>% 
   group_by(common_name, waterbody) %>% 
-  summarise(count = n()) %>%   #sum the number of time a spp was found  in lotic vs lentic.
-  pivot_wider(names_from = waterbody, values_from = count) %>% 
-  mutate(ratioLoticToLentic = round(lotic/lentic,2), #ratio of the counts in lotic to lentic
-         final = round(ratioLoticToLentic/rat,2))  #divide the lotic to lentic fish count ratio by the ratio of lotic to lentic survey 
+  summarise(count = n()) %>%   
+  pivot_wider(names_from = waterbody, values_from = count)
+names(tmp)[4] <- "unk_wtrbody"
 
-tmp <- tmp %>% 
-  mutate(tmp = ifelse(final >= 2, "lotic",
-                          ifelse(final > .5 & final < 2, "generalist", "lentic")))
+#total counts of each spp
+tmp2 <- fish_count %>% 
+  group_by(common_name, scientific_name) %>% 
+  summarize(total_count = sum(count))
 
-tmp <- tmp %>% 
-  mutate(habitat_found = ifelse(is.na(lentic) & !is.na(lotic), "lotic", tmp)) %>% 
-  select(-tmp) %>% 
-  mutate(occurrence = ifelse(lotic < quantile(tmp$lotic, 0.3), "rare", 
-                             ifelse(lotic < quantile(tmp$lotic, 0.5) & lotic >= quantile(tmp$lotic, 0.2), "common","very common"))) %>% 
-  arrange(habitat_found, occurrence)
+#sum of the number of surveys where each spp was identified by state
+tmp3 <- fish_presence %>% 
+  separate(UID, into = c("state", "delete"), sep = 2) 
+tmp3$state[tmp3$state == "de"] <- "VT"
+tmp3$state[tmp3$state == "fg"] <- "NH"
+tmp3 <- tmp3 %>% 
+  select(state, common_name) %>% 
+  group_by(state, common_name) %>% 
+  summarise(count = n()) %>% 
+  pivot_wider(names_from = "state", values_from = count)
 
-write.csv(tmp, "tmpfigures/fishannotation.csv")
+
+
+final <- left_join(tmp1, tmp, by = "common_name")
+final <- left_join(final, tmp2, by = "common_name")
+final <- left_join(final, tmp3, by = "common_name")
+
+final <- final %>% 
+  select(common_name, scientific_name, lifehistory, total_count, lotic, lentic, unk_wtrbody, RI, CT, MA, VT, NH) %>% 
+  arrange(lifehistory, lotic)
+
+write.csv(final, "tmpfigures/fishannotation.csv")
 
 
 #calculate the fish found in lotic habitats/total lotic surveys and the fish found in lentic habitats/lentic surveys
