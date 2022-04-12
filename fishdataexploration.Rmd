@@ -13,6 +13,7 @@ load libraries
 #load libraries
 library(tidyverse)
 library(sf)
+library(readxl)
 
 ```
 
@@ -77,7 +78,35 @@ method <- method %>%
 
 ```
 
+Then we want to remove the fish spp that we think should be removed based on habitat or being too rare
 
+```{r}
+
+tmp <- read_excel("FishToInclude.xlsx", sheet = 1)
+keep <- tmp$common_name[tmp$`project team initial thoughts` == "include"]
+
+
+#make new dfs with only the fish spp to keep
+fish_count <- fish_count %>% 
+  filter(common_name %in% keep)
+
+fish_size <- fish_size %>% 
+  filter(common_name %in% keep)
+
+#make a new method and event df with only the ones correpsonding the the fish we are keeping
+df <- fish_count %>% 
+  left_join(event, by= "UID") 
+
+keep <- df$UID
+
+
+event <- event %>% 
+  filter(UID %in% keep)
+
+method <- method %>% 
+  filter(UID %in% keep)
+
+```
 
 
 In this next chunk, we want to make plots that explore the data.
@@ -95,8 +124,8 @@ In this next chunk, we want to make plots that explore the data.
 
 #surveys by year and state
 table(event$year)
-ggplot(data = event)+
-  geom_bar(mapping = aes(x = year, fill = state))+
+ggplot(data = event, mapping = aes(x = year))+
+  geom_bar(aes(fill = state))+
   theme(axis.line = element_line(colour = "black"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "grey90"))+
@@ -166,7 +195,7 @@ test2 <- test %>%
   select(-count, -tot) %>% 
   pivot_wider(names_from = gear, values_from = prop) %>% #wide format 
   filter(efish_backpack < 0.75) %>%  #remove fish whose counts are 75%+ from backpack efish
-  pivot_longer(cols = 2:17, names_to = "gear", values_to = "prop") #long format
+  pivot_longer(cols = 2:15, names_to = "gear", values_to = "prop") #long format
   
   
 ggplot(data = test2)+
@@ -427,6 +456,8 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/
 
 
 #make the fish data frame an sf object so it can be plotted spatially
+event <- event %>% 
+  filter(!is.na(latitude))
 shp <- st_as_sf(x = event,                         
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
@@ -435,13 +466,13 @@ shp <- st_as_sf(x = event,
 
 #add the HUCs and flowline name to the fish event dataframe
 shp <- st_join(shp, left = TRUE, dat8["name"])
-names(shp)[9] <- "huc8name"
+names(shp)[10] <- "huc8name"
 
 shp <- st_join(shp, left = TRUE, dat10["name"])
-names(shp)[10] <- "huc10name"
+names(shp)[11] <- "huc10name"
 
 shp <- st_join(shp, left = TRUE, dat12["name"])
-names(shp)[11] <- "huc12name"
+names(shp)[12] <- "huc12name"
 
 # need tofigure this out with nearest lines
 #shp <- st_join(shp, left = TRUE, flowline["name"])
@@ -458,6 +489,41 @@ st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialDat
 
 
 ```
+
+
+```{r}
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+#join event data to each huc shapefile
+shp <- data.frame(shp) #need to make this a dataframe in order to join with an sf object
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+
+dat <- fish_count %>% 
+  left_join( shp, by = "UID") %>% 
+  filter(year >= 2015 & year <=2020)
+
+dat1 <- dat %>% 
+  filter(huc8name == "Chicopee") %>% 
+  group_by(common_name) %>% 
+  summarise(count = sum(count))
+unique(dat1$common_name)
+
+dat2 <- dat %>% 
+  filter(huc10name == "Quaboag River")%>% 
+  group_by(common_name) %>% 
+  summarise(count = sum(count))
+unique(dat2$common_name)
+
+
+dat3 <- dat %>% 
+  filter(huc12name == "Headwaters East Branch Swift River")%>% 
+  group_by(common_name) %>% 
+  summarise(count = sum(count))
+unique(dat3$common_name)
+```
+
 
 
 here we want to plot:
