@@ -511,17 +511,30 @@ dat1 <- dat %>%
 unique(dat1$common_name)
 
 dat2 <- dat %>% 
-  filter(huc10name == "Quaboag River")%>% 
+  filter(huc10name == "Ware River")%>% 
   group_by(common_name) %>% 
   summarise(count = sum(count))
-unique(dat2$common_name)
+write.csv(dat2, "tmpfigures/ware.csv")
+
+dat3 <- dat %>% 
+  filter(huc12name == "West Branch Ware River")%>% 
+  group_by(common_name) %>% 
+  summarise(count = sum(count))
+write.csv(dat3, "tmpfigures/eastware.csv")
+
+
+
+
+dat <- fish_count %>% 
+  left_join( shp, by = "UID") %>% 
+  filter(year >= 2005 & year <=2009)
 
 
 dat3 <- dat %>% 
-  filter(huc12name == "Headwaters East Branch Swift River")%>% 
+  filter(huc12name == "West Branch Ware River")%>% 
   group_by(common_name) %>% 
   summarise(count = sum(count))
-unique(dat3$common_name)
+write.csv(dat3, "tmpfigures/eastware.csv")
 ```
 
 
