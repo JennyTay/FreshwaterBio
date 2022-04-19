@@ -148,6 +148,7 @@ dfw_event <- dfw %>%
          waterbody = "lotic") %>% #courtney confirmed all are stream sites 
   select(UID, state, date, waterbody, latitude, longitude, project, source) %>% 
   unique()
+dfw_event$longitude <- ifelse(dfw_event$longitude<0, dfw_event$longitude, -dfw_event$longitude)
 
 
 dfw_fish <- dfw %>% 
@@ -156,27 +157,29 @@ dfw_fish <- dfw %>%
          count = "# captured",
          weight_g = "meanweight (g)",
          size_class = "size bin (in)")  %>% 
-  select(UID, common_name, count, weight_g, size)
-
-dfw_fish$size <- tolower(dfw_fish$size)
-dfw_fish$size[dfw_fish$size== "present"] <- NA
-
+  select(UID, common_name, count, weight_g, size_class) %>% 
+  filter(count != 0) %>% #Jud and Courtney recommended deleting these zero observations
+  mutate(age_class = size_class) #some values in the size_class field are actually ages in years, not sizes in inches
 
 
+dfw_fish$size_class <- tolower(dfw_fish$size_class)
+dfw_fish$age_class <- tolower(dfw_fish$age_class)
+dfw_fish$size_class[dfw_fish$size_class== "present"] <- NA #there is no size information here so replace with NA
+dfw_fish$size_class[dfw_fish$size_class %in% c("yoy", "parr1+", "parr1++", "1++", "parr2+", "parr 1+", "parr 2+",  #these are ages that should not be in the size column
+                                               "smolt", "yoy <120", "all parr =/>140", "1+") ] <- NA
+dfw_fish$age_class[dfw_fish$age_class %in% c("<6", "10-12", "12+", "6-10", "10+", "6+") ] <- NA  #these are sizes that should not be in the age column 
 
-#to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
-#split data into two dataframe, one that has counts, and one that does not, then we will repeat the count rows before joing back with the presence data
+#want to replace the size bins with random numbers within each bin, and want to assign the YOY age_class a size!!
 
-tmp <- dfw_fish %>% #df of the observations with  no counts
-  filter(is.na(count))
 
-tmp1 <- dfw_fish %>%  #df of the observations with counts
-  filter(!is.na(count))
 
-n <-  tmp1$count
-tmp1 <- tmp1[rep(seq_len(nrow(tmp1)), n),] #
 
-dfw_fish <- rbind(tmp, tmp1)
+#to make comparable to other data sets, repeat rows with lengths the number of times based on the count value. 
+
+n <-  dfw_fish$count
+dfw_fish <- dfw_fish[rep(seq_len(nrow(dfw_fish)), n),] #
+
+
 
 #tidy the common names
 dfw_fish$common_name[dfw_fish$common_name == "Sucker (Unidentified)"] <- "sucker family"
@@ -189,10 +192,7 @@ dfw_fish$common_name <- tolower(dfw_fish$common_name)
 dfw_fish <- dfw_fish %>% 
   filter(!grepl("\\?",common_name))
 
-#need to ask courtney the following questions:
-#can I assign random values 1-6 for <6, and so on, to the size class column
-#what do all the size classes mean?
-#what does zero counts mean?
+
 
 
 
