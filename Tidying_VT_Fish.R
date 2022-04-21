@@ -182,9 +182,8 @@ dfw_fish <- dfw_fish[rep(seq_len(nrow(dfw_fish)), n),] #
 
 
 #tidy the common names
-dfw_fish$common_name[dfw_fish$common_name == "Sucker (Unidentified)"] <- "sucker family"
+
 dfw_fish$common_name[dfw_fish$common_name == "Sunfish (Unidentified)"] <- "sunfish family"
-dfw_fish$common_name[dfw_fish$common_name == "Cyprinid (Unidentified)"] <- "minnow family"
 dfw_fish$common_name[dfw_fish$common_name == "Unidentified/Unknown"] <- "unknown"
 dfw_fish$common_name <- tolower(dfw_fish$common_name)
 
