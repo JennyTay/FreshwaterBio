@@ -135,7 +135,7 @@ names(dfw)
 dfw <- dfw %>% 
   filter(!is.na(`species common name`),
          !is.na(latitude))
-
+dfw$longitude <- ifelse(dfw$longitude<0, dfw$longitude, -dfw$longitude)
 
 
 # tidy data
@@ -148,7 +148,6 @@ dfw_event <- dfw %>%
          waterbody = "lotic") %>% #courtney confirmed all are stream sites 
   select(UID, state, date, waterbody, latitude, longitude, project, source) %>% 
   unique()
-dfw_event$longitude <- ifelse(dfw_event$longitude<0, dfw_event$longitude, -dfw_event$longitude)
 
 
 dfw_fish <- dfw %>% 
@@ -170,8 +169,48 @@ dfw_fish$size_class[dfw_fish$size_class %in% c("yoy", "parr1+", "parr1++", "1++"
 dfw_fish$age_class[dfw_fish$age_class %in% c("<6", "10-12", "12+", "6-10", "10+", "6+") ] <- NA  #these are sizes that should not be in the age column 
 
 #want to replace the size bins with random numbers within each bin, and want to assign the YOY age_class a size!!
+#<6
+df <- dfw_fish %>% filter(size_class == "<6")
+vec <- sample(2:5, nrow(df), replace = TRUE)
+df <- df %>% 
+  mutate(size_in = vec,
+         length_mm = size_in * 25.4)  
+  
+#6:10
+df2 <- dfw_fish %>% filter(size_class == "6-10")
+vec <- sample(6:10, nrow(df2), replace = TRUE)
+df2 <- df2 %>% 
+  mutate(size_in = vec,
+         length_mm = size_in * 25.4) 
+
+#10:12
+df3 <- dfw_fish %>% filter(size_class == "10-12"|size_class == "10+")
+vec <- sample(10:12, nrow(df3), replace = TRUE)
+df3 <- df3 %>% 
+  mutate(size_in = vec,
+         length_mm = size_in * 25.4) 
+
+#12+
+df4 <- dfw_fish %>% filter(size_class == "12+")
+vec <- sample(12:20, nrow(df4), replace = TRUE)
+df4 <- df4 %>% 
+  mutate(size_in = vec,
+         length_mm = size_in * 25.4) 
+
+#YOY
+df5 <- dfw_fish %>% filter(age_class == "yoy")
+vec <- sample(1:3, nrow(df5), replace = TRUE)
+df5 <- df5 %>% 
+  mutate(size_in = vec,
+         length_mm = size_in * 25.4)
+
+#no size information
+df6 <- dfw_fish %>% 
+  filter(is.na(size_class)) %>% 
+  filter(is.na(age_class)  |  age_class != "yoy")
 
 
+dfw_fish <- bind_rows(df, df2, df3, df4, df5, df6)
 
 
 #to make comparable to other data sets, repeat rows with lengths the number of times based on the count value. 
@@ -204,9 +243,15 @@ dfw_method <- dfw %>%
   select(UID, gear, goal, reach_length_m, avg_reach_width_m) %>% 
   unique()
 
+#some UIDs have surveys of different lenths and widths...
+n_occur <- data.frame(table(dfw_method$UID))
+n_occur <- n_occur[n_occur$Freq > 1,]
 
-
-
+test <- dfw_method %>% 
+  group_by(UID) %>% 
+  summarise(reach_length_m = mean(reach_length_m),
+            avg_reach_width_m = mean(avg_reach_width_m))
+#add in the gear and gola
 
 ####################################
 #save dataframe
