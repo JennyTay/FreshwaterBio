@@ -168,6 +168,9 @@ dfw_fish$size_class[dfw_fish$size_class %in% c("yoy", "parr1+", "parr1++", "1++"
                                                "smolt", "yoy <120", "all parr =/>140", "1+") ] <- NA
 dfw_fish$age_class[dfw_fish$age_class %in% c("<6", "10-12", "12+", "6-10", "10+", "6+") ] <- NA  #these are sizes that should not be in the age column 
 
+#some weights are 0... replace these with NA
+dfw_fish$weight_g[dfw_fish$weight_g == 0] <- NA
+
 #want to replace the size bins with random numbers within each bin, and want to assign the YOY age_class a size!!
 #<6
 df <- dfw_fish %>% filter(size_class == "<6")
@@ -211,6 +214,8 @@ df6 <- dfw_fish %>%
 
 
 dfw_fish <- bind_rows(df, df2, df3, df4, df5, df6)
+dfw_fish <- dfw_fish %>% 
+  select(UID, common_name, count, weight_g, length_mm)
 
 
 #to make comparable to other data sets, repeat rows with lengths the number of times based on the count value. 
@@ -234,24 +239,25 @@ dfw_fish <- dfw_fish %>%
 
 
 
+
 dfw_method <- dfw %>% 
   mutate(UID = paste("VT", streamname, latitude, longitude, date, sep = "_"),
          reach_length_m = (`stream length of site (ft)`) * (0.3048), #convert to m
-         avg_reach_width_m = (`mean bankfill width (ft)`) * (0.3048), #convert to m
-         goal = "Total Pick-up", #Courtney confirmed that even though the purpose of the survey is trout, they record all fish they see. only trout get measured. other spp either get counted, or listed as present
-         gear = "efish_backpack") %>%  #Courtney confirmed all surveys are backpack efish in wadeable streams. May be variation in equipment, multiple wands, canoes, etc but, but its all similar to backpack efish, no large barges or boats.
-  select(UID, gear, goal, reach_length_m, avg_reach_width_m) %>% 
+         avg_reach_width_m = (`mean bankfill width (ft)`) * (0.3048)) %>%  #convert to m
+  select(UID, reach_length_m, avg_reach_width_m) %>% 
   unique()
 
-#some UIDs have surveys of different lenths and widths...
+#38 UIDs have surveys of different lenths and widths...
 n_occur <- data.frame(table(dfw_method$UID))
 n_occur <- n_occur[n_occur$Freq > 1,]
 
-test <- dfw_method %>% 
+dfw_method <- dfw_method %>%  #average the lengths and widths of the UIDs that have different ones
   group_by(UID) %>% 
   summarise(reach_length_m = mean(reach_length_m),
-            avg_reach_width_m = mean(avg_reach_width_m))
-#add in the gear and gola
+            avg_reach_width_m = mean(avg_reach_width_m)) %>% 
+  mutate(goal = "Total Pick-up", #Courtney confirmed that even though the purpose of the survey is trout, they record all fish they see. only trout get measured. other spp either get counted, or listed as present
+        gear = "efish_backpack")  #Courtney confirmed all surveys are backpack efish in wadeable streams. May be variation in equipment, multiple wands, canoes, etc but, but its all similar to backpack efish, no large barges or boats.
+
 
 ####################################
 #save dataframe

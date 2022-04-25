@@ -39,7 +39,7 @@ str(ma_event)
 
 ###################################
 
-event <- bind_rows(ct_event, dec_event, nh_event, ma_event, ri_event)
+event <- bind_rows(ct_event, dec_event, nh_event, ma_event, ri_event, dfw_event)
 event$date <- substr(event$date, start=1, stop=10)
 event$date <- ymd(event$date)
 event$year <- year(event$date)
@@ -74,7 +74,7 @@ save(event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ti
 
 
 
-fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish, ri_fish)
+fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish, ri_fish, dfw_fish)
 fish$scientific_name <- tolower(fish$scientific_name)
 fish$scientific_name <- trimws(fish$scientific_name)
 fish$scientific_name[fish$scientific_name == 'catostomus commersoni'] <- "catostomus commersonii"
@@ -214,7 +214,7 @@ fish$common_name[fish$scientific_name =="lucania parva"] <- "rainwater killifish
 fish$common_name[fish$scientific_name =="poecilia reticulata"] <- "guppy"
 
 
-#The vermont DEC data did not have scientific names, just common names, so I want to make a separatetable to join
+#The VT DEC and the VT DFW data did not have scientific names, just common names, so I want to make a separatetable to join
 fish$common_name <- tolower(fish$common_name)
 fish$common_name <- trimws(fish$common_name)
 join <- fish %>% 
@@ -226,7 +226,7 @@ fish <- fish %>%
   select(-scientific_name) %>% 
   left_join(join, by = "common_name")
 
-unique(fish$common_name[is.na(fish$scientific_name)]) #34 common names differ from the ones above
+unique(fish$common_name[is.na(fish$scientific_name)]) #39 common names differ from the ones above
 fish$common_name[fish$common_name =="blacknose dace"] <- "eastern blacknose dace"
 fish$common_name[fish$common_name =="unidentified cyprinid"] <- "minnow family"
 fish$common_name[fish$common_name =="no fish!"] <- "no fish"
@@ -237,7 +237,10 @@ fish$common_name[fish$common_name =="silvery minnow"] <- "eastern silvery minnow
 fish$common_name[fish$common_name =="carp"] <- "common carp"
 fish$common_name[fish$common_name =="moxostoma sp."] <- "redhorse genus"
 fish$common_name[fish$common_name =="lamprey"] <- "lamprey order"
-
+fish$common_name[fish$common_name =="northern redbelly dace"] <- "redbelly dace"
+fish$common_name[fish$common_name =="pearl dace"] <- "allegheny pearl dace" #need to confirm with courtney
+fish$common_name[fish$common_name =="atlantic salmon (anadromous)"] <- "atlantic salmon"
+fish$common_name[fish$common_name =="atlantic salmon (landlocked)"] <- "atlantic salmon"
 
 fish <- fish %>% 
   select(-scientific_name) %>% 
@@ -271,6 +274,7 @@ fish$scientific_name[fish$common_name =="eastern sand darter"] <- "Ammocrypta pe
 fish$scientific_name[fish$common_name =="channel darter"] <- "Percina copelandi"
 fish$scientific_name[fish$common_name =="stonecat"] <- "Noturus flavus"
 fish$scientific_name[fish$common_name =="northern brook lamprey"] <- "Ichthyomyzon fossor"
+fish$scientific_name[fish$common_name =="kokanee salmon"] <- "Oncorhynchus nerka"
 
 test <- fish %>% 
   filter(is.na(common_name))
