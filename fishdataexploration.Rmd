@@ -450,17 +450,21 @@ flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialDat
 
 
 #load fish data
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+#remove NA names
+shp <- shp %>% 
+  filter(!is.na(cmmn_nm),
+         watrbdy == "lotic")
+
+#remove the lentic sites
+
+
+#load new englad state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 
 
 
-#make the fish data frame an sf object so it can be plotted spatially
-event <- event %>% 
-  filter(!is.na(latitude))
-shp <- st_as_sf(x = event,                         
-                coords = c("longitude", "latitude"),
-                crs = st_crs(dat8))
 
 
 
@@ -482,11 +486,31 @@ names(shp)[12] <- "huc12name"
 #plot fish distriubtion on a map to view annually
 #first need to make it a spatial file and then load in watershed data, and stream data, and state data
 
+table(shp$common_name)
 
-
-
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
-
+for( i in 1:length(unique(shp$cmmn_nm))){
+  
+  ggplot()+
+    geom_sf(data = states[states$NAME != "MAINE",])+
+    geom_sf(data = shp[shp$cmmn_nm == unique(shp$cmmn_nm)[i], ], color = "red", size = .5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = paste(unique(shp$cmmn_nm)[i], (unique(shp$scntfc_)[i]), sep = ", "))
+  
+  ggsave(
+    filename = paste("tmpfigures/fish_dist_plots/", unique(shp$cmmn_nm)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+  
+  print(i)
+  
+}
 
 ```
 
@@ -700,31 +724,7 @@ quantile(dat12$count, c(.25, .5, .75, .99))
 
 
 
-table(test$common_name)
 
-for( i in 1:length(unique(test$common_name))){
-  
-  ggplot()+
-    geom_sf(data = MAhuc8, color = "green", fill = NA)+
-    geom_sf(data = test[test$common_name == unique(test$common_name)[i], ], color = "red")+
-    theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank())+
-    ggtitle(label = paste(unique(test$common_name)[i], (unique(test$scientific_name)[i]), sep = ", "))
-  
-  ggsave(
-    filename = paste("MA fish plots/", unique(test$common_name)[i], ".png", sep = ""),
-    plot = last_plot(),
-    width = 9,
-    height = 7,
-    units = "cm",
-    dpi = 300
-  )
-  
-  print(i)
-  
-}
 
 
 ```

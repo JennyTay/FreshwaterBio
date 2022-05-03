@@ -80,3 +80,18 @@ write.csv(ma_srcline, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 
 
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDPLUS_H_0101_HU4_GDB.gdb")
+
+
+
+
+
+#Maine Freshawter mussel data
+
+df <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ME IFW Mussel Data/Maine Freshwater Mussel Survey Data_20220426.csv")
+df$DDLONG <- ifelse(df$DDLONG > 0, -df$DDLONG, df$DDLONG)
+names(df)[27:28] <- c("longitude", "latitude")
+df <- df %>% 
+  select(latitude, longitude, MM) %>% 
+  filter(!is.na(latitude),
+         !is.na(longitude))
+write.csv(df, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ME_mussel.csv")

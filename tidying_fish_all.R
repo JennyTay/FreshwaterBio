@@ -470,3 +470,16 @@ shp <- st_as_sf(x = dat,
 
 st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 
+
+
+
+
+
+#make the event data spatial
+event <- event %>% 
+  filter(!is.na(latitude))
+shp <- st_as_sf(x = event,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(dat8))
+
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
