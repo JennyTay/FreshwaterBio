@@ -71,15 +71,17 @@ ma_srcpoint <- data.frame(ma_srcpoint) %>%
 #join the ma_eo df to the three src files so the src files can have the EO_DATA field
 ma_srcline <- left_join(ma_srcline, ma_eo, by = c("EO_ID", "Sname")) %>% 
   arrange(EO_ID)
-ma_srcpoint <- left_join(ma_srcpoint, ma_eo, by = c("EO_ID", "Sname"))
-ma_srcpoly <- left_join(ma_srcpoly, ma_eo, by = c("EO_ID", "Sname"))
+ma_srcpoint <- left_join(ma_srcpoint, ma_eo, by = c("EO_ID", "Sname")) %>% 
+  arrange(EO_ID)
+ma_srcpoly <- left_join(ma_srcpoly, ma_eo, by = c("EO_ID", "Sname")) %>% 
+  arrange(EO_ID)
 
 write.csv(ma_srcline, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/srcline_eo_join.csv")
+write.csv(ma_srcpoint, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/srcpoint_eo_join.csv")
+write.csv(ma_srcpoly, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/srcpoly_eo_join.csv")
 
           
 
-
-st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDPLUS_H_0101_HU4_GDB.gdb")
 
 
 
