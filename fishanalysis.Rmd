@@ -1,0 +1,74 @@
+---
+title: "Analysis"
+author: "Jenny Rogers"
+date: "5/6/2022"
+output: html_document
+---
+
+
+Install libraries
+
+```{r}
+
+library(tidyverse)
+library(sf)
+
+```
+
+
+load data:
+flowline
+huc12
+huc10
+huc8
+all_fish_event
+
+```{r}
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
+fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+```
+
+
+select the just huc name and area
+spatially join the huc data to the all_fish_event  
+
+```{r}
+#some hucs have repeated rows, so well removed the duplicated TNMID fields
+
+#21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name)
+
+huc8 <- huc8[!duplicated(huc8$tnmid),]
+huc8 <- huc8 %>% select(-tnmid)
+
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name)
+
+huc10 <- huc10[!duplicated(huc10$TNMID),]
+huc10 <- huc10 %>% select(-TNMID)
+
+huc12 <- huc12 %>% 
+  select(tnmid, areasqkm , name) %>% 
+  rename(huc12_areasqkm = areasqkm, huc12_name= name)
+
+huc12 <- huc12[!duplicated(huc12$tnmid),]
+huc12 <- huc12 %>% select(-tnmid)
+
+flowline <- flowline %>% st_zm() %>% 
+  select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
+
+sf_use_s2(FALSE)
+df <- st_join(fish_event, huc8, left = FALSE)
+df <- st_join(df, huc10, left = FALSE)
+df <- st_join(df, huc12, left = FALSE)
+df <- st_join(df, flowline, left = FALSE, join = )
+
+```
