@@ -33,51 +33,86 @@ fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialD
 ```
 
 
-select the just huc name and area
-spatially join the huc data to the all_fish_event  
+
+spatially join the huc and the flowline data to the all_fish_event  
 
 ```{r}
-#some hucs have repeated rows, so well removed the duplicated TNMID fields
 
+#prepare the huc files - select the attributes we want and remove the duplicated rows
 #21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
 
 huc8 <- huc8 %>% 
   select(tnmid, areasqkm, name) %>% 
-  rename(huc8_areasqkm = areasqkm, huc8_name= name)
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$tnmid),]#Remove the duplicated TNMID fields
 
-huc8 <- huc8[!duplicated(huc8$tnmid),]
-huc8 <- huc8 %>% select(-tnmid)
+
 
 huc10 <- huc10 %>% 
   select(TNMID, AreaSqKm , Name)%>% 
-  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name)
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$TNMID),]#Remove the duplicated TNMID fields
 
-huc10 <- huc10[!duplicated(huc10$TNMID),]
-huc10 <- huc10 %>% select(-TNMID)
+
 
 huc12 <- huc12 %>% 
   select(tnmid, areasqkm , name) %>% 
-  rename(huc12_areasqkm = areasqkm, huc12_name= name)
+  rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
+huc12 <- huc12[!duplicated(huc12$tnmid),]#Remove the duplicated TNMID fields
 
-huc12 <- huc12[!duplicated(huc12$tnmid),]
-huc12 <- huc12 %>% select(-tnmid)
 
 flowline <- flowline %>% st_zm() %>% 
   select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
 
+
+
+#join the huc files to the fish_event file using a spatial join
+#each fish survey event will be associated with a huc8, huc10, and huc12 TNMID
 sf_use_s2(FALSE)
 df <- st_join(fish_event, huc8, left = FALSE)
 df <- st_join(df, huc10, left = FALSE)
 df <- st_join(df, huc12, left = FALSE)
+
+
+
+#for the flowline, we want to join the point to the nearest flowline, so we need a different approach.
 nearest <- st_nearest_feature(fish_event, flowline) #returns a vector of the index of the flowline that is nearest to each point
 dist <- st_distance(fish_event, flowline[nearest,], by_element = TRUE) #get dist from each point to the flowline
 dist <- as.numeric(dist)
 hist(dist)
 fish_event_flowline_join <- cbind(fish_event, st_drop_geometry(flowline)[nearest,]) #join flowline to the fish event based on the index value of the 
-fish_event_flowline_join$dist <- dist
-test <- fish_event_flowline_join %>% 
+fish_event_flowline_join$dist <- dist #add the distence in meters
+fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
   filter(waterbody == "lotic",
          dist <500) %>% 
   select(UID, state, date, year, month, waterbody, project, source, NHDPlusID, StreamOrde, StreamLeve, AreaSqKm, TotalDASqK, Slope, dist) %>% 
   rename(event_to_flowln_dist_m = dist)
 ```
+
+In this chunk of code, we prepare the presence absence file.  Only fish presence is currenlty reported. We want to select only the surveys that were total pick up, and then assign a zero to all fish not observed in each survey. To clarify, all surveys will have a row for every fish and an assoicated 0 (negative observation) for the fish that were not observed during this survey.
+
+```{r}
+
+#load the fish presence absence data
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData')
+
+fish <- unique(fish_presence$common_name)
+
+#remove fish that are marine, estuarine, or that have only been observed in 1 location.
+remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
+            "bluefish","winter flounder","striped searobin","northern pipefish",
+            "bay anchovy","spot","spotfin mojarra","atlantic tomcod","rainwater killifish",
+            "spotfin killifish","crevalle jack","weakfish","northern searobin",
+            "sheepshead minnow","atlantic needlefish","naked goby","inland silverside",
+            "atlantic menhaden","three-spined stickleback","hogchoker","striped killifish",
+            "atlantic silverside","striped bass","mummichog","fourspine stickleback",
+            "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
+            "brook silverside","northern brook lamprey","greater redhorse","guppy")
+
+
+#then read in method data and keep only the electrofish, total pick up, and first pass - this will give a list of UIDs that we keep in analysis
+
+```
+
+
+In this chunk of code, we join the fish presence data to the fish_event_flowline_join, and the df dataframe so that each fish observation is associated with the hydologic information.
