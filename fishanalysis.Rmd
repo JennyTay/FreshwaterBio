@@ -12,7 +12,7 @@ Install libraries
 
 library(tidyverse)
 library(sf)
-
+library(lwgeom)
 ```
 
 
@@ -69,6 +69,15 @@ sf_use_s2(FALSE)
 df <- st_join(fish_event, huc8, left = FALSE)
 df <- st_join(df, huc10, left = FALSE)
 df <- st_join(df, huc12, left = FALSE)
-df <- st_join(df, flowline, left = FALSE, join = )
-
+nearest <- st_nearest_feature(fish_event, flowline) #returns a vector of the index of the flowline that is nearest to each point
+dist <- st_distance(fish_event, flowline[nearest,], by_element = TRUE) #get dist from each point to the flowline
+dist <- as.numeric(dist)
+hist(dist)
+fish_event_flowline_join <- cbind(fish_event, st_drop_geometry(flowline)[nearest,]) #join flowline to the fish event based on the index value of the 
+fish_event_flowline_join$dist <- dist
+test <- fish_event_flowline_join %>% 
+  filter(waterbody == "lotic",
+         dist <500) %>% 
+  select(UID, state, date, year, month, waterbody, project, source, NHDPlusID, StreamOrde, StreamLeve, AreaSqKm, TotalDASqK, Slope, dist) %>% 
+  rename(event_to_flowln_dist_m = dist)
 ```
