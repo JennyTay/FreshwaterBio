@@ -110,6 +110,35 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
             "brook silverside","northern brook lamprey","greater redhorse","guppy")
 
 
+fish_presence <- fish_presence %>% 
+  filter(!common_name %in% remove,
+         !is.na(common_name)) %>% 
+  
+
+uid <- unique(fish_presence$UID)
+fish <- unique(fish_presence$common_name)
+
+#make a dataframe that has each UID repeated for each fish spp
+absence <- data.frame('UID' = rep(uid, each = 87))
+absence$common_name <- rep(fish, times = 23348)
+#keep only rows in the absence list that are no in the fish_presence list
+keep <- anti_join(absence, fish_presence, by = c("UID", "common_name"))
+#add additional scientific names to the new absence data frame
+scientific_name <- fish_presence %>% 
+  select(common_name, scientific_name, genus) %>% 
+  unique()
+keep <- left_join(keep, scientific_name, by = "common_name")
+
+#add presence absence information
+keep$occurrence <- 0
+fish_presence$occurrence <- 1
+
+#bind the presence and absence columns together
+fish_occurrence <- rbind(fish_presence, keep)
+fish_occurrence <- fish_occurrence %>% 
+  arrange(UID)
+
+
 #then read in method data and keep only the electrofish, total pick up, and first pass - this will give a list of UIDs that we keep in analysis
 
 ```
