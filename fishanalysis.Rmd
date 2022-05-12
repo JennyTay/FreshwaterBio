@@ -89,7 +89,7 @@ fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites
   rename(event_to_flowln_dist_m = dist)
 ```
 
-In this chunk of code, we prepare the presence absence file.  Only fish presence is currenlty reported. We want to select only the surveys that were total pick up, and then assign a zero to all fish not observed in each survey. To clarify, all surveys will have a row for every fish and an assoicated 0 (negative observation) for the fish that were not observed during this survey.
+In this chunk of code, we prepare the presence /absence file.  Only fish presence is currently reported. We want to select only the surveys that were total pick up, and then assign a zero to all fish not observed in each survey. To clarify, all surveys will have a row for every fish and an associated 0 (negative observation) for the fish that were not observed during this survey.
 
 ```{r}
 
@@ -112,7 +112,7 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
 
 fish_presence <- fish_presence %>% 
   filter(!common_name %in% remove,
-         !is.na(common_name)) %>% 
+         !is.na(common_name)) 
   
 
 uid <- unique(fish_presence$UID)
@@ -138,10 +138,27 @@ fish_occurrence <- rbind(fish_presence, keep)
 fish_occurrence <- fish_occurrence %>% 
   arrange(UID)
 
+rm(absence, fish_presence, keep, scientific_name)
+rm(fish, uid, remove)
 
-#then read in method data and keep only the electrofish, total pick up, and first pass - this will give a list of UIDs that we keep in analysis
+
+#read in method data and keep only the electrofish and total pick up - this will give a list of UIDs that we keep in the presence absence data (won't want to assume all other spp are absent if the survey was a targeted survey, for example). number of passes doenst really matter here because its just if the fish was there, not counts or abundance
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+table(method$gear)
+table(method$goal)
+method <- method %>% 
+  filter(goal == "total pick-up",
+         gear %in% c("efish_backpack", "efish_barge", "efish_boat", "efish_misc"))
+
+uid <- unique(method$UID)
+
+#filter fish_occurrence data to only include UIDs in the filtered method
+fish_occurrence <- fish_occurrence %>% 
+  filter(UID %in% uid)
+
+#fish_occurrence df is the file to use for the presence absence analysis.
 
 ```
 
 
-In this chunk of code, we join the fish presence data to the fish_event_flowline_join, and the df dataframe so that each fish observation is associated with the hydologic information.
+In this chunk of code, we join the fish presence data to the fish_event_flowline_join, and the df dataframe so that each fish observation is associated with the hydrologic information.
