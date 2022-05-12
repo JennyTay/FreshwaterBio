@@ -23,6 +23,9 @@ huc10
 huc8
 all_fish_event
 
+
+
+Chunk1: load dataframes
 ```{r}
 flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
@@ -33,8 +36,8 @@ fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialD
 ```
 
 
-
-spatially join the huc and the flowline data to the all_fish_event  
+Chuck2:
+Spatially join the huc and the flowline data to the all_fish_event. now every fish surveying event is aligned with hdyrologic data.
 
 ```{r}
 
@@ -44,21 +47,21 @@ spatially join the huc and the flowline data to the all_fish_event
 huc8 <- huc8 %>% 
   select(tnmid, areasqkm, name) %>% 
   rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
-huc8 <- huc8[!duplicated(huc8$tnmid),]#Remove the duplicated TNMID fields
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
 
 
 
 huc10 <- huc10 %>% 
   select(TNMID, AreaSqKm , Name)%>% 
   rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
-huc10 <- huc10[!duplicated(huc10$TNMID),]#Remove the duplicated TNMID fields
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
 
 
 
 huc12 <- huc12 %>% 
   select(tnmid, areasqkm , name) %>% 
   rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
-huc12 <- huc12[!duplicated(huc12$tnmid),]#Remove the duplicated TNMID fields
+huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
 
 
 flowline <- flowline %>% st_zm() %>% 
@@ -87,9 +90,23 @@ fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites
          dist <500) %>% 
   select(UID, state, date, year, month, waterbody, project, source, NHDPlusID, StreamOrde, StreamLeve, AreaSqKm, TotalDASqK, Slope, dist) %>% 
   rename(event_to_flowln_dist_m = dist)
+
+rm(flowline, huc8, huc10, huc12, dist, nearest)
 ```
 
-In this chunk of code, we prepare the presence /absence file.  Only fish presence is currently reported. We want to select only the surveys that were total pick up, and then assign a zero to all fish not observed in each survey. To clarify, all surveys will have a row for every fish and an associated 0 (negative observation) for the fish that were not observed during this survey.
+
+Chunk3:
+Calcuate average elevation, slopes, land cover etc within each HUC size
+```{r}
+
+
+```
+
+
+Preparing the biological data frames:
+
+Chunk4:
+1.  presence /absence file.  Only fish presence is currently reported. We want to select only the surveys that were total pick up, and then assign a zero to all fish not observed in each survey. To clarify, all surveys will have a row for every fish and an associated 0 (negative observation) for the fish that were not observed during this survey.
 
 ```{r}
 
@@ -161,4 +178,39 @@ fish_occurrence <- fish_occurrence %>%
 ```
 
 
-In this chunk of code, we join the fish presence data to the fish_event_flowline_join, and the df dataframe so that each fish observation is associated with the hydrologic information.
+Chunk5:
+2. prepare fish_count data.  keep only records using total pick up, efish, the first pass, and the ones that listed the reach length so we can calculate count/stream reach length. then rbind to the 'keep' absence dataset abve, which is the absence data for each survey event.  
+```{r}
+
+
+```
+
+Chunk6
+3. prepare fish_length data. plot lengths of each fish - if somewhat normal, calcualte the stdev of each to get a measure of variance, the range, mean, max, and min.  For this, i think we can use all surveys because it's not an abundance measure, so we are not going to assume absence anywhere else (ie no need to join with the 'keep' data set).  therefore its ok if the survey was targeted or a different gear type , etc.
+```{r}
+
+
+```
+
+
+
+
+Join the biological data to the hydrologic data using the UID, which was already joined in chunk2:
+
+Chunk7:
+1. join the fish presence data to the fish_event_flowline_join, and run a logistic regression using lat, long, total upstream drainage area, slope. 
+```{r}
+
+logistreg <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID")
+
+#add columns for lat and long
+logistreg <- logistreg %>% 
+  mutate(long = unlist(map(test$geometry, 1)),
+         lat = unlist(map(test$geometry, 2)))
+
+table(logistreg$StreamOrde)
+
+
+```
+
+
