@@ -44,6 +44,32 @@ dec_deg <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA
 
 
 
+#look up table to go from scientific name to common name
+spp_desc <- spp_desc %>%
+  data.frame() %>% 
+  select(SNAME, SCOMNAME, TAX_GRP)
+
+
+#table to get the characterics of the mussel
+spp_demogr <- spp_demogr %>% 
+  data.frame() %>% 
+  rename(SNAME = SCIENTIFIC_NAME) %>% 
+  select(2:10)
+
+head(spp_visit)
+test <- spp_visit %>% 
+  select(3:15) 
+
+test <- left_join(test, spp_desc, by = "SNAME") %>% 
+  filter(TAX_GRP == "Mussels" | TAX_GRP == "Non-Native Mollusks")
+
+
+test <- left_join(test, spp_demogr, by = c("OBS_DATE", "SITENUMBER", "SNAME"))
+
+
+#left off here... want to join dec_deg to the test file
+
+
 #MAFloaterDatabaseDATA2019_20210824
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MAFloaterDatabaseDATA2019_20210824.accdb")
 

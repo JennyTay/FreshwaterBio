@@ -271,6 +271,7 @@ mdl <- summary(glm(occurrence[logistreg$common_name == i] ~
            data = logistreg))
 
 
+#probably wnt to put this in a separate loop so that we can look at the different coef variables... start here next time!!
 temp_results <- data.frame("common_name" = i,
                            "presence_number" = nrow(logistreg[logistreg$occurrence == 1 & logistreg$common_name == i,]),
                            "absence_number" = nrow(logistreg[logistreg$occurrence == 0 & logistreg$common_name == i,]),
@@ -288,5 +289,8 @@ results <- rbind(results, temp_results)
 
 hist(logistreg$TotalDASqK)
 ```
+
+Chunk8
+2. join the fish count data to the fish_event_flowline_join, and run a zero inflated regression using lat, long, total upstream drainage area, slope. Use the zero values from the fish_occurrence file 
 
 
