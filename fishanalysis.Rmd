@@ -33,6 +33,7 @@ huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/N
 huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 
 fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
 ```
 
 
@@ -65,6 +66,7 @@ huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fiel
 
 
 flowline <- flowline %>% st_zm() %>% 
+  filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
   select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
 
 
@@ -72,9 +74,9 @@ flowline <- flowline %>% st_zm() %>%
 #join the huc files to the fish_event file using a spatial join
 #each fish survey event will be associated with a huc8, huc10, and huc12 TNMID
 sf_use_s2(FALSE)
-df <- st_join(fish_event, huc8, left = FALSE)
-df <- st_join(df, huc10, left = FALSE)
-df <- st_join(df, huc12, left = FALSE)
+fish_event_huc_join <- st_join(fish_event, huc8, left = FALSE)
+fish_event_huc_join <- st_join(fish_event_huc_join, huc10, left = FALSE)
+fish_event_huc_join <- st_join(fish_event_huc_join, huc12, left = FALSE)
 
 
 
@@ -92,13 +94,17 @@ fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites
   rename(event_to_flowln_dist_m = dist)
 
 rm(flowline, huc8, huc10, huc12, dist, nearest)
+
+save(fish_event_flowline_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+save(fish_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+
 ```
 
 
 Chunk3:
 Calcuate average elevation, slopes, land cover etc within each HUC size
 ```{r}
-
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
 
 ```
 
@@ -115,7 +121,7 @@ load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fis
 
 fish <- unique(fish_presence$common_name)
 
-#remove fish that are marine, estuarine, or that have only been observed in 1 location.
+#remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location.
 remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
             "bluefish","winter flounder","striped searobin","northern pipefish",
             "bay anchovy","spot","spotfin mojarra","atlantic tomcod","rainwater killifish",
@@ -124,7 +130,10 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
             "atlantic menhaden","three-spined stickleback","hogchoker","striped killifish",
             "atlantic silverside","striped bass","mummichog","fourspine stickleback",
             "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
-            "brook silverside","northern brook lamprey","greater redhorse","guppy")
+            "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
+            "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
+            "lake trout"
+)
 
 
 fish_presence <- fish_presence %>% 
@@ -136,8 +145,8 @@ uid <- unique(fish_presence$UID)
 fish <- unique(fish_presence$common_name)
 
 #make a dataframe that has each UID repeated for each fish spp
-absence <- data.frame('UID' = rep(uid, each = 87))
-absence$common_name <- rep(fish, times = 23348)
+absence <- data.frame('UID' = rep(uid, each = 78))
+absence$common_name <- rep(fish, times = 23107)
 #keep only rows in the absence list that are no in the fish_presence list
 keep <- anti_join(absence, fish_presence, by = c("UID", "common_name"))
 #add additional scientific names to the new absence data frame
@@ -174,6 +183,7 @@ fish_occurrence <- fish_occurrence %>%
   filter(UID %in% uid)
 
 #fish_occurrence df is the file to use for the presence absence analysis.
+save(fish_occurrence, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
 ```
 
@@ -200,17 +210,83 @@ Join the biological data to the hydrologic data using the UID, which was already
 Chunk7:
 1. join the fish presence data to the fish_event_flowline_join, and run a logistic regression using lat, long, total upstream drainage area, slope. 
 ```{r}
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
-logistreg <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID")
+fish_occurrence <- fish_occurrence %>% 
+  filter(UID %in% fish_event_flowline_join$UID) #remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
+
+logistreg <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
+  select(common_name, occurrence, StreamOrde, TotalDASqK, Slope, geometry)
 
 #add columns for lat and long
 logistreg <- logistreg %>% 
-  mutate(long = unlist(map(test$geometry, 1)),
-         lat = unlist(map(test$geometry, 2)))
+  mutate(long = unlist(map(logistreg$geometry, 1)),
+         lat = unlist(map(logistreg$geometry, 2)))
 
-table(logistreg$StreamOrde)
+#sum the NAs in each column
+colSums(is.na(logistreg))
+
+hist(logistreg$StreamOrde)
+hist(logistreg$TotalDASqK)
+hist(logistreg$Slope)
+hist(logistreg$lat)
+hist(logistreg$long)
+
+#remove sites where the slope is less than 0 and where total drainage area is less than 0 because this is impossible
+logistreg <- logistreg %>% 
+  filter(Slope > 0)
+logistreg <- logistreg %>% 
+  filter(TotalDASqK > 0)
 
 
+#add column for log(TotalDASqK) and log(Slope) because these are highly skewed
+logistreg$log_Slope <- log(logistreg$Slope)
+logistreg$log_TotalDASqK <- log(logistreg$TotalDASqK)
+
+hist(logistreg$log_TotalDASqK)
+hist(logistreg$log_Slope) #still not normal
+
+#make correlation matrix for predictors
+library(corrplot)
+correlation <- cor(logistreg[, c(3, 7, 8, 9, 10)])
+corrplot(correlation, type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45)
+
+
+#draingage area and stream order are not surprisingly very correlated
+#well look at streamorder because its easier to interpret that log drainage area
+
+results <- NULL #initiate dataframe
+
+for (i in unique(logistreg$common_name)) {
+  
+
+mdl <- summary(glm(occurrence[logistreg$common_name == i] ~ 
+             StreamOrde[logistreg$common_name == i] +  
+             Slope[logistreg$common_name == i] + 
+             long[logistreg$common_name == i] + 
+             lat[logistreg$common_name == i],
+           family = binomial(link = 'logit'), 
+           data = logistreg))
+
+
+temp_results <- data.frame("common_name" = i,
+                           "presence_number" = nrow(logistreg[logistreg$occurrence == 1 & logistreg$common_name == i,]),
+                           "absence_number" = nrow(logistreg[logistreg$occurrence == 0 & logistreg$common_name == i,]),
+                      "variable" = "Stream Order",
+                      "log_Odds" = round(mdl$coefficients[2,1], 2),
+                      "stdev" = round(mdl$coefficients[2 ,2], 2),
+                      "p_value" = round(mdl$coefficients[2,4], 2),
+                      "odds_ratio" = round(exp(mdl$coefficients[2,1]), 2),
+                      "prob" = round(exp(mdl$coefficients[2,1])/ (1+exp(mdl$coefficients[2,1])), 2))
+results <- rbind(results, temp_results)
+
+
+
+}
+
+hist(logistreg$TotalDASqK)
 ```
 
 
