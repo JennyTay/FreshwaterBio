@@ -272,6 +272,7 @@ mdl <- summary(glm(occurrence[logistreg$common_name == i] ~
 
 
 #probably wnt to put this in a separate loop so that we can look at the different coef variables... start here next time!!
+#the coefients extracted for the table are just a single vairable (stream order) so we woudl want to table for the other coefiencts also.
 temp_results <- data.frame("common_name" = i,
                            "presence_number" = nrow(logistreg[logistreg$occurrence == 1 & logistreg$common_name == i,]),
                            "absence_number" = nrow(logistreg[logistreg$occurrence == 0 & logistreg$common_name == i,]),
@@ -291,6 +292,94 @@ hist(logistreg$TotalDASqK)
 ```
 
 Chunk8
-2. join the fish count data to the fish_event_flowline_join, and run a zero inflated regression using lat, long, total upstream drainage area, slope. Use the zero values from the fish_occurrence file 
+2. First prepare the fish count data (like we did in chunk 4 for the presence absence data) 
+join the fish count data to the fish_event_flowline_join, and run a zero inflated regression using lat, long, total upstream drainage area, slope. Use the zero values from the fish_occurrence file 
+
+```{r}
+
+#load the fish count data
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData')
+
+fish <- unique(fish_count$common_name)
+
+#remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location.
+remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
+            "bluefish","winter flounder","striped searobin","northern pipefish",
+            "bay anchovy","spot","spotfin mojarra","atlantic tomcod","rainwater killifish",
+            "spotfin killifish","crevalle jack","weakfish","northern searobin",
+            "sheepshead minnow","atlantic needlefish","naked goby","inland silverside",
+            "atlantic menhaden","three-spined stickleback","hogchoker","striped killifish",
+            "atlantic silverside","striped bass","mummichog","fourspine stickleback",
+            "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
+            "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
+            "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
+            "lake trout"
+)
 
 
+#load in the fish occurrence file just to extract the 0 occurence data, and to extract the UIDs that were already editted in be total pick up and efish only
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+uid <- fish_occurrence$UID
+
+#filter the common names, the UIDs, and keep only the data from the first run.
+fish_count <- fish_count %>% 
+  filter(!common_name %in% remove,
+         !is.na(common_name),
+         UID %in% uid,
+         run_num == 1)
+
+#hmmmm do we want to add in the zero data???????
+#add on the zero data 
+#first filter zeros from the fish_occurrence ddata, and then add the columns to align with the fish count data
+zero <- fish_occurrence %>% 
+  filter(occurrence == 0) %>% 
+  select(-occurrence) %>% 
+  mutate(run_num = 1,
+         count = 0)
+
+fish_count_with_zeros <- rbind(fish_count, zero)
+
+ 
+
+
+ 
+ggplot(data = fish_count, aes(x = count))+
+  geom_histogram()+
+  xlim(1,100)
+
+
+
+
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+
+
+fish_count <- fish_count %>% 
+  filter(UID %in% fish_event_flowline_join$UID) #remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
+
+
+
+countmdl <- left_join(fish_count, fish_event_flowline_join, by = "UID") %>% 
+  select(common_name, count, StreamOrde, TotalDASqK, Slope, geometry)
+
+#add columns for lat and long
+countmdl <- countmdl %>% 
+  mutate(long = unlist(map(countmdl$geometry, 1)),
+         lat = unlist(map(countmdl$geometry, 2)))
+
+#sum the NAs in each column
+colSums(is.na(countmdl))
+
+
+#remove sites where the slope is less than 0 and where total drainage area is less than 0 because this is impossible
+countmdl <- countmdl %>% 
+  filter(Slope > 0)
+countmdl <- countmdl %>% 
+  filter(TotalDASqK > 0)
+
+
+summary(mdl <- lm(count ~ lat, data = countmdl[countmdl$common_name == "fallfish",]))
+
+
+```
