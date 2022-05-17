@@ -56,6 +56,12 @@ spp_demogr <- spp_demogr %>%
   rename(SNAME = SCIENTIFIC_NAME) %>% 
   select(2:10)
 
+dec_deg <- dec_deg %>% 
+  data.frame() %>% 
+  select(-geometry, -Lat, -Long_, -ID) %>% 
+  rename("lat"  = "y.decimal.degrees", "long" = "x.decimal.degrees")
+names(dec_deg) <- tolower(names(dec_deg))
+
 head(spp_visit)
 test <- spp_visit %>% 
   select(3:15) 
@@ -65,9 +71,12 @@ test <- left_join(test, spp_desc, by = "SNAME") %>%
 
 
 test <- left_join(test, spp_demogr, by = c("OBS_DATE", "SITENUMBER", "SNAME"))
+names(test) <- tolower(names(test))
 
+test <- left_join(test, dec_deg, by = "sitenumber")
 
-#left off here... want to join dec_deg to the test file
+#left off here!!!
+#I joined the data to the dec_deg file, but I think it woudl be better to read in the shapefile and join the data to that for the updated spatial information.
 
 
 #MAFloaterDatabaseDATA2019_20210824

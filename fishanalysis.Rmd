@@ -65,11 +65,6 @@ huc12 <- huc12 %>%
 huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
 
 
-flowline <- flowline %>% st_zm() %>% 
-  filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
-  select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
-
-
 
 #join the huc files to the fish_event file using a spatial join
 #each fish survey event will be associated with a huc8, huc10, and huc12 TNMID
@@ -78,6 +73,10 @@ fish_event_huc_join <- st_join(fish_event, huc8, left = FALSE)
 fish_event_huc_join <- st_join(fish_event_huc_join, huc10, left = FALSE)
 fish_event_huc_join <- st_join(fish_event_huc_join, huc12, left = FALSE)
 
+
+flowline <- flowline %>% st_zm() %>% 
+  filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
+  select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
 
 
 #for the flowline, we want to join the point to the nearest flowline, so we need a different approach.
@@ -88,10 +87,10 @@ hist(dist)
 fish_event_flowline_join <- cbind(fish_event, st_drop_geometry(flowline)[nearest,]) #join flowline to the fish event based on the index value of the 
 fish_event_flowline_join$dist <- dist #add the distence in meters
 fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
-  filter(waterbody == "lotic",
-         dist <500) %>% 
-  select(UID, state, date, year, month, waterbody, project, source, NHDPlusID, StreamOrde, StreamLeve, AreaSqKm, TotalDASqK, Slope, dist) %>% 
+  filter(waterbody == "lotic" & dist <500) %>% 
+  select(UID, state, date, year, month, waterbody, project, source, NHDPlusID, StreamOrde, StreamLeve, AreaSqKm, TotDASqKm, Slope, MinElevSmo, dist) %>% 
   rename(event_to_flowln_dist_m = dist)
+#we will use "MinElevSmo" as the elevation measuremtn of the NHD reach.  It is very similar to the MinElevRaw.
 
 rm(flowline, huc8, huc10, huc12, dist, nearest)
 
@@ -217,7 +216,7 @@ fish_occurrence <- fish_occurrence %>%
   filter(UID %in% fish_event_flowline_join$UID) #remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
 
 logistreg <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
-  select(common_name, occurrence, StreamOrde, TotalDASqK, Slope, geometry)
+  select(common_name, occurrence, StreamOrde, TotDASqKm, Slope, MinElevSmo,  geometry)
 
 #add columns for lat and long
 logistreg <- logistreg %>% 
@@ -228,28 +227,30 @@ logistreg <- logistreg %>%
 colSums(is.na(logistreg))
 
 hist(logistreg$StreamOrde)
-hist(logistreg$TotalDASqK)
+hist(logistreg$TotDASqKm)
 hist(logistreg$Slope)
 hist(logistreg$lat)
 hist(logistreg$long)
+hist(logistreg$MinElevSmo)
+
 
 #remove sites where the slope is less than 0 and where total drainage area is less than 0 because this is impossible
 logistreg <- logistreg %>% 
   filter(Slope > 0)
 logistreg <- logistreg %>% 
-  filter(TotalDASqK > 0)
+  filter(TotDASqKm > 0)
 
 
-#add column for log(TotalDASqK) and log(Slope) because these are highly skewed
+#add column for log(TotDASqKm) and log(Slope) because these are highly skewed
 logistreg$log_Slope <- log(logistreg$Slope)
-logistreg$log_TotalDASqK <- log(logistreg$TotalDASqK)
+logistreg$log_TotalDASqK <- log(logistreg$TotDASqKm)
 
 hist(logistreg$log_TotalDASqK)
 hist(logistreg$log_Slope) #still not normal
 
 #make correlation matrix for predictors
 library(corrplot)
-correlation <- cor(logistreg[, c(3, 7, 8, 9, 10)])
+correlation <- cor(logistreg[, c(3, 6, 8, 9, 10, 11)])
 corrplot(correlation, type = "upper", order = "hclust", 
          tl.col = "black", tl.srt = 45)
 
@@ -266,7 +267,8 @@ mdl <- summary(glm(occurrence[logistreg$common_name == i] ~
              StreamOrde[logistreg$common_name == i] +  
              Slope[logistreg$common_name == i] + 
              long[logistreg$common_name == i] + 
-             lat[logistreg$common_name == i],
+             lat[logistreg$common_name == i] +
+               MinElevSmo[logistreg$common_name == i],
            family = binomial(link = 'logit'), 
            data = logistreg))
 
@@ -288,11 +290,11 @@ results <- rbind(results, temp_results)
 
 }
 
-hist(logistreg$TotalDASqK)
+hist(logistreg$log_TotalDASqK)
 ```
 
 Chunk8
-2. First prepare the fish count data (like we did in chunk 4 for the presence absence data) 
+2. First prepare the fish count data (like we did in chunk 4 for the presence absence data) and add in the zero data from the presence absence data
 join the fish count data to the fish_event_flowline_join, and run a zero inflated regression using lat, long, total upstream drainage area, slope. Use the zero values from the fish_occurrence file 
 
 ```{r}
@@ -321,12 +323,20 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
 load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 uid <- fish_occurrence$UID
 
+
 #filter the common names, the UIDs, and keep only the data from the first run.
 fish_count <- fish_count %>% 
   filter(!common_name %in% remove,
          !is.na(common_name),
          UID %in% uid,
          run_num == 1)
+
+#join the method data because we will include reach length as a predictor variable
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+colSums(is.na(method))
+method <- method %>% 
+  select(-daylight, -target, -Comments, -Data_Comments)
+fish_count <- left_join(fish_count, method, by = "UID")
 
 #hmmmm do we want to add in the zero data???????
 #add on the zero data 
@@ -336,6 +346,8 @@ zero <- fish_occurrence %>%
   select(-occurrence) %>% 
   mutate(run_num = 1,
          count = 0)
+
+zero <- left_join(zero, method, by = "UID")
 
 fish_count_with_zeros <- rbind(fish_count, zero)
 
@@ -355,13 +367,10 @@ ggplot(data = fish_count, aes(x = count))+
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 
 
-fish_count <- fish_count %>% 
-  filter(UID %in% fish_event_flowline_join$UID) #remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
-
-
 
 countmdl <- left_join(fish_count, fish_event_flowline_join, by = "UID") %>% 
-  select(common_name, count, StreamOrde, TotalDASqK, Slope, geometry)
+  select(common_name, count, StreamOrde, TotalDASqK, Slope, geometry) %>% 
+  filter(!is.na(StreamOrde))#remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
 
 #add columns for lat and long
 countmdl <- countmdl %>% 
@@ -381,5 +390,76 @@ countmdl <- countmdl %>%
 
 summary(mdl <- lm(count ~ lat, data = countmdl[countmdl$common_name == "fallfish",]))
 
+
+```
+
+Chunk9
+3. Prepare the fish length data (like we did in chunk 4 for the presence absence data) 
+join the fish length data to the fish_event_flowline_join, and run a linear regression using lat, long, total upstream drainage area, slope. In this model, we can use all of the data, regardless of reach lenght and total pick up and gear.
+
+```{r}
+
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData')
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+
+fish <- unique(fish_size$common_name)
+
+#remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location.
+remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
+            "bluefish","winter flounder","striped searobin","northern pipefish",
+            "bay anchovy","spot","spotfin mojarra","atlantic tomcod","rainwater killifish",
+            "spotfin killifish","crevalle jack","weakfish","northern searobin",
+            "sheepshead minnow","atlantic needlefish","naked goby","inland silverside",
+            "atlantic menhaden","three-spined stickleback","hogchoker","striped killifish",
+            "atlantic silverside","striped bass","mummichog","fourspine stickleback",
+            "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
+            "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
+            "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
+            "lake trout"
+)
+
+fish_size <- fish_size %>% 
+  filter(!common_name %in% remove) %>% 
+  filter(!is.na(common_name))
+
+ggplot(data = fish_size, aes(x = length_mm))+
+  geom_histogram()
+
+#remove the blacknose dace observatin that is greater than 7000mm - clearly an error
+fish_size <- fish_size %>% 
+  filter(length_mm <7000)
+
+
+
+
+#filter for the UIDs in the 'fish_event_flowline_join$UID')' to remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event
+fish_size <- left_join(fish_size, fish_event_flowline_join, by = "UID")
+colSums(is.na(fish_size))
+fish_size <- fish_size %>% 
+  filter(!is.na(NHDPlusID))
+
+
+#plot the lengths of each fish as a histogram.
+for( i in 1:length(unique(fish_size$common_name))){
+  
+  ggplot()+
+    geom_histogram(data = fish_size[fish_size$common_name == unique(fish_size$common_name)[i], ], aes(x = length_mm))+
+    ggtitle(label = paste(unique(fish_size$common_name)[i], (unique(fish_size$scientific_name)[i]), sep = ", "))
+  
+  ggsave(
+    filename = paste("tmpfigures/fish_length_plots/", unique(fish_size$common_name)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+  
+  print(i)
+} 
+
+
+#linearly regress fish length verse elevation, stream order, basin area, slope, lat and long
+#left off here!
 
 ```
