@@ -5,8 +5,8 @@ library(tidyverse)
 library(lubridate)
 
 
-
-
+#first load in an NHD layer, becuase we will use the CRS of the NHD layer to project all the mussel data collected in a different CRS
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 
 
 #Vermont natural heritage
@@ -30,9 +30,9 @@ uncom <- uncom %>%
 
 
 
-#MA natural heritage
+################  MA natural heritage #####################
 
-#mussel2002
+##################   mussel2002  ########################
 
 
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/mussel2002.mdb")
@@ -40,7 +40,10 @@ spp_visit <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/
 spp_desc <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data//mussel2002.mdb", layer = "SPECIES_DESC")
 site_visit <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data//mussel2002.mdb", layer = "SITE_VISIT")
 spp_demogr <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data//mussel2002.mdb", layer = "SPECIES_DEMOGRAPHICS")
-dec_deg <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data//mussel2002.mdb", layer = "Dec_deg")
+
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MusselDB_species.shp")
+st_crs(shp)
+st_crs(huc8)
 
 
 
@@ -56,32 +59,102 @@ spp_demogr <- spp_demogr %>%
   rename(SNAME = SCIENTIFIC_NAME) %>% 
   select(2:10)
 
-dec_deg <- dec_deg %>% 
-  data.frame() %>% 
-  select(-geometry, -Lat, -Long_, -ID) %>% 
-  rename("lat"  = "y.decimal.degrees", "long" = "x.decimal.degrees")
-names(dec_deg) <- tolower(names(dec_deg))
-
 head(spp_visit)
-test <- spp_visit %>% 
+mussel <- spp_visit %>% 
   select(3:15) 
 
-test <- left_join(test, spp_desc, by = "SNAME") %>% 
-  filter(TAX_GRP == "Mussels" | TAX_GRP == "Non-Native Mollusks")
+#join mussel data to the spp descrition table (the table that gives common name and taxonomic group)
+mussel <- left_join(mussel, spp_desc, by = "SNAME") %>% 
+  filter(TAX_GRP == "Mussels" | TAX_GRP == "Non-Native Mollusks") %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+#join mussel data to the spp demographic table (the table that describes the mussels that were observed)
+mussel <- left_join(mussel, spp_demogr, by = c("OBS_DATE", "SITENUMBER", "SNAME"))
+names(mussel) <- tolower(names(mussel))
 
 
-test <- left_join(test, spp_demogr, by = c("OBS_DATE", "SITENUMBER", "SNAME"))
-names(test) <- tolower(names(test))
+length(unique(shp$SITENUMBER))
+length(unique(mussel$sitenumber))
 
-test <- left_join(test, dec_deg, by = "sitenumber")
-
-#left off here!!!
-#I joined the data to the dec_deg file, but I think it woudl be better to read in the shapefile and join the data to that for the updated spatial information.
+#project the geographic information to the NHD projection
+shp <- st_transform(shp, st_crs(huc8))
 
 
-#MAFloaterDatabaseDATA2019_20210824
+#filter the shapefile for only the mussel spp
+shp <- shp %>% 
+  filter(Species %in% mussel$sname) %>% 
+  select(SITENUMBER) %>% 
+  unique()
+names(shp) <- tolower(names(shp))
+
+#left join the mussel to thes hp to get geographic inforatmion - now the mussel data has geographic information
+ma_mussel <- left_join(mussel, shp, by = "sitenumber")
+
+str(ma_mussel)
+colSums(is.na(ma_mussel))
+
+
+ma_mussel <- ma_mussel %>% 
+  mutate(longitude = unlist(map(ma_mussel$geometry, 1)),
+         latitude = unlist(map(ma_mussel$geometry, 2))) %>% 
+  select(latitude, longitude, obs_date, sname, scomname, sitenumber, live, shells, tax_grp, length, height, condition, sex, gravid_brooding, survey_method, number_searchers,
+         snorkels, scuba_divers, view_buckets, shoreline_walkers, search_time) %>% 
+  mutate(live_occurrence = ifelse(live == "Present", 1,
+                             ifelse(live == 0, 0, 1)),
+         shell_occurrence = ifelse(shells == "present" | shells == "many", 1,
+                              ifelse(shells == 0, 0, 1))) %>% 
+  rename(live_count = live,
+         shell_count = shells,
+         scientific_name = sname,
+         common_name = scomname,
+         date = obs_date) %>% 
+  mutate(source = "JasonCarmignani-MassWildlife",
+         project= "mussel2002 database")
+
+#tidy the 'live_count column
+ma_mussel$live_count[ma_mussel$live_count == "Present"] <- NA #it is important to do this after the ifelse command above, because we want the occurence column to register these as a presnt. If we revalue it as 
+#NA, then the ifelse statement above will give the occurrence value of NA for these observations.
+ma_mussel$live_count[ma_mussel$live_count == "100s to 1000s"] <- 500 #take the mid-range
+ma_mussel$live_count[ma_mussel$live_count == "10s to 100"] <- 50 #take the mid-range
+ma_mussel$live_count <- as.numeric(ma_mussel$live_count)
+
+#tidy the "shell_count" column
+ma_mussel$shell_count[ma_mussel$shell_count == "present"] <- NA
+ma_mussel$shell_count[ma_mussel$shell_count == "many"] <- NA
+ma_mussel$shell_count <- as.numeric(ma_mussel$shell_count)
+
+#survey_method column
+ma_mussel$survey_method <- tolower(ma_mussel$survey_method)
+ma_mussel$survey_method[ma_mussel$survey_method == "timed search: uncosntrained"] <- "timed search: unconstrained"
+ma_mussel$survey_method[ma_mussel$survey_method == "timed search: unconstrained."] <- "timed search: unconstrained"
+
+#make names lowercase 
+ma_mussel$scientific_name <- tolower(ma_mussel$scientific_name)
+ma_mussel$common_name <- tolower(ma_mussel$common_name)
+table(ma_mussel$scientific_name)
+
+
+
+#tidy site_visit table to extract the stream length surveyed and the stream width
+names(site_visit)
+colSums(is.na(site_visit))
+
+
+############   MAFloaterDatabaseDATA2019_20210824 ###############
+
+
+
+
+
+
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MAFloaterDatabaseDATA2019_20210824.accdb")
+mussel_data <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MAFloaterDatabaseDATA2019_20210824.accdb", layer = "MusselData")
+survey_data <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MAFloaterDatabaseDATA2019_20210824.accdb", layer = "SurveyData")
 
+
+mussel_data <- mussel_data %>% 
+  
 
 
 
