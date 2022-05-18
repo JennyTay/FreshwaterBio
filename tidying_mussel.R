@@ -137,6 +137,9 @@ table(ma_mussel$scientific_name)
 
 
 #tidy site_visit table to extract the stream length surveyed and the stream width
+
+# left off here!!!!!!!!!!!!!!!!!!!!!!!!!! and with the broat floater data below
+
 names(site_visit)
 colSums(is.na(site_visit))
 
