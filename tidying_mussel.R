@@ -9,7 +9,13 @@ library(lubridate)
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 
 
-#Vermont natural heritage
+
+
+#################  Vermont natural heritage  ###################
+
+
+
+
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
 
 rare <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
@@ -32,7 +38,12 @@ uncom <- uncom %>%
 
 ################  MA natural heritage #####################
 
-##################   mussel2002  ########################
+
+
+
+###########################################################
+
+##################   mussel2002  ##########################
 
 
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/mussel2002.mdb")
@@ -135,7 +146,8 @@ ma_mussel$common_name <- tolower(ma_mussel$common_name)
 table(ma_mussel$scientific_name)
 
 
-
+site_visit <- site_visit %>% 
+  select(c(2:3, 12, 13, 21, 22, 29))
 #tidy site_visit table to extract the stream length surveyed and the stream width
 
 # left off here!!!!!!!!!!!!!!!!!!!!!!!!!! and with the broat floater data below
@@ -143,6 +155,14 @@ table(ma_mussel$scientific_name)
 names(site_visit)
 colSums(is.na(site_visit))
 
+
+
+
+
+
+
+
+#################################################################
 
 ############   MAFloaterDatabaseDATA2019_20210824 ###############
 
@@ -155,9 +175,57 @@ st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NH
 mussel_data <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MAFloaterDatabaseDATA2019_20210824.accdb", layer = "MusselData")
 survey_data <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MAFloaterDatabaseDATA2019_20210824.accdb", layer = "SurveyData")
 
+colSums(is.na(mussel_data)) #sex and width have almost no data so we will remove these fields
 
-mussel_data <- mussel_data %>% 
+
+tmp1 <- mussel_data %>%
+  filter(!Species == "NO MUSSELS") %>% 
+  mutate(shell_count = ifelse(Abundance.Category == "Shell Only", Count, NA),
+         individual_count = ifelse(Abundance.Category == "See Count", Count, NA),
+         individual_presence = ifelse(Abundance.Category == "Shell Only", 0, 1))
   
+
+#make a dataset with negative data, so add a row for each spp and a 0
+tmp2 <- mussel_data %>% 
+  filter(Species == "NO MUSSELS")
+
+
+
+
+
+###################################################################
+
+################# Maine Dept of Inland Waters  ####################
+
+
+me_mussel <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ME IFW Mussel Data/Maine Freshwater Mussel Survey Data_20220426.csv")
+
+names(me_mussel)
+df$DDLONG <- ifelse(df$DDLONG > 0, -df$DDLONG, df$DDLONG)
+
+
+me_mussel <- me_mussel %>% 
+  select(WTYPE, SITE, MONTH, DAY, YEAR, SVYTYPE, SRCTYPE, SOURCE, 17:28) %>% 
+  rename(longitude = DDLONG,
+         latitude = DDLAT)
+
+
+
+
+
+write.csv(df, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ME_mussel.csv")
+
+
+
+
+
+
+
+
+
+
+###################################################################
+
 
 
 
@@ -229,13 +297,4 @@ write.csv(ma_srcpoly, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 
 
 
-#Maine Freshawter mussel data
 
-df <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ME IFW Mussel Data/Maine Freshwater Mussel Survey Data_20220426.csv")
-df$DDLONG <- ifelse(df$DDLONG > 0, -df$DDLONG, df$DDLONG)
-names(df)[27:28] <- c("longitude", "latitude")
-df <- df %>% 
-  select(latitude, longitude, MM) %>% 
-  filter(!is.na(latitude),
-         !is.na(longitude))
-write.csv(df, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ME_mussel.csv")

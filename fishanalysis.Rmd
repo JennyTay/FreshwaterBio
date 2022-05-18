@@ -459,7 +459,8 @@ for( i in 1:length(unique(fish_size$common_name))){
 } 
 
 
-#linearly regress fish length verse elevation, stream order, basin area, slope, lat and long
-#left off here!
+
+
+
 
 ```
