@@ -1,0 +1,127 @@
+---
+title: "BiodiversityMetric"
+author: "Jenny Rogers"
+date: '2022-05-20'
+output: html_document
+---
+
+In this file, we calucate different biodiversity metrics at 5 scales, the survey site, stream reach, HUC 12, HUC 10, and HUC 8.
+ 
+Biodiversity metrics:
+spp richness 
+ratio of native to nonnative spp richness
+ratio of site richness relative to HUC 8, 10, 12 richness
+ratio of cold water to warm water
+percent of target fish community present
+
+Cluster fish based on cooccurrence - each cluseter is a metric of biodiversity
+
+load libraries
+
+```{r}
+
+library(tidyverse)
+library(sf)
+
+
+```
+
+load datafiles
+
+```{r}
+#watershed data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+
+#fish data
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+#fish attribute data
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdec_fish_species.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_species.RData")
+
+```
+
+
+Calculate spp richness at each scale
+
+```{r}
+
+#remove absence data
+fish_occurrence <- fish_occurrence %>% 
+  filter(occurrence == 1)
+
+
+
+
+
+
+#spp richness: site scale
+
+richness_site <- fish_occurrence %>%
+  group_by(UID) %>% 
+  summarise(richness_site = n())
+hist(richness_site$richness_site)
+
+#join with spatial data
+dat <- left_join(fish_event_flowline_join, richness_site, by = "UID")
+
+
+
+
+
+
+#spp richness: NHD Reach
+
+richness_reach <- left_join(fish_occurrence, fish_event_flowline_join, by = 'UID') %>% 
+  group_by(NHDPlusID) %>% 
+  summarise(richness_reach = length(unique(common_name)))
+  
+  
+hist(richness_reach$richness_reach)
+
+
+
+
+
+
+#spp richness: huc12
+
+richness_huc12 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>% 
+  group_by(huc12_name) %>% 
+  summarise(richess_huc12 = length(unique(common_name)))
+  
+  
+hist(richness_huc12$richess_huc12)
+
+
+
+
+
+
+#spp richness: huc10
+
+richness_huc10 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>% 
+  group_by(huc10_name) %>% 
+  summarise(richness_huc10 = length(unique(common_name)))
+  
+  
+hist(richness_huc10$richness_huc10)
+
+
+
+
+
+
+#spp richness: huc8
+
+richness_huc8 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>% 
+  group_by(huc8_name) %>% 
+  summarise(richness_huc8 = length(unique(common_name)))
+  
+  
+hist(richness_huc8$richness_huc8)
+
+
+```

@@ -6,13 +6,15 @@ output: html_document
 ---
 
 
-Install libraries
+load libraries
 
 ```{r}
 
 library(tidyverse)
 library(sf)
 library(lwgeom)
+
+
 ```
 
 
@@ -73,6 +75,9 @@ fish_event_huc_join <- st_join(fish_event, huc8, left = FALSE)
 fish_event_huc_join <- st_join(fish_event_huc_join, huc10, left = FALSE)
 fish_event_huc_join <- st_join(fish_event_huc_join, huc12, left = FALSE)
 
+fish_event_huc_join <- fish_event_huc_join %>% 
+  filter(waterbody == 'lotic')
+
 
 flowline <- flowline %>% st_zm() %>% 
   filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
@@ -93,6 +98,8 @@ fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites
 #we will use "MinElevSmo" as the elevation measuremtn of the NHD reach.  It is very similar to the MinElevRaw.
 
 rm(flowline, huc8, huc10, huc12, dist, nearest)
+
+#note that there will be more rows in the HUC dataset because some of the events too far from flowlines were removed.
 
 save(fish_event_flowline_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 save(fish_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
@@ -302,7 +309,6 @@ join the fish count data to the fish_event_flowline_join, and run a zero inflate
 #load the fish count data
 load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData')
 
-fish <- unique(fish_count$common_name)
 
 #remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location.
 remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
@@ -331,31 +337,52 @@ fish_count <- fish_count %>%
          UID %in% uid,
          run_num == 1)
 
+
+
+#add zero data
+#we cant just take the zeros from the fish_occurrence dataframe.  This is because the fish_occurrence dataframe marked 'presnet' if the fish spp was observed regardless of run number.  The count data only used the first run. Therefore, there will be some fish that were 'present' but not 'counted' and therefore we will be short zeros for all spp observed during runs 2 and greater. well used the same method we used for the fish_occurrence data
+
+fish <- unique(fish_count$common_name)
+uid <- unique(fish_count$UID)
+#make a dataframe that has each UID repeated for each fish spp
+absence <- data.frame('UID' = rep(uid, each = length(fish)))
+absence$common_name <- rep(fish, times = length(uid))
+#keep only rows in the absence list that are not in the fish_count list
+keep <- anti_join(absence, fish_count, by = c("UID", "common_name"))
+#add additional scientific names to the new absence data frame
+scientific_name <- fish_count %>% 
+  select(common_name, scientific_name, genus) %>% 
+  unique()
+keep <- left_join(keep, scientific_name, by = "common_name")
+
+#add absence information
+keep$count <- 0
+keep$run_num <- 1
+
+
+#bind the presence and absence columns together
+fish_count_with_zeros <- rbind(fish_count, keep)
+fish_count_with_zeros <- fish_count_with_zeros %>% 
+  arrange(UID)
+
+
+
+
+
 #join the method data because we will include reach length as a predictor variable
 load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
 colSums(is.na(method))
 method <- method %>% 
   select(-daylight, -target, -Comments, -Data_Comments)
-fish_count <- left_join(fish_count, method, by = "UID")
+fish_count_with_zeros <- left_join(fish_count_with_zeros, method, by = "UID")
 
-#hmmmm do we want to add in the zero data???????
-#add on the zero data 
-#first filter zeros from the fish_occurrence ddata, and then add the columns to align with the fish count data
-zero <- fish_occurrence %>% 
-  filter(occurrence == 0) %>% 
-  select(-occurrence) %>% 
-  mutate(run_num = 1,
-         count = 0)
 
-zero <- left_join(zero, method, by = "UID")
-
-fish_count_with_zeros <- rbind(fish_count, zero)
-
- 
+#fish_count_with_zeros df is the file to use for the zero inflated poisson regression analysis and for the clustering sites based on abundance.
+save(fish_count_with_zeros, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData") 
 
 
  
-ggplot(data = fish_count, aes(x = count))+
+ggplot(data = fish_count_with_zeros, aes(x = count))+
   geom_histogram()+
   xlim(1,100)
 
@@ -368,7 +395,7 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fi
 
 
 
-countmdl <- left_join(fish_count, fish_event_flowline_join, by = "UID") %>% 
+countmdl <- left_join(fish_count_with_zeros, fish_event_flowline_join, by = "UID") %>% 
   select(common_name, count, StreamOrde, TotalDASqK, Slope, geometry) %>% 
   filter(!is.na(StreamOrde))#remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
 
@@ -393,9 +420,44 @@ summary(mdl <- lm(count ~ lat, data = countmdl[countmdl$common_name == "fallfish
 
 ```
 
+
+chunk8a
+clustering using abundance data
+```{r}
+library(corrplot)
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+
+dat <- fish_count_with_zeros %>% 
+  filter(!is.na(reach_length_m)) %>%
+  mutate(reach_length_m = reach_length_m+1, #some reach lengths were 0 - I assume this means they just did a grab sample in one location.. but I need to check
+         abundance = count/reach_length_m) %>% 
+  select(UID, common_name, abundance) %>% 
+  pivot_wider(names_from = common_name, values_from = abundance) %>% 
+  column_to_rownames(var = "UID")
+  
+#check the total abundance in each sample
+range(apply(dat, 1, sum), na.rm = T)
+
+#convert the abundance into relative abundance, so that the total abundance always adds up to 1
+dat <- decostand(dat, method = "total")
+range(apply(dat, 1, sum), na.rm = T)
+
+test <- round(cor(dat),3)
+
+
+png(height = 10, width = 15, file = "tmpfigures/fishcorplot.png", units = "in", res = 150, type = "cairo")
+
+corrplot(test, type = "upper", order = "hclust")
+
+dev.off()
+
+```
+
 Chunk9
 3. Prepare the fish length data (like we did in chunk 4 for the presence absence data) 
-join the fish length data to the fish_event_flowline_join, and run a linear regression using lat, long, total upstream drainage area, slope. In this model, we can use all of the data, regardless of reach lenght and total pick up and gear.
+join the fish length data to the fish_event_flowline_join, calucate the variance of lengths at each site, and run a linear regression using lat, long, total upstream drainage area, slope. In this model, we can use all of the data, regardless of reach lenght and total pick up and gear.
 
 ```{r}
 
@@ -460,7 +522,7 @@ for( i in 1:length(unique(fish_size$common_name))){
 
 
 
-
+#calculate variance for each spp by UID. First need to remove outliers so ensure normal dist. cant do this for the bimodal distributions (anadromous spp)
 
 
 ```
