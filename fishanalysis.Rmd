@@ -421,39 +421,7 @@ summary(mdl <- lm(count ~ lat, data = countmdl[countmdl$common_name == "fallfish
 ```
 
 
-chunk8a
-clustering using abundance data
-```{r}
-library(corrplot)
 
-load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
-
-
-dat <- fish_count_with_zeros %>% 
-  filter(!is.na(reach_length_m)) %>%
-  mutate(reach_length_m = reach_length_m+1, #some reach lengths were 0 - I assume this means they just did a grab sample in one location.. but I need to check
-         abundance = count/reach_length_m) %>% 
-  select(UID, common_name, abundance) %>% 
-  pivot_wider(names_from = common_name, values_from = abundance) %>% 
-  column_to_rownames(var = "UID")
-  
-#check the total abundance in each sample
-range(apply(dat, 1, sum), na.rm = T)
-
-#convert the abundance into relative abundance, so that the total abundance always adds up to 1
-dat <- decostand(dat, method = "total")
-range(apply(dat, 1, sum), na.rm = T)
-
-test <- round(cor(dat),3)
-
-
-png(height = 10, width = 15, file = "tmpfigures/fishcorplot.png", units = "in", res = 150, type = "cairo")
-
-corrplot(test, type = "upper", order = "hclust")
-
-dev.off()
-
-```
 
 Chunk9
 3. Prepare the fish length data (like we did in chunk 4 for the presence absence data) 

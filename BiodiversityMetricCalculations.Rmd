@@ -125,3 +125,93 @@ hist(richness_huc8$richness_huc8)
 
 
 ```
+
+
+cluster spp based on cooccurrence using abundance data, presence absence data
+```{r}
+library(corrplot)
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+
+dat <- fish_count_with_zeros %>% 
+  filter(!is.na(reach_length_m)) %>%
+  mutate(reach_length_m = reach_length_m+1, #some reach lengths were 0 - I assume this means they just did a grab sample in one location.. but I need to check
+         abundance = count/reach_length_m) %>% 
+  select(UID, common_name, abundance) %>% 
+  pivot_wider(names_from = common_name, values_from = abundance) %>% 
+  column_to_rownames(var = "UID")
+  
+#check the total abundance in each sample
+range(apply(dat, 1, sum), na.rm = T)
+
+#convert the abundance into relative abundance, so that the total abundance always adds up to 1
+dat <- decostand(dat, method = "total")
+range(apply(dat, 1, sum), na.rm = T)
+
+test <- round(cor(dat),3)
+
+
+png(height = 10, width = 15, file = "tmpfigures/fishcorplot.png", units = "in", res = 150, type = "cairo")
+
+corrplot(test, type = "upper", order = "hclust")
+
+dev.off()
+
+
+
+
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+
+
+dat <- fish_occurrence %>%
+  select(UID, common_name, occurrence) %>% 
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+  
+#check the total abundance in each sample
+range(apply(dat, 1, sum), na.rm = T)
+
+#convert the abundance into relative abundance, so that the total abundance always adds up to 1
+dat <- decostand(dat, method = "total")
+range(apply(dat, 1, sum), na.rm = T)
+
+test <- round(cor(dat),3)
+
+
+png(height = 10, width = 15, file = "tmpfigures/fishcorplot_occ.png", units = "in", res = 150, type = "cairo")
+
+corrplot(test, type = "upper", order = "hclust")
+
+dev.off()
+
+
+
+
+#corr plot at huc12 scale
+
+dat <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>%
+  select(common_name, occurrence, huc12_name) %>% 
+  group_by(huc12_name, common_name) %>% 
+  summarize(occurrence = max(occurrence)) %>% 
+  filter(!is.na(huc12_name)) %>% 
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "huc12_name")
+
+#check the total abundance in each sample
+range(apply(dat, 1, sum), na.rm = T)
+
+#convert the abundance into relative abundance, so that the total abundance always adds up to 1
+dat <- decostand(dat, method = "total")
+range(apply(dat, 1, sum), na.rm = T)
+
+test <- round(cor(dat),3)
+
+png(height = 10, width = 15, file = "tmpfigures/fishcorplot_huc12.png", units = "in", res = 150, type = "cairo")
+
+corrplot(test, type = "upper", order = "hclust")
+
+dev.off()
+
+```

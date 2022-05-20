@@ -207,10 +207,30 @@ df$DDLONG <- ifelse(df$DDLONG > 0, -df$DDLONG, df$DDLONG)
 me_mussel <- me_mussel %>% 
   select(WTYPE, SITE, MONTH, DAY, YEAR, SVYTYPE, SRCTYPE, SOURCE, 17:28) %>% 
   rename(longitude = DDLONG,
-         latitude = DDLAT)
+         latitude = DDLAT,
+         waterbody = WTYPE,
+         method = SVYTYPE,
+         project = SOURCE) %>% 
+  mutate(source = "Beth Swartz - ME Inland Fisheries and Wildlife")
 
 
+head(me_mussel)
 
+me_mussel$waterbody[me_mussel$waterbody == "L"] <- "lentic"
+me_mussel$waterbody[me_mussel$waterbody == "W"] <- "lotic"
+me_mussel$method[me_mussel$method == "S"] <- "survey"
+me_mussel$method[me_mussel$method == "I"] <- "incidental submission"
+
+names(me_mussel)[9:18] <- c("Margaritifera margaritifera", "Elliptio complanata",
+                             "Alasmidonta undulata", "Alasmidonta varicosa",
+                             "Pyganodon cataracta", "Anodonta implicata",
+                             "Strophitus undulatus", "Leptodea ochracea",
+                             "Lampsilis cariosa", "Lampsilis radiata")
+
+me_mussel <- me_mussel %>% 
+  pivot_longer(cols = 9:18, names_to = "scientific_name", values_to = "occurrence") %>% 
+  
+  ####left off here!! make columns for live_occurrece and shell_occurrence
 
 
 write.csv(df, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ME_mussel.csv")
