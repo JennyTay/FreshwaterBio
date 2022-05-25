@@ -14,6 +14,10 @@ ratio of site richness relative to HUC 8, 10, 12 richness
 ratio of cold water to warm water
 percent of target fish community present
 
+considering climate change
+change in spp richness (immigrations vs extirpations)
+percent addition of cold or warm water spp
+
 Cluster fish based on cooccurrence - each cluseter is a metric of biodiversity
 
 load libraries
@@ -134,7 +138,7 @@ library(corrplot)
 load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
 
 
-dat <- fish_count_with_zeros %>% 
+dat <- fish_count_with_zeros %>%  
   filter(!is.na(reach_length_m)) %>%
   mutate(reach_length_m = reach_length_m+1, #some reach lengths were 0 - I assume this means they just did a grab sample in one location.. but I need to check
          abundance = count/reach_length_m) %>% 
@@ -213,5 +217,96 @@ png(height = 10, width = 15, file = "tmpfigures/fishcorplot_huc12.png", units = 
 corrplot(test, type = "upper", order = "hclust")
 
 dev.off()
+
+```
+
+Cluster spp based on occurrence and based on watershed characteristcs
+```{r}
+library(data.table)
+
+
+#cluster based on the occurrence of other species
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+
+
+dat <- fish_occurrence %>%
+  select(UID, common_name, occurrence) %>%
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- transpose(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = "tmpfigures/fishhclust.png", units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg)
+dev.off()
+
+
+#cluster based on the occurrence of other species by HUC8
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+
+  
+tmp <- left_join(fish_occurrence, fish_event_huc_join, by = "UID") 
+
+for (i in unique(fish_event_huc_join$huc8_name)) {
+
+dat <- tmp %>% 
+  filter(huc8_name == i)
+#remove spp that are never presenct
+keep <- dat %>% 
+  group_by(common_name) %>% 
+  summarise(occ = sum(occurrence)) %>% 
+  filter(occ > 0)
+
+
+dat <- dat %>%
+  filter(common_name %in% keep$common_name ) %>% 
+  select(UID, common_name, occurrence) %>%
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- transpose(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = paste("tmpfigures/fish_clusters/", i, ".png", sep = ""), units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg)
+dev.off()
+
+print(i)
+
+}
+
+
+
+
+
+#CART analysis based on VAA
+library(caret)
+library(rpart)
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+
+dat <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
+  filter(occurrence == 1,
+         common_name %in% c("burbot", "swamp darter", "black crappie")) %>% 
+  mutate(long = unlist(map(geometry, 1)),
+         lat = unlist(map(geometry, 2))) %>% 
+  select(common_name, StreamOrde, MinElevSmo, lat, long)
+
+model <- rpart(common_name ~., data = dat)
+par(xpd = NA)
+plot(model)
+
 
 ```

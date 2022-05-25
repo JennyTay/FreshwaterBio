@@ -227,10 +227,15 @@ names(me_mussel)[9:18] <- c("Margaritifera margaritifera", "Elliptio complanata"
                              "Strophitus undulatus", "Leptodea ochracea",
                              "Lampsilis cariosa", "Lampsilis radiata")
 
-me_mussel <- me_mussel %>% 
+test <- me_mussel %>% 
   pivot_longer(cols = 9:18, names_to = "scientific_name", values_to = "occurrence") %>% 
-  
-  ####left off here!! make columns for live_occurrece and shell_occurrence
+  mutate(live_occurrence = ifelse(occurrence == "X", 1, 0),
+         shell_occurrence = ifelse(occurrence == "S", 1, 0),
+         date = dmy(paste(DAY, MONTH, YEAR, by = "-")),
+         UID = paste())
+
+names(test) <- tolower(names(test))
+
 
 
 write.csv(df, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ME_mussel.csv")
