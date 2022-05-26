@@ -266,8 +266,8 @@ keep <- dat %>%
 
 
 dat <- dat %>%
-  filter(common_name %in% keep$common_name ) %>% 
-  select(UID, common_name, occurrence) %>%
+  filter(common_name %in% keep$common_name ) %>%  
+  select(UID, common_name, occurrence) %>% # problem - the UID in VT DFW is not unique! there are some that have duplicated names, need to return to the tidying vt data and fix this!!!
   pivot_wider(names_from = common_name, values_from = occurrence) %>% 
   column_to_rownames(var = "UID")
 

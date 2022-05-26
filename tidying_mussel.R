@@ -147,8 +147,55 @@ table(ma_mussel$scientific_name)
 
 
 site_visit <- site_visit %>% 
-  select(c(2:3, 12, 13, 21, 22, 29))
-#tidy site_visit table to extract the stream length surveyed and the stream width
+  data.frame() %>% 
+  select(c(2:3, 12)) 
+
+
+str(site_visit)
+unique(site_visit$DIST_INVENT)
+site_visit$DIST_INVENT[is.na(as.numeric(site_visit$DIST_INVENT))]  #identify the non numerical entires into NA
+site_visit$DIST_INVENT[site_visit$DIST_INVENT == "120 m"] <- 120
+site_visit$DIST_INVENT[site_visit$DIST_INVENT == "NA"] <- NA
+
+site_visit$DIST_INVENT <- as.numeric(site_visit$DIST_INVENT)
+
+names(site_visit) <- c("sitenumber", "date", "reach_length_m")
+
+
+ma_mussel <- left_join(ma_mussel, site_visit, by = c("sitenumber", "date"))
+
+#remove an erroneaous entry
+ma_mussel <- ma_mussel[-2325,] #this row was found to be erroneous because when I made the mussel occurrence df below and then grouped by UID and 
+#common_name (test below), there were two rows - one that found the mussel to the present, and one that did not. The one that did not appeared erroneous because
+#the other columns were not consistent with the values for the rest of the rows done on that date at that site.
+
+
+ma_mussel_event <- ma_mussel %>% 
+  mutate(state = "MA",
+         UID = paste(state, sitenumber, date, sep = "_")) %>% 
+  select(UID, latitude, longitude, date, project, source) %>% 
+  unique()
+
+
+
+ma_mussel_occurrence <- ma_mussel %>% 
+  mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
+  unique()
+
+test <- ma_mussel_occurrence %>% 
+  group_by(UID, common_name,) %>% 
+  summarise(count = n())
+
+
+
+ma_mussel_count <- ma_mussel %>% 
+  mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>%  
+  select(UID, common_name, scientific_name, live_count, shell_count) %>% 
+  unique()
+test <- ma_mussel_count %>% 
+  group_by(UID, common_name,) %>% 
+  summarise(count = n())
 
 # left off here!!!!!!!!!!!!!!!!!!!!!!!!!! and with the broat floater data below
 
