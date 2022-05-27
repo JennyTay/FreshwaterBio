@@ -168,7 +168,8 @@ ma_mussel <- left_join(ma_mussel, site_visit, by = c("sitenumber", "date"))
 ma_mussel <- ma_mussel[-2325,] #this row was found to be erroneous because when I made the mussel occurrence df below and then grouped by UID and 
 #common_name (test below), there were two rows - one that found the mussel to the present, and one that did not. The one that did not appeared erroneous because
 #the other columns were not consistent with the values for the rest of the rows done on that date at that site.
-
+ma_mussel <- ma_mussel[-819,] #same issue here - when we made the count df, there were two different counts for the brook floater (swollen wedgemussel), 8 and 22, so 
+#we kept the one that was 8
 
 ma_mussel_event <- ma_mussel %>% 
   mutate(state = "MA",
@@ -197,11 +198,19 @@ test <- ma_mussel_count %>%
   group_by(UID, common_name,) %>% 
   summarise(count = n())
 
-# left off here!!!!!!!!!!!!!!!!!!!!!!!!!! and with the broat floater data below
 
-names(site_visit)
-colSums(is.na(site_visit))
 
+ma_mussel_length <- ma_mussel %>% 
+  mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
+  select(UID, common_name, scientific_name, length, height) %>% 
+  filter(!is.na(length))
+
+ma_mussel_method <- ma_mussel %>% 
+  mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
+  select(c(UID, 15:21, 26))
+
+
+rm(mussel, shp, site_visit, spp_demogr, spp_desc, spp_visit, ma_mussel, test)
 
 
 
@@ -225,20 +234,95 @@ survey_data <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_dat
 colSums(is.na(mussel_data)) #sex and width have almost no data so we will remove these fields
 
 
+#fix the abundance data, so first remove the rows with no mussels
 tmp1 <- mussel_data %>%
+  data.frame() %>% 
   filter(!Species == "NO MUSSELS") %>% 
   mutate(shell_count = ifelse(Abundance.Category == "Shell Only", Count, NA),
          individual_count = ifelse(Abundance.Category == "See Count", Count, NA),
-         individual_presence = ifelse(Abundance.Category == "Shell Only", 0, 1))
-  
+         live_occurrence = ifelse(Abundance.Category == "Shell Only", 0, 1),
+         shell_occurrence = ifelse(shell_count >0, 1,NA)) %>% 
+  select(-Width, -Abundance.Category, -Sex, -geometry, -TagNumber) %>% 
+  rename("UID" = "Mussel_SiteName")
 
-#make a dataset with negative data, so add a row for each spp and a 0
+tmp1a <- tmp1 %>% 
+  filter(!is.na(Count)) %>% 
+  group_by(UID, Species) %>% 
+  summarise(shellcountnew = sum(shell_count, na.rm = T),
+            individual_countnew = sum(individual_count, na.rm = T))
+
+
+tmp1 <- left_join(tmp1, tmp1a, by = c("UID", "Species"))
+
+
+
 tmp2 <- mussel_data %>% 
-  filter(Species == "NO MUSSELS")
+  filter(Species == "NO MUSSELS")%>% 
+  select(-Width, -Abundance.Category, -Count, -Sex, -geometry, -TagNumber) %>% 
+  rename("UID" = "Mussel_SiteName")
+
+mussel_data <- bind_rows(tmp1, tmp2)
+
+#add in survey data
+
+
+mussel_data <- left_join(mussel_data, survey_data, by = c("UID" = "Survey_SiteName"))
+mussel_data$UID[mussel_data$UID == "Konkapot_2"] <- "MA_Konkapot_2"
+mussel_data$UID[mussel_data$UID == "Konkapot_1"] <- "MA_Konkapot_1"
+
+
+bk_mussel_event <- mussel_data %>% 
+  mutate(state = "MA",
+         project = "brookfloater_study",
+         source = "JasonCarmignani-brookfloater") %>% 
+  select(UID, X, Y, Date, project, source) %>% 
+  rename(latitude = Y,
+         longitude = X,
+         date = Date) %>% 
+  unique() %>% 
+  filter(!is.na(latitude))
 
 
 
 
+bk_mussel_occurrence <- mussel_data %>% 
+  select(UID, Species, live_occurrence, shell_occurrence) %>% 
+  unique()
+
+
+
+
+bk_mussel_count <- mussel_data %>% 
+  select(UID, Species, individual_countnew, shellcountnew) %>% 
+  rename(live_count = individual_countnew,
+         shell_count = shellcountnew) %>% 
+  unique()
+
+
+bk_mussel_length <- mussel_data %>% 
+  select(UID, Species, Length, Height) %>% 
+  filter(!is.na(Length))
+
+
+bk_mussel_method <- mussel_data %>% 
+  select(UID, NoObservers, WetWidth1, WetWidth2, WetWidth3, Measured.Length.of.Stream.Survey, Access.Visibility..1m) %>% 
+  filter(UID %in% bk_mussel_event$UID) %>% 
+  rename(number_searchers = NoObservers,
+         reach_length_m = Measured.Length.of.Stream.Survey,
+         access_visibility_1m = Access.Visibility..1m) %>% 
+  mutate( wet_width_avg_m = mean(c(WetWidth1, WetWidth2, WetWidth3))) %>% 
+  select(-c(3:5))
+
+
+rm(mussel_data, survey_data, tmp1, tmp1a, tmp2)
+###
+
+#bind together mussel database and the brook floater data
+
+head(ma_mussel_event)
+head(bk_mussel_event)
+
+ma_mussel_event <- bind_rows(ma_mussel_event, bk_mussel_event)
 
 ###################################################################
 
