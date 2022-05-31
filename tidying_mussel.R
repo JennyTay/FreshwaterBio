@@ -171,6 +171,7 @@ ma_mussel <- ma_mussel[-2325,] #this row was found to be erroneous because when 
 ma_mussel <- ma_mussel[-819,] #same issue here - when we made the count df, there were two different counts for the brook floater (swollen wedgemussel), 8 and 22, so 
 #we kept the one that was 8
 
+
 ma_mussel_event <- ma_mussel %>% 
   mutate(state = "MA",
          UID = paste(state, sitenumber, date, sep = "_")) %>% 
@@ -203,6 +204,8 @@ test <- ma_mussel_count %>%
 ma_mussel_length <- ma_mussel %>% 
   mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
   select(UID, common_name, scientific_name, length, height) %>% 
+  rename(length_mm = length, #confirm length is mm
+         height_mm = height) %>% #confirm height is mm
   filter(!is.na(length))
 
 ma_mussel_method <- ma_mussel %>% 
@@ -213,9 +216,13 @@ ma_mussel_method <- ma_mussel %>%
 rm(mussel, shp, site_visit, spp_demogr, spp_desc, spp_visit, ma_mussel, test)
 
 
+#make a common_name to scientific_name look up file
 
+lookup <- ma_mussel_occurrence %>% 
+  select(common_name, scientific_name) %>% 
+  unique()
 
-
+write.csv(lookup, file = "musselsppnames.csv")
 
 
 #################################################################
@@ -259,7 +266,11 @@ tmp1 <- left_join(tmp1, tmp1a, by = c("UID", "Species"))
 tmp2 <- mussel_data %>% 
   filter(Species == "NO MUSSELS")%>% 
   select(-Width, -Abundance.Category, -Count, -Sex, -geometry, -TagNumber) %>% 
-  rename("UID" = "Mussel_SiteName")
+  rename("UID" = "Mussel_SiteName") %>% 
+  mutate(shellcountnew = 0,
+         individual_countnew = 0,
+         live_occurrence = 0,
+         shell_occurrence = 0)
 
 mussel_data <- bind_rows(tmp1, tmp2)
 
@@ -269,16 +280,23 @@ mussel_data <- bind_rows(tmp1, tmp2)
 mussel_data <- left_join(mussel_data, survey_data, by = c("UID" = "Survey_SiteName"))
 mussel_data$UID[mussel_data$UID == "Konkapot_2"] <- "MA_Konkapot_2"
 mussel_data$UID[mussel_data$UID == "Konkapot_1"] <- "MA_Konkapot_1"
+mussel_data$scientific_name <- mussel_data$Species
+
+
+names(mussel_data)[3:64] <- tolower(names(mussel_data)[3:64])
+mussel_data$scientific_name <- tolower(mussel_data$scientific_name)
+
+mussel_data <- left_join(mussel_data, lookup, by = "scientific_name")
+mussel_data$common_name <- ifelse(mussel_data$scientific_name == "no mussels", "no mussels", mussel_data$common_name)
 
 
 bk_mussel_event <- mussel_data %>% 
   mutate(state = "MA",
          project = "brookfloater_study",
          source = "JasonCarmignani-brookfloater") %>% 
-  select(UID, X, Y, Date, project, source) %>% 
-  rename(latitude = Y,
-         longitude = X,
-         date = Date) %>% 
+  select(UID, x, y, date, project, source) %>% 
+  rename(latitude = y,
+         longitude = x) %>% 
   unique() %>% 
   filter(!is.na(latitude))
 
@@ -286,31 +304,34 @@ bk_mussel_event <- mussel_data %>%
 
 
 bk_mussel_occurrence <- mussel_data %>% 
-  select(UID, Species, live_occurrence, shell_occurrence) %>% 
+  select(UID, scientific_name, common_name, live_occurrence, shell_occurrence) %>% 
   unique()
 
 
 
 
 bk_mussel_count <- mussel_data %>% 
-  select(UID, Species, individual_countnew, shellcountnew) %>% 
+  select(UID, scientific_name, common_name, individual_countnew, shellcountnew) %>% 
   rename(live_count = individual_countnew,
          shell_count = shellcountnew) %>% 
   unique()
 
 
 bk_mussel_length <- mussel_data %>% 
-  select(UID, Species, Length, Height) %>% 
-  filter(!is.na(Length))
+  select(UID, scientific_name, common_name, length, height) %>% 
+  rename(length_mm = length, #confirm unit is mm
+         height_mm = height) %>%  #confirm unit is mm
+  filter(!is.na(length_mm),
+         scientific_name != "no mussels")
 
 
 bk_mussel_method <- mussel_data %>% 
-  select(UID, NoObservers, WetWidth1, WetWidth2, WetWidth3, Measured.Length.of.Stream.Survey, Access.Visibility..1m) %>% 
+  select(UID, noobservers, wetwidth1, wetwidth2, wetwidth3, measured.length.of.stream.survey, access.visibility..1m) %>% 
   filter(UID %in% bk_mussel_event$UID) %>% 
-  rename(number_searchers = NoObservers,
-         reach_length_m = Measured.Length.of.Stream.Survey,
-         access_visibility_1m = Access.Visibility..1m) %>% 
-  mutate( wet_width_avg_m = mean(c(WetWidth1, WetWidth2, WetWidth3))) %>% 
+  rename(number_searchers = noobservers,
+         reach_length_m = measured.length.of.stream.survey, #want to confirm unit is m
+         access_visibility_1m = access.visibility..1m) %>% 
+  mutate(wet_width_avg_m = mean(c(wetwidth1, wetwidth2, wetwidth3))) %>%  #want to confirm wetted width is m
   select(-c(3:5))
 
 
@@ -319,38 +340,74 @@ rm(mussel_data, survey_data, tmp1, tmp1a, tmp2)
 
 #bind together mussel database and the brook floater data
 
+
 head(ma_mussel_event)
 head(bk_mussel_event)
 
 ma_mussel_event <- bind_rows(ma_mussel_event, bk_mussel_event)
+ma_mussel_occurrence <- bind_rows(ma_mussel_occurrence, bk_mussel_occurrence)
+ma_mussel_count <- bind_rows(ma_mussel_count, bk_mussel_count)
+ma_mussel_length <- bind_rows(ma_mussel_length, bk_mussel_length)
+ma_mussel_method <- bind_rows(ma_mussel_method, bk_mussel_method)
+
+save(ma_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_event.RData")
+save(ma_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_occurrence.RData")
+save(ma_mussel_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_count.RData")
+save(ma_mussel_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_length.RData")
+save(ma_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_method.RData")
+
+
+
 
 ###################################################################
 
 ################# Maine Dept of Inland Waters  ####################
 
 
+
+library(measurements)
+library(stringi)
+
 me_mussel <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ME IFW Mussel Data/Maine Freshwater Mussel Survey Data_20220426.csv")
 
 names(me_mussel)
-df$DDLONG <- ifelse(df$DDLONG > 0, -df$DDLONG, df$DDLONG)
+me_mussel <- me_mussel %>% 
+  filter(LAT != "")
 
+#we will use the converstion tool to make the LAT and LONG from dms into dd. The decimal degree columns in this dataset are not as complete as the dms, that's why we won't
+#just use the dd columns
+tmp2 <- me_mussel %>% 
+  select(LAT, LONG, DDLONG, DDLAT) %>% 
+  
+  mutate(latitude2 = stri_sub_replace(LAT, 3, 3, value = " "), #to use the conv_unit, the dms  needs to have a space in between
+         latitude3 = stri_sub_replace(latitude2, 6, 6, value = " "),
+         longitude2 = stri_sub_replace(LONG, 3, 3, value = " "),
+         longitude3 = stri_sub_replace(longitude2, 6, 6, value = " "))
+
+
+tmp2$latitudefinal <- conv_unit(tmp2$latitude3, from = "deg_min_sec", to= "dec_deg") #convert to decimal degrees
+tmp2$longitudefinal <- conv_unit(tmp2$longitude3, from = "deg_min_sec", to= "dec_deg") #convert to decimal degrees
+
+me_mussel$latitude <- tmp2$latitudefinal
+me_mussel$longitude <- tmp2$longitudefinal
 
 me_mussel <- me_mussel %>% 
-  select(WTYPE, SITE, MONTH, DAY, YEAR, SVYTYPE, SRCTYPE, SOURCE, 17:28) %>% 
-  rename(longitude = DDLONG,
-         latitude = DDLAT,
-         waterbody = WTYPE,
-         method = SVYTYPE,
+  select(WTYPE, SITE, MONTH, DAY, YEAR, SVYTYPE, SRCTYPE, SOURCE, 17:30) %>% 
+  rename(waterbody = WTYPE,
+         survey_method = SVYTYPE,
          project = SOURCE) %>% 
-  mutate(source = "Beth Swartz - ME Inland Fisheries and Wildlife")
+  mutate(source = "Beth Swartz - ME Inland Fisheries and Wildlife",
+         longitude = as.numeric(longitude),
+         latitude = as.numeric(latitude),
+         longitude = ifelse(longitude > 0, -longitude, longitude))
 
 
 head(me_mussel)
 
 me_mussel$waterbody[me_mussel$waterbody == "L"] <- "lentic"
 me_mussel$waterbody[me_mussel$waterbody == "W"] <- "lotic"
-me_mussel$method[me_mussel$method == "S"] <- "survey"
-me_mussel$method[me_mussel$method == "I"] <- "incidental submission"
+me_mussel$survey_method[me_mussel$survey_method == "S"] <- "survey"
+me_mussel$survey_method[me_mussel$survey_method == "I"] <- "incidental submission"
 
 names(me_mussel)[9:18] <- c("Margaritifera margaritifera", "Elliptio complanata",
                              "Alasmidonta undulata", "Alasmidonta varicosa",
@@ -358,18 +415,37 @@ names(me_mussel)[9:18] <- c("Margaritifera margaritifera", "Elliptio complanata"
                              "Strophitus undulatus", "Leptodea ochracea",
                              "Lampsilis cariosa", "Lampsilis radiata")
 
-test <- me_mussel %>% 
+me_mussel <- me_mussel %>% 
   pivot_longer(cols = 9:18, names_to = "scientific_name", values_to = "occurrence") %>% 
   mutate(live_occurrence = ifelse(occurrence == "X", 1, 0),
          shell_occurrence = ifelse(occurrence == "S", 1, 0),
-         date = dmy(paste(DAY, MONTH, YEAR, by = "-")),
-         UID = paste())
+         day = ifelse(is.na(DAY), 15, DAY), #assigned the 15th to the surveys without days
+         month = ifelse(is.na(MONTH), 8, MONTH), #assigned august to surveys without months because this is the most common month
+         date = dmy(paste(day, month, YEAR, by = "-")),
+         UID = paste("ME", date, round(longitude, 4), round(latitude,4),  sep = "-"),
+         scientific_name = tolower(scientific_name)) %>% 
+  select(-DAY, -MONTH, -YEAR)
 
-names(test) <- tolower(names(test))
+names(me_mussel)[1:17] <- tolower(names(me_mussel)[1:17])
 
+name_conversion <- read.csv("musselsppnames.csv")
 
+me_mussel <- left_join(me_mussel, name_conversion, by = "scientific_name")
 
-write.csv(df, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ME_mussel.csv")
+me_mussel_event <- me_mussel %>% 
+  select(UID, date, latitude, longitude, project, source) %>% 
+  mutate(state = "ME") %>% 
+  unique()
+
+me_mussel_occurrence <- me_mussel %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence)
+
+me_mussel_method <- me_mussel %>% 
+  select(UID, survey_method)
+
+save(me_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/me_mussel_event.RData")
+save(me_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/me_mussel_occurrence.RData")
+save(me_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/me_mussel_method.RData")
 
 
 
