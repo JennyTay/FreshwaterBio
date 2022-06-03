@@ -3,7 +3,7 @@
 library(sf)
 library(tidyverse)
 library(lubridate)
-
+library(readxl)
 
 #first load in an NHD layer, becuase we will use the CRS of the NHD layer to project all the mussel data collected in a different CRS
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
@@ -114,7 +114,8 @@ ma_mussel <- ma_mussel %>%
   mutate(live_occurrence = ifelse(live == "Present", 1,
                              ifelse(live == 0, 0, 1)),
          shell_occurrence = ifelse(shells == "present" | shells == "many", 1,
-                              ifelse(shells == 0, 0, 1))) %>% 
+                              ifelse(shells == 0, 0, 1)),
+         length_mm = ifelse(length <5, length *10, length)) %>% #confirmed with jason, if length is less than 5, likely cm, otherwise its mm.
   rename(live_count = live,
          shell_count = shells,
          scientific_name = sname,
@@ -203,10 +204,9 @@ test <- ma_mussel_count %>%
 
 ma_mussel_length <- ma_mussel %>% 
   mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
-  select(UID, common_name, scientific_name, length, height) %>% 
-  rename(length_mm = length, #confirm length is mm
-         height_mm = height) %>% #confirm height is mm
-  filter(!is.na(length))
+  select(UID, common_name, scientific_name, length_mm, height) %>% 
+  rename(height_mm = height) %>% #confirm height is mm
+  filter(!is.na(length_mm))
 
 ma_mussel_method <- ma_mussel %>% 
   mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
@@ -458,6 +458,42 @@ save(me_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 ###################################################################
 
+
+
+
+###################################################################
+
+################# Rhode Island Dept of Env Management  ####################
+
+
+
+
+#There are 5 files from Rhode island - comments show file description from Corey Pelletier
+
+#Location data and species presence from Raithel and Hartenstine, 2006 (DIV=diversity, other abbreviations are for scientific names of species)
+mus1 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/mussels.shp")
+
+#Flat_R_160728, 160822, 160921- Shapefiles with targeted count data (Eastern Pearlshell) in the Flat River (Exeter, RI) for three different surveys days
+mus2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/FlatR_160921.shp")
+mus3 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/FlatR_160822.shp")
+mus4 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/Flat River_160728.shp")
+
+#Freshwater Mussel Survey Database.xlsx- Data for mussel surveys conducted in 2020, total of 16 surveys
+mus5spatial <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/2020 Mussel Survey Locations.shp")
+mus5site <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/Freshwater Mussel Survey Database.xlsx",
+                   sheet = 1)
+mus5data <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/Freshwater Mussel Survey Database.xlsx",
+                    sheet = 2)
+
+
+
+
+
+names(mus1)[14:23] <- c("Alasmidonta undulata", "Alasmidonta varicosa", "Anodonta implicata",
+                        "Corbicula fluminea", "Elliptio complanata", "Lampsilis radiata", "Ligumia nasuta",
+                        "Margaritifera margaritifera", "Pyganodon cataracta", "Strophitus undulatus") #confirm the COFL is corbicula fluminea
+
+######################################################################
 
 
 
