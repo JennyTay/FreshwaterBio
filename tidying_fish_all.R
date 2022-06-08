@@ -376,7 +376,7 @@ write.csv(fishgenus, "fishgenus_count.csv")
 
 
 
-method <- bind_rows(ma_method, ct_method, nh_method, dec_method, dfw_method)
+method <- bind_rows(ma_method, ct_method, nh_method, dec_method, dfw_method, ri_method)
 method$gear <- tolower(method$gear)
 unique(method$gear)
 

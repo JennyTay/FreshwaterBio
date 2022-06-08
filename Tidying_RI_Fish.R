@@ -189,7 +189,7 @@ ri_fish <- left_join(ri_fish, tmp5, by = c("UID", "scientific_name")) %>%
   select(-count) %>%  #remove the original count
   rename(count = countnew) #rename the new count to the be count
 
-
+ri_fish$run_num <- 1
 
 
 #ri_method
