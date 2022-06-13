@@ -465,7 +465,7 @@ save(me_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 ################# Rhode Island Dept of Env Management  ####################
 
-
+name_conversion <- read.csv("musselsppnames.csv")
 
 
 #There are 5 files from Rhode island - comments show file description from Corey Pelletier
@@ -489,9 +489,173 @@ mus5data <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_dat
 
 
 
-names(mus1)[14:23] <- c("Alasmidonta undulata", "Alasmidonta varicosa", "Anodonta implicata",
-                        "Corbicula fluminea", "Elliptio complanata", "Lampsilis radiata", "Ligumia nasuta",
-                        "Margaritifera margaritifera", "Pyganodon cataracta", "Strophitus undulatus") #confirm the COFL is corbicula fluminea
+names(mus1)[14:23] <- c("alasmidonta undulata", "alasmidonta varicosa", "anodonta implicata",
+                        "corbicula fluminea", "elliptio complanata", "lampsilis radiata", "ligumia nasuta",
+                        "margaritifera margaritifera", "pyganodon cataracta", "strophitus undulatus") #confirm the COFL is corbicula fluminea
+
+test <- mus1 %>% 
+  mutate(UID = paste("RI", LOCATION, DATE1, sep = "_"),
+         state = "RI",
+         project = "Raithel and Hartenstine, 2006",
+         source = "CoreyPelletier_RIDEM",
+         shell_occurrence = NA,
+         longitude = unlist(map(geometry, 1)),
+         latitude = unlist(map(geometry, 2)),
+         waterbody = ifelse(grepl("pond$", HABTYPE), "lentic",      #identify lotic or lentic by searching for lakes or ponds at the end of the HABTYPE
+                                                 ifelse(grepl("lake$", HABTYPE), "lentic", "lotic"))) %>% 
+  pivot_longer(cols = 14:23, names_to = "scientific_name", values_to = "live_occurrence") %>% 
+  rename("survey_method" = "SURVTYPE",
+         date = DATE1) %>% 
+  data.frame()
+
+test <- left_join(test, name_conversion, by = "scientific_name")
+
+
+#make the file sf object so it can be plotted spatially
+#the lat long units are in the same coorinate system as the mus5spatial data so first assign that crs
+#then project to the huc8 reference system so that it can be plotted along with the NHD data
+test <- st_as_sf(x = test,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(mus5spatial))
+
+test <- st_transform(test, st_crs(huc8))
+
+#extract the lat and long
+test <- test %>% 
+  mutate(longitude = unlist(map(geometry, 1)),
+         latitude = unlist(map(geometry, 2)))
+
+mus1_mussel_event <- test %>% 
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  unique()
+
+
+mus1_mussel_occurrence <- test %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
+  unique()
+
+
+mus1_mussel_method <- test %>% 
+  select(UID, survey_method) %>% 
+  unique()
+
+
+
+
+
+
+
+#mus5site
+names(mus5data)[8:22] <- as.vector(mus5data[1, 8:22])
+names(mus5data)[23] <- "subsample"
+
+
+
+test <- mus5data %>% 
+  filter(!is.na(Year)) %>% 
+  pivot_longer(cols = 8:22, names_to = "length_cm", values_to = "count2") %>% 
+  rename(date = "Month/ Day", count = "Total #", "number_measure" = "Sub-Sample #", scientific_name = "Species") %>% 
+  mutate(UID = paste("RI", Location, date, sep = "_"))
+
+test$scientific_name[test$scientific_name == "Marg"] <- "margaritifera margaritifera"
+test$scientific_name[test$scientific_name == "E Elliptio"] <- "elliptio complanata"
+test$scientific_name[test$scientific_name == "Elliptio"] <- "elliptio complanata"
+
+#make a presence absence file
+
+#first make the file with all options at each site
+UID <- unique(test$UID)
+mussel <- unique(test$scientific_name)
+absence <- data.frame('UID' = rep(UID, each = 3))
+absence$scientific_name <- rep(mussel, times = 16)
+absence <- absence %>% 
+  filter(scientific_name != "N/A")
+#then make a file with just presence
+presence <- test %>% 
+  select(UID, scientific_name) %>% 
+  filter(scientific_name != "N/A") %>% 
+  unique() %>% 
+  mutate(live_occurrence = 1)
+
+#antijoin to keep the rows that arent in the presence dat
+keep <- anti_join(absence, presence, by = c("UID", "scientific_name"))
+keep$live_occurrence <- 0
+
+mus5_mussel_occurrence <- rbind(presence, keep)
+mus5_mussel_occurrence <- left_join(mus5_mussel_occurrence, name_conversion, by = "scientific_name")
+mus5_mussel_occurrence <- mus5_mussel_occurrence %>% 
+  select(UID, common_name, scientific_name, live_occurrence)
+
+
+#make count file
+count <- test %>% 
+  select(UID, scientific_name, count) %>% 
+  unique() %>% 
+  filter(scientific_name != "N/A")
+names(keep)[3] <- "count"
+count <- rbind(count, keep)#rbind the zeros
+names(count)[3] <- "live_count"
+mus5_mussel_count <- left_join(count, name_conversion, by = "scientific_name") %>% 
+  select(UID, common_name, scientific_name, live_count)
+
+
+#make a length file
+length <- test %>% 
+  filter(!is.na(count2)) %>% 
+  select(UID, scientific_name, length_cm, count2)
+n <-  length$count2
+length <- length[rep(seq_len(nrow(length)), n),]
+mus5_mussel_length <- left_join(length, name_conversion, by = "scientific_name") %>%
+  mutate(length_mm = as.numeric(length_cm) * 10) %>% 
+  select(UID, common_name, scientific_name, length_mm) 
+
+#Event file
+
+#join the site information
+site <- mus5site %>% 
+  mutate(UID = paste("RI", Location, Date, sep = "_")) %>% 
+  filter(!is.na(`Start Latitude`)) %>% 
+  select(Date, Location, Surveyors, `Survey Technique`, `Start Latitude`, `Start Longitude`, `Survey Length`, `Av. Wetted Width`, `Av. Depth`, UID, `Start Time`, `End Time`) %>% 
+  rename(date = Date,
+         survey_method = `Survey Technique`,
+         latitude = `Start Latitude`,
+         longitude = `Start Longitude`,
+         reach_length_m = `Survey Length`,
+         wet_width_avg_m = `Av. Wetted Width`,
+         dept_avg_m = `Av. Depth`,
+         start = `Start Time`,
+         end = `End Time`) %>% 
+  mutate(number_searchers = ifelse(Surveyors == "MP, BE", 2, 3),
+         search_time_min = end - start)
+mus5_mussel_event <- left_join(site, test, by = c("UID", "date")) %>% 
+  select(UID, date, latitude, longitude) %>% 
+  unique() %>% 
+  mutate(state = "RI",
+         project = "mussels2020",
+         source = "CoreyPelletier_RIDEM")
+
+#method file
+mus5_mussel_method <- left_join(site, test, by = c("UID", "date")) %>% 
+  select(UID, survey_method, number_searchers, search_time_min, reach_length_m, wet_width_avg_m, dept_avg_m) %>% 
+  unique()
+
+
+
+
+
+#mus2 mus3 mus4
+
+flat <- rbind(mus2,mus3)
+flat$Count <- NA
+flat <- rbind(flat, mus4)
+
+
+
+save(ri_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_event.RData")
+save(ri_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_occurrence.RData")
+save(ri_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_method.RData")
+
+
 
 ######################################################################
 
