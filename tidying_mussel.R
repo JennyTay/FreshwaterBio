@@ -176,7 +176,7 @@ ma_mussel <- ma_mussel[-819,] #same issue here - when we made the count df, ther
 ma_mussel_event <- ma_mussel %>% 
   mutate(state = "MA",
          UID = paste(state, sitenumber, date, sep = "_")) %>% 
-  select(UID, latitude, longitude, date, project, source) %>% 
+  select(UID, state, latitude, longitude, date, project, source) %>% 
   unique()
 
 
@@ -294,7 +294,7 @@ bk_mussel_event <- mussel_data %>%
   mutate(state = "MA",
          project = "brookfloater_study",
          source = "JasonCarmignani-brookfloater") %>% 
-  select(UID, x, y, date, project, source) %>% 
+  select(UID, state, x, y, date, project, source) %>% 
   rename(latitude = y,
          longitude = x) %>% 
   unique() %>% 
@@ -436,6 +436,8 @@ me_mussel_event <- me_mussel %>%
   select(UID, date, latitude, longitude, project, source) %>% 
   mutate(state = "ME") %>% 
   unique()
+me_mussel_event$latitude[me_mussel_event$UID == "ME-1995-07-20--45.9667-70.1583"] <- 45.96667
+me_mussel_event$longitude[me_mussel_event$UID == "ME-1995-07-20--45.9667-70.1583"] <- -70.15833
 
 me_mussel_occurrence <- me_mussel %>% 
   select(UID, common_name, scientific_name, live_occurrence, shell_occurrence)
@@ -456,14 +458,15 @@ save(me_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 
 
-###################################################################
 
 
-
-
-###################################################################
+###########################################################################
 
 ################# Rhode Island Dept of Env Management  ####################
+
+###########################################################################
+
+
 
 name_conversion <- read.csv("musselsppnames.csv")
 
@@ -475,8 +478,11 @@ mus1 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DE
 
 #Flat_R_160728, 160822, 160921- Shapefiles with targeted count data (Eastern Pearlshell) in the Flat River (Exeter, RI) for three different surveys days
 mus2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/FlatR_160921.shp")
+mus2$date <- mdy(09212016)
 mus3 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/FlatR_160822.shp")
+mus3$date <- mdy(08222016)
 mus4 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/Flat River_160728.shp")
+mus4$date <- mdy(07282016)
 
 #Freshwater Mussel Survey Database.xlsx- Data for mussel surveys conducted in 2020, total of 16 surveys
 mus5spatial <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/RI DEM Mussel Data/RI Freshwater Mussel Data/2020 Mussel Survey Locations.shp")
@@ -489,6 +495,8 @@ mus5data <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_dat
 
 
 
+#first clean the Raithel and Hartenstine, 2006 data
+
 names(mus1)[14:23] <- c("alasmidonta undulata", "alasmidonta varicosa", "anodonta implicata",
                         "corbicula fluminea", "elliptio complanata", "lampsilis radiata", "ligumia nasuta",
                         "margaritifera margaritifera", "pyganodon cataracta", "strophitus undulatus") #confirm the COFL is corbicula fluminea
@@ -498,7 +506,6 @@ test <- mus1 %>%
          state = "RI",
          project = "Raithel and Hartenstine, 2006",
          source = "CoreyPelletier_RIDEM",
-         shell_occurrence = NA,
          longitude = unlist(map(geometry, 1)),
          latitude = unlist(map(geometry, 2)),
          waterbody = ifelse(grepl("pond$", HABTYPE), "lentic",      #identify lotic or lentic by searching for lakes or ponds at the end of the HABTYPE
@@ -526,16 +533,20 @@ test <- test %>%
          latitude = unlist(map(geometry, 2)))
 
 mus1_mussel_event <- test %>% 
+  data.frame() %>% 
   select(UID, state, date, latitude, longitude, project, source) %>% 
   unique()
 
 
 mus1_mussel_occurrence <- test %>% 
-  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
-  unique()
+  data.frame() %>%  
+  select(UID, common_name, scientific_name, live_occurrence) %>% 
+  unique() %>% 
+  mutate(live_occurrence = as.numeric(live_occurrence))
 
 
 mus1_mussel_method <- test %>% 
+  data.frame() %>% 
   select(UID, survey_method) %>% 
   unique()
 
@@ -584,7 +595,8 @@ keep$live_occurrence <- 0
 mus5_mussel_occurrence <- rbind(presence, keep)
 mus5_mussel_occurrence <- left_join(mus5_mussel_occurrence, name_conversion, by = "scientific_name")
 mus5_mussel_occurrence <- mus5_mussel_occurrence %>% 
-  select(UID, common_name, scientific_name, live_occurrence)
+  select(UID, common_name, scientific_name, live_occurrence) %>% 
+  mutate(live_occurrence = as.numeric(live_occurrence))
 
 
 #make count file
@@ -636,6 +648,7 @@ mus5_mussel_event <- left_join(site, test, by = c("UID", "date")) %>%
 
 #method file
 mus5_mussel_method <- left_join(site, test, by = c("UID", "date")) %>% 
+  data.frame() %>% 
   select(UID, survey_method, number_searchers, search_time_min, reach_length_m, wet_width_avg_m, dept_avg_m) %>% 
   unique()
 
@@ -649,19 +662,202 @@ flat <- rbind(mus2,mus3)
 flat$Count <- NA
 flat <- rbind(flat, mus4)
 
+test <- st_transform(flat, st_crs(huc8))
+test <- test %>% 
+  mutate(longitude = unlist(map(geometry, 1)),
+         latitude = unlist(map(geometry, 2)),
+         UID = paste("RI", latitude, date),
+         source = "CoreyPelletier_RIDEM",
+         project = "flatriversurveys",
+         common_name = "eastern pearlshell",
+         scientific_name = "margaritifera margaritifera",
+         state = "RI",
+         live_occurrence = 1,
+         live_count = Count,
+         survey_method = "targeted") 
 
+mus2_mussel_event <- test %>% 
+  data.frame() %>%  
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  unique()
+
+#dont make an absence file here becuase the surveys were targeted
+mus2_mussel_occurrence <- test %>% 
+  data.frame() %>% 
+  select(UID, common_name, scientific_name, live_occurrence) %>% 
+  unique()%>% 
+  mutate(live_occurrence = as.numeric(live_occurrence))
+
+mus2_mussel_count <- test %>% 
+  data.frame() %>%  
+  select(UID, common_name, scientific_name, live_count) %>% 
+  filter(!is.na(live_count)) %>% 
+  unique()
+
+mus2_mussel_method <- test %>% 
+  data.frame() %>% 
+  select(UID, survey_method)
+
+
+
+
+
+#join together the different RI data sources
+
+#event
+ri_mussel_event <- bind_rows(mus1_mussel_event, mus2_mussel_event, mus5_mussel_event)
+
+#method
+ri_mussel_method <- bind_rows(mus1_mussel_method, mus2_mussel_method, mus5_mussel_method)
+
+#occurrence
+ri_mussel_occurrence <- bind_rows(mus1_mussel_occurrence, mus2_mussel_occurrence, mus5_mussel_occurrence)
+
+#count
+ri_mussel_count <- bind_rows(mus2_mussel_count, mus5_mussel_count)
+
+#length
+ri_mussel_length <- mus5_mussel_length
 
 save(ri_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_event.RData")
 save(ri_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_occurrence.RData")
 save(ri_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_method.RData")
+save(ri_mussel_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_count.RData")
+save(ri_mussel_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ri_mussel_length.RData")
+
+
+
+
+
+
+
 
 
 
 ######################################################################
 
+####################### Vermont DEC mussel Data#######################
+
+######################################################################
 
 
 
+#read in VT DEC data
+
+vtdat <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/VTDEC-Mussel-Records-20220228.csv")
+vtdat <- vtdat %>% 
+  mutate(UID = paste("VT", Location, Date, sep = "_"),
+         state = "VT",
+         project = "VTDEC",
+         source = "MichelleGraziosi-VTDEC",
+         sp = ifelse(Species == "sp"  & Genus == "MARGARITIFERA", "margaritifera",
+                     ifelse (Species == "sp" & Genus == "ELLIPTIO", "complanata", Species)),
+         scientific_name = tolower(paste(Genus, sp, sep = " ")),
+         live_occurrence = 1,
+         date = mdy(Date)) %>% 
+  rename(latitude= Latitude, longitude = Longitude)
+
+
+vtdat <- left_join(vtdat, name_conversion, by = "scientific_name")
+vtdat$common_name[vtdat$scientific_name == "pyganodon grandis"] <- "giant floater"
+vtdat$common_name[vtdat$scientific_name == "lasmigona compressa"] <- "creek heelsplitter"  
+vtdat$common_name[vtdat$scientific_name == "lampsilis ovata"] <- "pocketbook mussel"
+vtdat$common_name[vtdat$scientific_name == "potamilus alatus"] <-  "pink heelsplitter" 
+
+vt_mussel_event <- vtdat %>% 
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  unique()
+
+vt_mussel_occurrence <- vtdat %>% 
+  select(UID, common_name, scientific_name, live_occurrence) %>% 
+  unique() %>% 
+  filter(!is.na(common_name))
+
+#no method or count information here
+
+save(vt_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_event.RData")
+save(vt_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_occurrence.RData")
+
+
+
+
+
+
+
+
+
+####
+# join all the datasets together
+
+#read in data
+
+#load in datasets
+path <-  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel"
+files <- list.files(path = path)
+
+for (i in 1:length(files)){
+  
+  load(paste(path, files[i], sep = "/"))  #load files
+  
+}
+
+
+#bind event data
+me_mussel_event$project <- as.character(me_mussel_event$project) #shoudl go back to the maine tidying and add in the text for each project integer, for now, just do this
+
+all_mussel_event <- bind_rows(ma_mussel_event, me_mussel_event, ri_mussel_event, vt_mussel_event)
+
+#bind occurrence data
+
+all_mussel_occurrence <- bind_rows(ma_mussel_occurrence, me_mussel_occurrence, ri_mussel_occurrence, vt_mussel_occurrence) #there are 20 repeated values here.. need to fix
+
+#bind count data
+
+all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count)
+
+#bind length data
+all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length)
+
+#bind method data
+
+all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method) #this needs more cleaning
+
+
+
+save(all_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_event.RData")
+save(all_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_occurrence.RData")
+save(all_mussel_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_count.RData")
+save(all_mussel_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_length.RData")
+save(all_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_method.RData")
+
+
+#make a shape file for the occurrence data
+shp <- left_join(all_mussel_occurrence, all_mussel_event, by = "UID")
+
+shp <- shp %>% 
+  filter(!is.na(latitude))
+
+shp <- st_as_sf(x = shp,                         
+                 coords = c("longitude", "latitude"),
+                 crs = st_crs(huc8))
+
+st_write(shp, "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_occurrence.shp")
+
+
+
+
+#make a shapefile for the event data
+shp <- all_mussel_event %>% 
+  filter(!is.na(latitude))
+
+shp <- st_as_sf(x = shp,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(huc8))
+
+st_write(shp, "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_event.shp")
+
+
+  
 #this code prepares the MA source files so that they have the EO_Data information so we can edit.
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_EOReps.gdb")
 ma_eo <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_EOReps.gdb", layer = "query_result")

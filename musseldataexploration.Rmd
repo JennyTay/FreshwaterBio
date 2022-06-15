@@ -1,0 +1,231 @@
+---
+title: "musseldataexploration"
+author: "Jenny Rogers"
+date: '2022-06-14'
+output: html_document
+---
+
+
+
+
+```{r}
+
+#load new englad state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_occurrence.shp")
+
+shp <- shp %>% 
+  filter(lv_ccrr == 1)
+
+
+
+#plot fish distriubtion on a map to view annually
+#first need to make it a spatial file and then load in watershed data, and stream data, and state data
+
+table(shp$cmmn_nm)
+
+for( i in 1:length(unique(shp$cmmn_nm))){
+  
+  ggplot()+
+    geom_sf(data = states)+
+    geom_sf(data = shp[shp$cmmn_nm == unique(shp$cmmn_nm)[i], ], color = "red", size = .5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = paste(unique(shp$cmmn_nm)[i], (unique(shp$scntfc_)[i]), sep = ", "))
+  
+  ggsave(
+    filename = paste("tmpfigures/muss_dist_plots/", unique(shp$cmmn_nm)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+  
+  print(i)
+  
+}
+
+
+```
+number of unique survey events
+
+```{r}
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_event.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_method.RData")
+
+tmp <- all_mussel_event %>% 
+  group_by(state) %>% 
+  summarise(count = n())
+
+unique(all_mussel_method$survey_method)
+
+
+```
+
+
+surveys by year and state
+```{r}
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_event.RData")
+
+#surveys by year and state
+all_mussel_event$year <- year(all_mussel_event$date)
+table(all_mussel_event$year)
+all_mussel_event$year[all_mussel_event$year == 1 & !is.na(all_mussel_event$year)] <- sample(1980:2005, length(all_mussel_event$year[all_mussel_event$year == 1]), replace = T)
+
+
+ggplot(data = all_mussel_event, mapping = aes(x = year))+
+  geom_bar(aes(fill = state))+
+  theme(axis.line = element_line(colour = "black"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "grey90"))+
+  labs(x = "Year", y = "Count", fill = "State")
+ggsave(
+    filename = "tmpfigures/musselsurveybyyear.png",
+    plot = last_plot(),
+    width = 15,
+    height = 10,
+    units = "cm",
+    dpi = 300
+  )
+  
+
+
+
+```
+
+
+```{r}
+
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_occurrence.shp")
+
+
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc12 <- huc12 %>% 
+  select(tnmid, areasqkm , name) %>% 
+  rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
+huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+#join the huc files to the fish_event file using a spatial join
+#each fish survey event will be associated with a huc8, huc10, and huc12 TNMID
+sf_use_s2(FALSE)
+mussel_event_huc_join <- st_join(shp, huc8, left = FALSE)
+mussel_event_huc_join <- st_join(mussel_event_huc_join, huc10, left = FALSE)
+mussel_event_huc_join <- st_join(mussel_event_huc_join, huc12, left = FALSE)
+
+#spp richness: huc12
+
+richness_huc12 <- mussel_event_huc_join %>% 
+  filter(lv_ccrr == 1) %>%  
+  data.frame() %>% 
+  group_by(huc12_name) %>%
+  summarise(richess_huc12 = length(unique(cmmn_nm)))
+  
+  
+
+hist(richness_huc12$richess_huc12)
+
+huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, richness_huc12, by = c("name" = "huc12_name"))
+
+hist(dat$richess_huc12)
+
+dat$richess_huc12 <- as.numeric(dat$richess_huc12)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = richess_huc12))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = 5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "species richness, huc12 scale",
+    fill = "richness")+
+  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/musselspprichness_huc12_scale.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 250
+  )
+ 
+ 
+ 
+ #spp richness: huc10
+
+richness_huc10 <- mussel_event_huc_join %>% 
+  filter(lv_ccrr == 1) %>%  
+  data.frame() %>% 
+  group_by(huc10_name.x) %>%
+  summarise(richness_huc10 = length(unique(cmmn_nm)))
+  
+  
+hist(as.numeric(richness_huc10$richness_huc10))
+
+
+huc10 <- huc10 %>% 
+  filter(States != "CN")
+
+dat <- left_join(huc10, richness_huc10, by = c("Name" = "huc10_name.x"))
+
+hist(dat$richness_huc10)
+
+dat$richness_huc10 <- as.numeric(dat$richness_huc10)
+
+ggplot()+
+  geom_sf(data = dat, 
+          aes(fill = richness_huc10))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = median(dat$richness_huc10, na.rm = T))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "species richness, huc10 scale",
+    fill = "richness")+
+  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = .5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/musselspprichness_huc10_scale.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 250
+  )
+
+```
