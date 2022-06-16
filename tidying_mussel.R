@@ -62,6 +62,7 @@ st_crs(huc8)
 spp_desc <- spp_desc %>%
   data.frame() %>% 
   select(SNAME, SCOMNAME, TAX_GRP)
+spp_desc$SCOMNAME[spp_desc$SNAME == "STROPHITUS UNDULATUS"] <- "CREEPER"
 
 
 #table to get the characterics of the mussel
@@ -73,6 +74,19 @@ spp_demogr <- spp_demogr %>%
 head(spp_visit)
 mussel <- spp_visit %>% 
   select(3:15) 
+
+#fix the method information in the mussel data
+mussel$NUMBER_SEARCHERS[mussel$SCUBA_Divers == 2] <- 2
+mussel$NUMBER_SEARCHERS[mussel$Snorkels == 1 & mussel$View_Buckets == 3] <- 4
+names(mussel)[7:10] <- c("Snorkel", "SCUBA", "View_Bucket", "Shoreline_Walk")
+mussel$survey_method_new <- ifelse(!is.na(mussel$Snorkel), "snorkel",
+                                   ifelse(!is.na(mussel$Shoreline_Walk), "shoreline walk",
+                                          ifelse(!is.na(mussel$SCUBA), "scuba",
+                                                 ifelse(!is.na(mussel$View_Bucket), "view bucket", NA))))
+mussel$survey_method_new <- ifelse(!is.na(mussel$Snorkel) & !is.na(mussel$View_Bucket), "snorkel and view bucket", mussel$survey_method_new)
+mussel <- mussel %>% 
+  select(SNAME, OBS_DATE, date1, SITENUMBER, survey_method_new, NUMBER_SEARCHERS, SEARCH_TIME, LIVE, SHELLS) %>% 
+  rename(survey_method = survey_method_new)
 
 #join mussel data to the spp descrition table (the table that gives common name and taxonomic group)
 mussel <- left_join(mussel, spp_desc, by = "SNAME") %>% 
@@ -109,8 +123,9 @@ colSums(is.na(ma_mussel))
 ma_mussel <- ma_mussel %>% 
   mutate(longitude = unlist(map(ma_mussel$geometry, 1)),
          latitude = unlist(map(ma_mussel$geometry, 2))) %>% 
-  select(latitude, longitude, obs_date, sname, scomname, sitenumber, live, shells, tax_grp, length, height, condition, sex, gravid_brooding, survey_method, number_searchers,
-         snorkels, scuba_divers, view_buckets, shoreline_walkers, search_time) %>% 
+  select(latitude, longitude, obs_date, sname, scomname, sitenumber, 
+         live, shells, tax_grp, length, height, condition, sex, gravid_brooding, 
+         survey_method, number_searchers, search_time) %>% 
   mutate(live_occurrence = ifelse(live == "Present", 1,
                              ifelse(live == 0, 0, 1)),
          shell_occurrence = ifelse(shells == "present" | shells == "many", 1,
@@ -122,7 +137,8 @@ ma_mussel <- ma_mussel %>%
          common_name = scomname,
          date = obs_date) %>% 
   mutate(source = "JasonCarmignani-MassWildlife",
-         project= "mussel2002 database")
+         project= "mussel2002 database",
+         state = "MA")
 
 #tidy the 'live_count column
 ma_mussel$live_count[ma_mussel$live_count == "Present"] <- NA #it is important to do this after the ifelse command above, because we want the occurence column to register these as a presnt. If we revalue it as 
@@ -138,8 +154,7 @@ ma_mussel$shell_count <- as.numeric(ma_mussel$shell_count)
 
 #survey_method column
 ma_mussel$survey_method <- tolower(ma_mussel$survey_method)
-ma_mussel$survey_method[ma_mussel$survey_method == "timed search: uncosntrained"] <- "timed search: unconstrained"
-ma_mussel$survey_method[ma_mussel$survey_method == "timed search: unconstrained."] <- "timed search: unconstrained"
+
 
 #make names lowercase 
 ma_mussel$scientific_name <- tolower(ma_mussel$scientific_name)
@@ -210,7 +225,8 @@ ma_mussel_length <- ma_mussel %>%
 
 ma_mussel_method <- ma_mussel %>% 
   mutate(UID = paste("MA", sitenumber, date, sep = "_")) %>% 
-  select(c(UID, 15:21, 26))
+  select(c(UID, 15:17, 24)) %>% 
+  unique()
 
 
 rm(mussel, shp, site_visit, spp_demogr, spp_desc, spp_visit, ma_mussel, test)
