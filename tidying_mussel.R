@@ -175,7 +175,7 @@ site_visit$DIST_INVENT[site_visit$DIST_INVENT == "NA"] <- NA
 
 site_visit$DIST_INVENT <- as.numeric(site_visit$DIST_INVENT)
 
-names(site_visit) <- c("sitenumber", "date", "reach_length_m")
+names(site_visit) <- c("sitenumber", "date", "reach_length_m") #need to confirm with Jason that the reach lenght is in m
 
 
 ma_mussel <- left_join(ma_mussel, site_visit, by = c("sitenumber", "date"))
@@ -288,7 +288,16 @@ tmp2 <- mussel_data %>%
          live_occurrence = 0,
          shell_occurrence = 0)
 
-mussel_data <- bind_rows(tmp1, tmp2)
+#add in names with zeros to the sites with no mussels observed
+num <- length(unique(lookup$scientific_name))
+tmp3 <- do.call("rbind", replicate(num, tmp2, simplify = F))
+
+spp <- rep(unique(lookup$scientific_name), each = 89)
+
+tmp3$Species <- spp
+
+
+mussel_data <- bind_rows(tmp1, tmp3)
 
 #add in survey data
 
@@ -303,14 +312,15 @@ names(mussel_data)[3:64] <- tolower(names(mussel_data)[3:64])
 mussel_data$scientific_name <- tolower(mussel_data$scientific_name)
 
 mussel_data <- left_join(mussel_data, lookup, by = "scientific_name")
-mussel_data$common_name <- ifelse(mussel_data$scientific_name == "no mussels", "no mussels", mussel_data$common_name)
+
 
 
 bk_mussel_event <- mussel_data %>% 
   mutate(state = "MA",
          project = "brookfloater_study",
-         source = "JasonCarmignani-brookfloater") %>% 
-  select(UID, state, x, y, date, project, source) %>% 
+         source = "JasonCarmignani-brookfloater",
+         waterbody = "lotic") %>% 
+  select(UID, state, x, y, date, waterbody, project, source) %>% 
   rename(latitude = y,
          longitude = x) %>% 
   unique() %>% 
@@ -348,10 +358,11 @@ bk_mussel_method <- mussel_data %>%
          reach_length_m = measured.length.of.stream.survey, #want to confirm unit is m
          access_visibility_1m = access.visibility..1m) %>% 
   mutate(wet_width_avg_m = mean(c(wetwidth1, wetwidth2, wetwidth3))) %>%  #want to confirm wetted width is m
-  select(-c(3:5))
+  select(-c(3:5)) %>% 
+  unique()
 
 
-rm(mussel_data, survey_data, tmp1, tmp1a, tmp2)
+rm(mussel_data, survey_data, tmp1, tmp1a, tmp2, tmp3)
 ###
 
 #bind together mussel database and the brook floater data
@@ -418,6 +429,8 @@ me_mussel <- me_mussel %>%
          longitude = ifelse(longitude > 0, -longitude, longitude))
 
 
+
+
 head(me_mussel)
 
 me_mussel$waterbody[me_mussel$waterbody == "L"] <- "lentic"
@@ -448,8 +461,24 @@ name_conversion <- read.csv("musselsppnames.csv")
 
 me_mussel <- left_join(me_mussel, name_conversion, by = "scientific_name")
 
+me_mussel$project[me_mussel$project == 1] <- "MDIFW Surveys (Haskins & Siebenmann 1994)"
+me_mussel$project[me_mussel$project == 2] <- "MDIFW Surveys (Haskins 1993, 1994)"
+me_mussel$project[me_mussel$project == 3] <- "MDIFW Surveys (1993)"
+me_mussel$project[me_mussel$project == 4] <- "MDIFW Surveys (1994)"
+me_mussel$project[me_mussel$project == 5] <- "MDIFW Surveys (Haskins & Nedeau 1995)"
+me_mussel$project[me_mussel$project == 6] <- "Miscellaneous Submissions"
+me_mussel$project[me_mussel$project == 7] <- "MDIFW Surveys (Haskins & Hanlon 1996)"
+me_mussel$project[me_mussel$project == 8] <- "MDIFW Surveys (Haskins & Welch 1997)"
+me_mussel$project[me_mussel$project == 9] <- "MDIFW Surveys (deMaynadier & Haskins 1997)"
+me_mussel$project[me_mussel$project == 10] <- "Edwards Dam Removal Surveys"
+me_mussel$project[me_mussel$project == 11] <- "MDIFW Surveys (Nedeau & deMaynadier 1998)"
+me_mussel$project[me_mussel$project == 12] <- "Maritimes & Northeast Pipeline Surveys"
+me_mussel$project[me_mussel$project == 13] <- "Presumpscot River Hydro Project Survey 1997"
+
+
+
 me_mussel_event <- me_mussel %>% 
-  select(UID, date, latitude, longitude, project, source) %>% 
+  select(UID, date, latitude, longitude, waterbody, project, source) %>% 
   mutate(state = "ME") %>% 
   unique()
 me_mussel_event$latitude[me_mussel_event$UID == "ME-1995-07-20--45.9667-70.1583"] <- 45.96667
@@ -524,6 +553,7 @@ test <- mus1 %>%
          source = "CoreyPelletier_RIDEM",
          longitude = unlist(map(geometry, 1)),
          latitude = unlist(map(geometry, 2)),
+         goal = "total pick up", #based on paper - they inventoried all mussel spp, not just a particular spp
          waterbody = ifelse(grepl("pond$", HABTYPE), "lentic",      #identify lotic or lentic by searching for lakes or ponds at the end of the HABTYPE
                                                  ifelse(grepl("lake$", HABTYPE), "lentic", "lotic"))) %>% 
   pivot_longer(cols = 14:23, names_to = "scientific_name", values_to = "live_occurrence") %>% 
@@ -550,7 +580,7 @@ test <- test %>%
 
 mus1_mussel_event <- test %>% 
   data.frame() %>% 
-  select(UID, state, date, latitude, longitude, project, source) %>% 
+  select(UID, state, date, latitude, longitude, waterbody, project, source) %>% 
   unique()
 
 
@@ -563,7 +593,7 @@ mus1_mussel_occurrence <- test %>%
 
 mus1_mussel_method <- test %>% 
   data.frame() %>% 
-  select(UID, survey_method) %>% 
+  select(UID, survey_method, goal) %>% 
   unique()
 
 
@@ -654,9 +684,12 @@ site <- mus5site %>%
          start = `Start Time`,
          end = `End Time`) %>% 
   mutate(number_searchers = ifelse(Surveyors == "MP, BE", 2, 3),
-         search_time_min = end - start)
+         search_time_min = end - start,
+         waterbody = "lotic",#based on spreadsheet - all are brooks or rivers
+         goal = 'total pick up') #based on feeback from Corey
+
 mus5_mussel_event <- left_join(site, test, by = c("UID", "date")) %>% 
-  select(UID, date, latitude, longitude) %>% 
+  select(UID, date, latitude, longitude, waterbody) %>% 
   unique() %>% 
   mutate(state = "RI",
          project = "mussels2020",
@@ -665,7 +698,7 @@ mus5_mussel_event <- left_join(site, test, by = c("UID", "date")) %>%
 #method file
 mus5_mussel_method <- left_join(site, test, by = c("UID", "date")) %>% 
   data.frame() %>% 
-  select(UID, survey_method, number_searchers, search_time_min, reach_length_m, wet_width_avg_m, dept_avg_m) %>% 
+  select(UID, survey_method, number_searchers, search_time_min, reach_length_m, wet_width_avg_m, dept_avg_m, goal) %>% 
   unique()
 
 
@@ -690,11 +723,12 @@ test <- test %>%
          state = "RI",
          live_occurrence = 1,
          live_count = Count,
-         survey_method = "targeted") 
+         goal = "targeted",
+         waterbody = "lotic") #all in the flat river 
 
 mus2_mussel_event <- test %>% 
   data.frame() %>%  
-  select(UID, state, date, latitude, longitude, project, source) %>% 
+  select(UID, state, date, latitude, longitude, waterbody, project, source) %>% 
   unique()
 
 #dont make an absence file here becuase the surveys were targeted
@@ -712,7 +746,7 @@ mus2_mussel_count <- test %>%
 
 mus2_mussel_method <- test %>% 
   data.frame() %>% 
-  select(UID, survey_method)
+  select(UID, goal)
 
 
 
@@ -770,7 +804,8 @@ vtdat <- vtdat %>%
                      ifelse (Species == "sp" & Genus == "ELLIPTIO", "complanata", Species)),
          scientific_name = tolower(paste(Genus, sp, sep = " ")),
          live_occurrence = 1,
-         date = mdy(Date)) %>% 
+         date = mdy(Date),
+         survey_method = "incidental observation") %>% 
   rename(latitude= Latitude, longitude = Longitude)
 
 
@@ -789,10 +824,14 @@ vt_mussel_occurrence <- vtdat %>%
   unique() %>% 
   filter(!is.na(common_name))
 
+vt_mussel_method <- vtdat %>% 
+  select(UID, survey_method)
+
 #no method or count information here
 
 save(vt_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_event.RData")
 save(vt_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_occurrence.RData")
+save(vt_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_method.RData")
 
 
 
@@ -836,7 +875,7 @@ all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length)
 
 #bind method data
 
-all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method) #this needs more cleaning
+all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method, vt_mussel_method) #this needs more cleaning
 
 
 
@@ -873,8 +912,27 @@ shp <- st_as_sf(x = shp,
 st_write(shp, "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_event.shp")
 
 
+
+
+
+
+
+
+
+
+
+################################################################################################
   
-#this code prepares the MA source files so that they have the EO_Data information so we can edit.
+#this code prepares the MA source files so that they have the EO_Data information so we can edit
+
+#################################################################################################
+
+
+
+
+
+
+
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_EOReps.gdb")
 ma_eo <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_EOReps.gdb", layer = "query_result")
 

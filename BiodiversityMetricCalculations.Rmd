@@ -41,6 +41,7 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fi
 #fish data
 load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 
 #load new englad state data
 states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
@@ -460,7 +461,69 @@ ggplot()+
   )
 
 ```
-investigate interannaul variability
+
+
+Variation is fish length
+```{r}
+
+head(fish_size)
+size <- left_join(fish_size, fish_event_huc_join, by = "UID")
+
+
+
+huc12 <- huc12 %>% 
+  filter(states != "ME" & states != "CN,ME" & states != "CN")
+
+for (i in unique(fish_size$common_name)) {
+
+fishvar <- size %>% 
+  filter(common_name == i) %>% 
+  group_by(huc12_name) %>% 
+  summarise(stdev = sd(length_mm, na.rm = T))
+
+fishvar <- left_join(huc12, fishvar, by = c("name" = "huc12_name"))
+
+ggplot()+
+  geom_sf(data = fishvar, lwd= .2,
+          aes(fill = stdev))+
+  scale_fill_gradient2(low = "red",
+                       mid = "white",
+                       high = "blue",
+                       midpoint = mean(fishvar$stdev, na.rm = T))+
+  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, color = "black", lwd = 0.5)+
+  labs(fill = "stdev (mm)",
+       title = i)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())
+
+print(i)
+
+ ggsave(
+    filename = paste("tmpfigures/fish_length_var/", i, ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200)
+ 
+}
+
+
+
+dat <- size %>% 
+  filter(common_name == "brook trout")
+
+ggplot(data = dat, aes(x = huc8_name, y = length_mm))+
+  geom_boxplot()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
+  ylim(c(10, 300))
+
+```
+
+
+investigate interannaul variability by changing the dates that are included in the map
 ```{r}
 
 #spp richness: huc12
@@ -511,7 +574,7 @@ ggplot()+
 ```
 
 
-cluster spp based on cooccurrence using abundance data, presence absence data
+Correlation matrices
 ```{r}
 library(corrplot)
 
@@ -600,12 +663,19 @@ dev.off()
 
 ```
 
-Cluster spp based on occurrence and based on watershed characteristcs
+Cluster spp based on co - occurrence 
 ```{r}
 library(data.table)
 
 
-#cluster based on the occurrence of other species
+########################################
+
+#cluster based on the occurrence of other species lumping all basins and stream orders
+
+########################################
+
+
+
 load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
 
@@ -614,7 +684,7 @@ dat <- fish_occurrence %>%
   pivot_wider(names_from = common_name, values_from = occurrence) %>% 
   column_to_rownames(var = "UID")
 
-test <- transpose(dat)
+test <- t(dat)
 colnames(test) <- rownames(dat)
 
 dist_mat <- dist(test, method = "binary")
@@ -628,7 +698,18 @@ plot(hclust_avg)
 dev.off()
 
 
-#cluster based on the occurrence of other species by HUC8
+
+
+
+
+#####################################
+
+#cluster based on the occurrence of other species for each HUC8, lumping all stream orders within each HUC 8
+
+#####################################
+
+
+
 load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
   
@@ -638,7 +719,7 @@ for (i in unique(fish_event_huc_join$huc8_name)) {
 
 dat <- tmp %>% 
   filter(huc8_name == i)
-#remove spp that are never presenct
+#remove spp that are never present
 keep <- dat %>% 
   group_by(common_name) %>% 
   summarise(occ = sum(occurrence)) %>% 
@@ -647,11 +728,11 @@ keep <- dat %>%
 
 dat <- dat %>%
   filter(common_name %in% keep$common_name ) %>%  
-  select(UID, common_name, occurrence) %>% # problem - the UID in VT DFW is not unique! there are some that have duplicated names, need to return to the tidying vt data and fix this!!!
+  select(UID, common_name, occurrence) %>% 
   pivot_wider(names_from = common_name, values_from = occurrence) %>% 
   column_to_rownames(var = "UID")
 
-test <- transpose(dat)
+test <- t(dat)
 colnames(test) <- rownames(dat)
 
 dist_mat <- dist(test, method = "binary")
@@ -672,21 +753,153 @@ print(i)
 
 
 
-#CART analysis based on VAA
-library(caret)
-library(rpart)
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 
-dat <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
-  filter(occurrence == 1,
-         common_name %in% c("burbot", "swamp darter", "black crappie")) %>% 
-  mutate(long = unlist(map(geometry, 1)),
-         lat = unlist(map(geometry, 2))) %>% 
-  select(common_name, StreamOrde, MinElevSmo, lat, long)
+#########################################
 
-model <- rpart(common_name ~., data = dat)
-par(xpd = NA)
-plot(model)
+#cluster based on the occurrence of other species for each HUC8 and for groups of stream orders within each huc 8
+
+#stream order groups: 
+#first and second order
+#third and forth order
+#5th order and higher
+
+##########################################
+
+
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+
+tmp1 <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
+  filter(StreamOrde %in% c(1,2)) %>% 
+  select(names(fish_occurrence))
+
+tmp2 <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
+  filter(StreamOrde %in% c(3,4))%>% 
+  select(names(fish_occurrence))
+
+tmp3 <- left_join(fish_occurrence, fish_event_flowline_join, by = "UID") %>% 
+  filter(StreamOrde > 4)%>% 
+  select(names(fish_occurrence))
+
+  
+
+
+tmp <- left_join(tmp1, fish_event_huc_join, by = "UID") %>% 
+  filter(!is.na(huc8_name))
+
+for (i in unique(tmp$huc8_name)) {
+
+dat <- tmp %>% 
+  filter(huc8_name == i)
+#remove spp that are never presenct
+keep <- dat %>% 
+  group_by(common_name) %>% 
+  summarise(occ = sum(occurrence)) %>% 
+  filter(occ > 0)
+
+
+dat <- dat %>%
+  filter(common_name %in% keep$common_name ) %>%  
+  select(UID, common_name, occurrence) %>% 
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = paste("tmpfigures/fish_clusters_1order/", i, ".png", sep = ""), units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg, main = paste(i, "1st and 2nd order streams", sep = ","))
+dev.off()
+
+print(i)
+
+}
+
+
+
+tmp <- left_join(tmp2, fish_event_huc_join, by = "UID") %>% 
+  filter(!is.na(huc8_name))
+
+for (i in unique(tmp$huc8_name)) {
+
+dat <- tmp %>% 
+  filter(huc8_name == i)
+#remove spp that are never presenct
+keep <- dat %>% 
+  group_by(common_name) %>% 
+  summarise(occ = sum(occurrence)) %>% 
+  filter(occ > 0)
+
+
+dat <- dat %>%
+  filter(common_name %in% keep$common_name ) %>%  
+  select(UID, common_name, occurrence) %>% 
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = paste("tmpfigures/fish_clusters_3order/", i, ".png", sep = ""), units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg, main = paste(i, "3rd and 4th order streams", sep = ","))
+
+dev.off()
+
+print(i)
+
+}
+
+
+
+
+tmp <- left_join(tmp3, fish_event_huc_join, by = "UID") %>% 
+  filter(!is.na(huc8_name))
+
+for (i in unique(tmp$huc8_name)) {
+
+dat <- tmp %>% 
+  filter(huc8_name == i)
+#remove spp that are never presenct
+keep <- dat %>% 
+  group_by(common_name) %>% 
+  summarise(occ = sum(occurrence)) %>% 
+  filter(occ > 0)
+
+
+dat <- dat %>%
+  filter(common_name %in% keep$common_name ) %>%  
+  select(UID, common_name, occurrence) %>% 
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = paste("tmpfigures/fish_clusters_5order/", i, ".png", sep = ""), units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg, main = paste(i, "5th and higher order streams", sep = ", "))
+dev.off()
+
+print(i)
+
+}
 
 
 ```

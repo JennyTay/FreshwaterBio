@@ -65,6 +65,15 @@ huc12 <- huc12 %>%
   select(tnmid, areasqkm , name) %>% 
   rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
 huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
+#this df needs aditional editting
+#Outlet Missisquoi River - HUc12_name this is the same shape, but it actually has two separate tnmid
+#Outlet Sutton River and Riviere Sutton are the same shape, but have different HUC 12 names and have different tnmid
+#Ruiss Coslett-Riviere Aux Brochets vs Groat Creek are the same shape with different names and tmnid
+
+huc12 <- huc12 %>% 
+  filter(huc12_tnmid != "{7964F492-75EA-4AA7-8E77-A96D99348771}",
+         huc12_name != "Riviere Sutton",
+         huc12_name != "Ruiss Coslett-Riviere Aux Brochets")
 
 
 
