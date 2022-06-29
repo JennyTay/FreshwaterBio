@@ -23,14 +23,22 @@ uncom <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT M
 
 
 #select just the freshwater mussels
-rare <- rare %>% 
-  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels')
+mus1 <- rare %>% 
+  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
+  select(EO_ID, S_NAME, ENGLISH,SURVEYDATE, EO_DATA, GEN_DESC ) %>% 
+  mutate(EO_ID = as.character(EO_ID))
 
-uncom <- uncom %>% 
-  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels')
+ mus2 <- uncom %>% 
+  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
+  mutate(EO_ID = paste(ENGLISH, Shape_Length, sep = "_")) %>% 
+  select(EO_ID, S_NAME, ENGLISH, SURVEYDATE, EO_DATA, GEN_DESC, VISITS)
 
 
+mus3 <- bind_rows(mus1, mus2) %>% 
+  data.frame() %>% 
+  select(-Shape)
 
+write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/heritage_data.csv")
 
 
 

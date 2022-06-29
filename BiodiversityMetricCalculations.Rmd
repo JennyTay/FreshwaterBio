@@ -515,7 +515,7 @@ print(i)
 dat <- size %>% 
   filter(common_name == "brook trout")
 
-ggplot(data = dat, aes(x = huc8_name, y = length_mm))+
+ggplot(data = dat[dat$huc8_name == "West",], aes(x = huc12_name, y = length_mm))+
   geom_boxplot()+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))+
   ylim(c(10, 300))
