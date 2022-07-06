@@ -49,7 +49,7 @@ event_data <- sqlQuery(con2, qry4)
 
 
 # event data
-me_event <- event_data %>% 
+dat <- event_data %>% 
   select("SampleID", "BegDate", "LocationID") %>% 
   mutate(source = "MEDIFW - MerryGallagher",
          UID = paste("ME", SampleID, sep = "_"),
@@ -75,16 +75,19 @@ shp <- shp %>%
   filter(latitude > 43, #remove 2 rows with erroneous latitude
          longitude > -72) #remove 1 row with erroneous longitude
 
-me_event <- left_join(me_event, shp, by  = c("LocationID" = "LOCATIONID")) %>% 
+me_event <- left_join(dat, shp, by  = c("LocationID" = "LOCATIONID")) %>% 
   data.frame() %>% 
   select(UID, state, latitude, longitude, date, waterbody, project, source) %>% 
   unique()
 
 
+
+
+
 #### Make the count/occurrence file separate from the length file, that way we dont need to duplicate rows
 
 dat <- counts %>% 
-  select(SampleID, SPP, "Life Stage", Abundance, QualAbun, Origin) %>% 
+  select(SampleID, SPP, "Life Stage", Abundance, Origin) %>% 
   mutate(UID = paste("ME", SampleID, sep = "_"),
          occurrence = 1) %>% #even for ones where Abundance = 0, Merry said the fish was there, the 0 indicates no count was made 
   filter(Origin != "Hatchery" | is.na(Origin)) %>% 
@@ -93,17 +96,30 @@ dat <- counts %>%
 dat <- left_join(dat, species_data, by = "SPP") %>%  
   mutate(common_name = tolower(SPECIES),
          scientific_name = tolower(SCIENTIF)) %>% 
-  select(UID, common_name, occurrence, count, QualAbun)
+  select(UID, scientific_name, occurrence, count)
 
 dat$count[dat$count == 0] <- NA
 
 #some of the common_names are not for fish (frog, salamander, pollywog, mudpuppy)
 me_count <- dat %>% 
-  filter(! common_name %in% c("frog", "salamander", "mudpuppy", "pollywog", "crayfish"))
+  filter(! scientific_name %in% c("anura order", "crustacea class", "caudata order", "nexturus maculosus", "necturus maculosus")) %>% 
+  unique()
+
+#in some UIDs there are two differnet counts for the same spp - we will sum these total counts together..
+
+test <- me_count %>% 
+  filter(is.na(count)) 
+
+test2 <- me_count %>% 
+  filter(!is.na(count)) %>% 
+  group_by(UID, scientific_name) %>% 
+  summarise(count = sum(count, na.rm = T))
+
+me_count <- bind_rows(test, test2)
   
 
 
-dat_length <- lengths_data %>% 
+dat <- lengths_data %>% 
   mutate(UID = paste("ME", SampleID, sep = "_")) %>% 
   rename(run_num = RunNum,
          length_mm = Length,
@@ -111,10 +127,10 @@ dat_length <- lengths_data %>%
   filter(Origin != "Hatchery" | is.na(Origin)) %>% 
   select(UID, SPP, length_mm, weight_g)
 
-me_length <- left_join(dat_length, species_data, by = "SPP") %>%  
+me_length <- left_join(dat, species_data, by = "SPP") %>%  
   mutate(common_name = tolower(SPECIES),
          scientific_name = tolower(SCIENTIF)) %>% 
-  select(UID, common_name, length_mm, weight_g) %>% 
+  select(UID, scientific_name, length_mm, weight_g) %>% 
   filter(!is.na(length_mm)) %>% 
   filter(length_mm != 0)
 me_length$weight_g[me_length$weight_g == -99] <- NA
@@ -124,7 +140,7 @@ me_length$weight_g[me_length$weight_g == 0] <- NA
 
 
 
-
+#method data
 me_method <- event_data %>% 
   select(SampleID, LengthSection, AveWidth) %>% 
   rename(reach_length_m = LengthSection, avg_reach_width_m = AveWidth) %>% 

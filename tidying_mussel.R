@@ -44,10 +44,39 @@ write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mu
 
 
 
-################  MA natural heritage #####################
+################  NH natural heritage #####################
 
 
+#read in the source feature excel, the long fields EO data excel,  the source feature shape file, and the EO shape file
 
+src1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
+src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
+eo1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
+eo2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
+
+src1 <- src1 %>% 
+  select(1:3)
+
+src2keep <- src2 %>% 
+  data.frame() %>% 
+  select(EO_ID, SOURCE_FEA, SOURCE_F_1)
+
+src <- left_join(src1, src2keep, by = c("EO_ID", "SOURCE_FEA")) 
+
+
+eo1 <- eo1 %>% 
+  select(1:3)
+
+eo2keep <- eo2 %>% 
+  data.frame() %>% 
+  select(EO_ID, SNAME, SCOMNAME) 
+
+eo <- left_join(eo1, eo2keep, by  = "EO_ID")
+
+nh <- left_join(src, eo, by = "EO_ID") %>% 
+  select(EO_ID, SOURCE_FEA, VISIT_NOTES, SOURCE_F_1, SNAME, SCOMNAME, EO_DATA, GEN_DESC)
+
+write_csv(nh, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/nh_heritage_data.csv")
 
 ###########################################################
 

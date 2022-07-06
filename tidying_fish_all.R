@@ -39,7 +39,7 @@ str(ma_event)
 
 ###################################
 
-event <- bind_rows(ct_event, dec_event, nh_event, ma_event, ri_event, dfw_event)
+event <- bind_rows(ct_event, dec_event, nh_event, ma_event, ri_event, dfw_event, me_event)
 event$date <- substr(event$date, start=1, stop=10)
 event$date <- ymd(event$date)
 event$year <- year(event$date)
@@ -74,7 +74,9 @@ save(event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ti
 
 
 
-fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish, ri_fish, dfw_fish)
+fish <- bind_rows(ma_fish, ct_fish, nh_fish, dec_fish, ri_fish, dfw_fish, me_count, me_length)
+# by the time i got to the maine data, i decided to do it differenlty, so there is separate length and count file. but we can still combine them to tidy the names, 
+#and then at the end filtering by removing the ones without a count or without a length will remove the appropriate rows.
 fish$scientific_name <- tolower(fish$scientific_name)
 fish$scientific_name <- trimws(fish$scientific_name)
 fish$scientific_name[fish$scientific_name == 'catostomus commersoni'] <- "catostomus commersonii"
@@ -85,11 +87,17 @@ fish$scientific_name[fish$scientific_name == 'alosa pseudoharangus'] <- "alosa p
 fish$scientific_name[fish$scientific_name == 'apeltes quadracas'] <- "apeltes quadracus"
 fish$scientific_name[fish$scientific_name == 'unknown 1'] <- "unknown"
 fish$scientific_name[fish$scientific_name == 'unknown 2'] <- "unknown"
+fish$scientific_name[fish$scientific_name == 'pisces class'] <- "unknown"
+fish$scientific_name[fish$scientific_name == 'pisces order'] <- "unknown"
+fish$scientific_name[fish$scientific_name == 'salmo spp.'] <- "salmo"
 fish$scientific_name[fish$scientific_name == 'sander vitreus'] <- "stizostedion vitreum" 
 fish$scientific_name[fish$scientific_name == 'lampetra appendix'] <- "lethenteron appendix" 
 fish$scientific_name[fish$scientific_name == 'phoxinus eos'] <- "chrosomus eos" #per rebeccas correction
 fish$scientific_name[fish$scientific_name == 'esox americanus'] <- "esox americanus americanus"
 fish$scientific_name[fish$scientific_name == 'lepomis spp.'] <- "lepomis sp"
+fish$scientific_name[fish$scientific_name == 'cyprinidae family'] <- "cyprinidae"
+fish$scientific_name[fish$scientific_name == 'notropis atheinoides'] <- "notropis atherinoides"
+fish$scientific_name[fish$scientific_name == 'prosopium cylindraceus'] <- "prosopium cylindraceum"
 
 #need to add in common names
 fish$common_name[fish$scientific_name =="acipenser brevirostrum"] <- "shortnose sturgeon"
@@ -214,6 +222,20 @@ fish$common_name[fish$scientific_name =="lucania parva"] <- "rainwater killifish
 fish$common_name[fish$scientific_name =="poecilia reticulata"] <- "guppy"
 
 
+fish$common_name[fish$scientific_name =="oncorhynchus-salmo genera"] <- "salmon and trout genus"
+fish$common_name[fish$scientific_name =="margariscus nachtriebi"] <- "northern pearl dace"
+fish$common_name[fish$scientific_name =="chrosomus neogaeus"] <- "finescale dace"  ### phoxinus neogaeus is what we have above for finescale dace
+fish$common_name[fish$scientific_name =="gasterosteidae family"] <- "stickleback family"
+fish$common_name[fish$scientific_name =="alosa-clupea spp."] <- "river herring"
+fish$common_name[fish$scientific_name =="culaea inconstans"] <- "brook stickleback"
+fish$common_name[fish$scientific_name =="esox masquinongy"] <- "muskellunge"
+fish$common_name[fish$scientific_name =="micropterus spp."] <- "blackbass family"
+fish$common_name[fish$scientific_name =="gasterosteus wheatlandi"] <- "blackspotted stickleback"
+fish$common_name[fish$scientific_name =="prosopium-coregonus spp."] <- "whitefish genus"
+fish$common_name[fish$scientific_name =="acipenser oxyrhynchus"] <- "Atlantic sturgeon"
+fish$common_name[fish$scientific_name =="salvelinus alpinus oquassa"] <- "Sunapee trout"
+
+
 #The VT DEC and the VT DFW data did not have scientific names, just common names, so I want to make a separatetable to join
 fish$common_name <- tolower(fish$common_name)
 fish$common_name <- trimws(fish$common_name)
@@ -226,7 +248,7 @@ fish <- fish %>%
   select(-scientific_name) %>% 
   left_join(join, by = "common_name")
 
-unique(fish$common_name[is.na(fish$scientific_name)]) #39 common names differ from the ones above
+unique(fish$common_name[is.na(fish$scientific_name)]) #37 common names differ from the ones above
 fish$common_name[fish$common_name =="blacknose dace"] <- "eastern blacknose dace"
 fish$common_name[fish$common_name =="unidentified cyprinid"] <- "minnow family"
 fish$common_name[fish$common_name =="no fish!"] <- "no fish"
@@ -250,7 +272,6 @@ fish$scientific_name[fish$common_name =="log perch genus"] <- "percina spp."
 fish$scientific_name[fish$common_name =="redbelly dace"] <- "chrosomus eos"
 fish$scientific_name[fish$common_name =="allegheny pearl dace"] <- "margariscus margarita"
 fish$scientific_name[fish$common_name =="mottled sculpin"] <- "cottus bairdii"
-fish$scientific_name[fish$common_name =="brook stickleback"] <- "culaea inconstans"
 fish$scientific_name[fish$common_name =="silver lamprey"] <- "ichthyomyzon unicuspis"
 fish$scientific_name[fish$common_name =="sand shiner"] <- "notropis stramineus"
 fish$scientific_name[fish$common_name =="silver lamprey"] <- "ichthyomyzon unicuspis"
@@ -266,7 +287,6 @@ fish$scientific_name[fish$common_name =="lamprey order"] <- "petromyzontiformes 
 fish$scientific_name[fish$common_name =="shorthead redhorse"] <- "moxostoma macrolepidotum"
 fish$scientific_name[fish$common_name =="redear sunfish"] <- "lepomis microlophus"
 fish$scientific_name[fish$common_name =="brook silverside"] <- "labidesthes sicculus"
-fish$scientific_name[fish$common_name =="northern pearl dace"] <- "margariscus nachtriebi"
 fish$scientific_name[fish$common_name =="greater redhorse"] <- "moxostoma valenciennesi"
 fish$scientific_name[fish$common_name =="tench"] <- "tinca tinca"
 fish$scientific_name[fish$common_name =="rudd"] <- "scardinius spp."
@@ -278,14 +298,14 @@ fish$scientific_name[fish$common_name =="kokanee salmon"] <- "Oncorhynchus nerka
 
 test <- fish %>% 
   filter(is.na(common_name))
-#66 observations from MA do not have a common name or a scientific name.. go back to ma data and figure it out
+#67 observations from MA do not have a common name or a scientific name.. go back to MA data (66 of them) and and ME (1 of them) and review
 
 #remove observations at the family or higher taxonomic level
 fish <- fish %>% 
   filter(!grepl("order|family|hybrid|no fish|unknown", common_name))
 
 
-#add columns for genus and family and remove the genus and family names in the spp column
+#add columns for genus and remove the genus names in the spp column
 tmp <- fish %>% 
   select(scientific_name) %>% 
   separate(scientific_name, into = c("genus", "remove"), sep = " ") %>% 
@@ -301,6 +321,7 @@ fish$common_name[fish$common_name == "log perch genus"] <- NA
 fish$common_name[fish$common_name == "redhorse genus"] <- NA
 fish$common_name[fish$common_name == "rudd"] <- NA
 fish$common_name[fish$common_name == "salmon and trout genus"] <- NA
+fish$common_name[fish$common_name == "whitefish genus"] <- NA
 
 fish$scientific_name[fish$scientific_name == "channa sp."] <- NA
 fish$scientific_name[fish$scientific_name == "lepomis sp"] <- NA
@@ -309,6 +330,11 @@ fish$scientific_name[fish$scientific_name == "percina spp."] <- NA
 fish$scientific_name[fish$scientific_name == "moxostoma spp."] <- NA
 fish$scientific_name[fish$scientific_name == "scardinius spp."] <- NA
 fish$scientific_name[fish$scientific_name == "salmo"] <- NA
+fish$scientific_name[fish$scientific_name == "alosa-clupea spp."] <- NA
+fish$scientific_name[fish$scientific_name == "prosopium-coregonus spp."] <- NA
+fish$scientific_name[fish$scientific_name == "oncorhynchus-salmo genera"] <- NA
+
+
 
 head(fish)
 
