@@ -34,23 +34,23 @@ load datafiles
 
 ```{r}
 #watershed data
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 
 
 #fish data
-load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
-load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
-load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 
 #load new englad state data
-states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 #watershed data
-huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
-huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
-huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
-flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+flowline <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
 
 
 ```
@@ -91,7 +91,7 @@ plots of counts
 head(fish_occurrence)
 
 #load fish data
-shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 #remove NA names
 shp <- shp %>% 
   filter(!is.na(cmmn_nm),
@@ -114,7 +114,7 @@ table(counts$common_name)
 for( i in 1:length(unique(counts$common_name))){
   
   ggplot()+
-    geom_sf(data = states[states$NAME != "MAINE",])+
+    geom_sf(data = states)+
     geom_sf(data = counts[counts$common_name== unique(counts$common_name)[i], ], 
             aes(color = as.factor(occurrence)))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
@@ -153,7 +153,7 @@ table(counts$common_name)
 for( i in 1:length(unique(counts$common_name))){
   
   ggplot()+
-    geom_sf(data = states[states$NAME != "MAINE",])+
+    geom_sf(data = states)+
     geom_sf(data = counts[counts$common_name== unique(counts$common_name)[i], ],
             pch = 21,
             aes(size = count, fill = occurrence))+
@@ -204,7 +204,7 @@ dat <- left_join(shp, richness_site, by = "UID")
 
 
 ggplot()+
-  geom_sf(data = states[states$NAME != "MAINE",])+
+  geom_sf(data = states)+
   geom_sf(data = dat, pch = 21, 
           aes(size = richness_site, 
               fill = richness_site,
@@ -290,7 +290,7 @@ richness_huc12 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>
 hist(richness_huc12$richess_huc12)
 
 huc12 <- huc12 %>% 
-  filter(states != "ME" & states != "CN,ME" & states != "CN")
+  filter(states != "CN")
 
 dat <- left_join(huc12, richness_huc12, by = c("name" = "huc12_name"))
 
@@ -311,7 +311,7 @@ ggplot()+
           panel.background = element_blank())+
     labs(title = "species richness, huc12 scale",
     fill = "richness")+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = 0.5, color = "black")
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
 
  ggsave(
     filename = "tmpfigures/spprichness_huc12_scale.png",
@@ -335,7 +335,7 @@ hist(richness_huc10$richness_huc10)
 
 
 huc10 <- huc10 %>% 
-  filter(States != "ME" & States != "CN,ME" & States != "CN")
+  filter(States != "CN")
 
 dat <- left_join(huc10, richness_huc10, by = c("Name" = "huc10_name"))
 
@@ -356,7 +356,7 @@ ggplot()+
           panel.background = element_blank())+
     labs(title = "species richness, huc10 scale",
     fill = "richness")+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = .5, color = "black")
+  geom_sf(data = states, fill = NA, lwd = .5, color = "black")
 
  ggsave(
     filename = "tmpfigures/spprichness_huc10_scale.png",
@@ -380,7 +380,7 @@ richness_huc8 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>%
 hist(richness_huc8$richness_huc8)
 
 huc8 <- huc8 %>% 
-  filter(states != "ME" & states != "CN,ME" & states != "CN" & states != "ME,CN")
+  filter(states != "CN")
 
 dat <- left_join(huc8, richness_huc8, by = c("name" = "huc8_name"))
 
@@ -401,7 +401,7 @@ ggplot()+
           panel.background = element_blank())+
     labs(title = "species richness, huc8 scale",
     fill = "richness")+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = .5, color = "black")
+  geom_sf(data = states, fill = NA, lwd = .5, color = "black")
 
  ggsave(
     filename = "tmpfigures/spprichness_huc8_scale.png",
@@ -428,7 +428,7 @@ ggplot()+
  dat$beta <- dat$richess_huc12/ dat$richness_huc8
 
  huc12 <- huc12 %>% 
-  filter(states != "ME" & states != "CN,ME" & states != "CN")
+  filter(states != "CN")
  
  dat <- left_join(huc12, dat, by = c("name" = "huc12_name"))
 
@@ -449,7 +449,7 @@ ggplot()+
           panel.background = element_blank())+
     labs(title = "beta diversity = alpha/gamma",
     fill = "diversity")+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = 0.5, color = "black")
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
 
  ggsave(
     filename = "tmpfigures/spprichness_beta.png",
@@ -472,7 +472,7 @@ size <- left_join(fish_size, fish_event_huc_join, by = "UID")
 
 
 huc12 <- huc12 %>% 
-  filter(states != "ME" & states != "CN,ME" & states != "CN")
+  filter(states != "CN")
 
 for (i in unique(fish_size$common_name)) {
 
@@ -490,7 +490,7 @@ ggplot()+
                        mid = "white",
                        high = "blue",
                        midpoint = mean(fishvar$stdev, na.rm = T))+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, color = "black", lwd = 0.5)+
+  geom_sf(data = states, fill = NA, color = "black", lwd = 0.5)+
   labs(fill = "stdev (mm)",
        title = i)+
     theme(panel.border = element_rect(colour = "black", fill = NA),

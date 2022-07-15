@@ -11,8 +11,8 @@ library(readxl)
 
 
 #load in datasets
-path <-  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata"
-files <- list.files(path = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata")
+path <-  "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata"
+files <- list.files(path = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata")
 
 for (i in 1:length(files)){
   
@@ -355,9 +355,9 @@ fish_presence <- fish %>%
   unique()
 
 #save
-save(fish_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-save(fish_size, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
-save(fish_presence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
+save(fish_count, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+save(fish_size, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+save(fish_presence, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 
 
 
@@ -402,7 +402,7 @@ write.csv(fishgenus, "fishgenus_count.csv")
 
 
 
-method <- bind_rows(ma_method, ct_method, nh_method, dec_method, dfw_method, ri_method)
+method <- bind_rows(ma_method, ct_method, nh_method, dec_method, dfw_method, ri_method,me_method)
 method$gear <- tolower(method$gear)
 unique(method$gear)
 
@@ -442,9 +442,15 @@ method$gear[method$gear == "boat"] <- "efish_boat" #confirmed by Andy
 method$gear[method$gear == "eboat"] <- "efish_boat"
 method$gear[method$gear == "backpack"] <- "efish_backpack"
 method$gear[method$gear == "electroshock"] <- "efish_backpack" #ned to confirm with Jim
+method$gear[method$gear == "georater"] <- "efish_backpack" #need to confirm with merry
+method$gear[method$gear == "backpack electrofishing"] <- "efish_backpack"
+method$gear[method$gear == "boat electrofishing"] <- "efish_boat"
+
 
 method$gear[method$gear == "gillnet"] <- "gill net"
 method$gear[method$gear == "gill"] <- "gill net"
+method$gear[method$gear == "gill netting"] <- "gill net"
+method$gear[method$gear == "trapnetting"] <- "trapnet"
 
 method$gear[method$gear == "dipnet"] <- "dip net"
 method$gear[method$gear == "fyke"] <- "fyke net"
@@ -460,7 +466,7 @@ unique(method$target)
 
 
 #save
-save(method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+save(method, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
 
 
@@ -474,17 +480,17 @@ save(method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
 
 
 #load the merged HUC boundary files
-dat8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp") #this is the crs that we want
+dat8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp") #this is the crs that we want
 
 
 #load fish data
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 
 dat <- left_join(fish_count, event, by = "UID")
 
 unique(dat$UID[is.na(dat$latitude)])
-#99 unique fish survey UID do not have corresponding event data: 8 from MA, 15 from NH DFG, 76 from RI DEM  
+#108 unique fish survey UID do not have corresponding event data: 8 from MA, 15 from NH DFG, 76 from RI DEM  
 #remove the surveys with no location information
 dat <- dat %>% 
   filter(!is.na(latitude))
@@ -494,7 +500,7 @@ shp <- st_as_sf(x = dat,
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
 
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 
 
 
@@ -508,4 +514,4 @@ shp <- st_as_sf(x = event,
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
 
-st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")

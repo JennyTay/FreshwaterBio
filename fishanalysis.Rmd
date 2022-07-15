@@ -29,12 +29,12 @@ all_fish_event
 
 Chunk1: load dataframes
 ```{r}
-flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
-huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
-huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
-huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+flowline <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 
-fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+fish_event <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
 
 ```
 
@@ -110,8 +110,8 @@ rm(flowline, huc8, huc10, huc12, dist, nearest)
 
 #note that there will be more rows in the HUC dataset because some of the events too far from flowlines were removed.
 
-save(fish_event_flowline_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
-save(fish_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+save(fish_event_flowline_join, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+save(fish_event_huc_join, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
 
 ```
 
@@ -119,7 +119,7 @@ save(fish_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwater
 Chunk3:
 Calcuate average elevation, slopes, land cover etc within each HUC size
 ```{r}
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
 
 ```
 
@@ -132,7 +132,7 @@ Chunk4:
 ```{r}
 
 #load the fish presence absence data
-load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData')
+load('C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData')
 
 fish <- unique(fish_presence$common_name)
 
@@ -160,8 +160,8 @@ uid <- unique(fish_presence$UID)
 fish <- unique(fish_presence$common_name)
 
 #make a dataframe that has each UID repeated for each fish spp
-absence <- data.frame('UID' = rep(uid, each = 78))
-absence$common_name <- rep(fish, times = 23107)
+absence <- data.frame('UID' = rep(uid, each = 82))
+absence$common_name <- rep(fish, times = 28458)
 #keep only rows in the absence list that are no in the fish_presence list
 keep <- anti_join(absence, fish_presence, by = c("UID", "common_name"))
 #add additional scientific names to the new absence data frame
@@ -184,7 +184,7 @@ rm(fish, uid, remove)
 
 
 #read in method data and keep only the electrofish and total pick up - this will give a list of UIDs that we keep in the presence absence data (won't want to assume all other spp are absent if the survey was a targeted survey, for example). number of passes doenst really matter here because its just if the fish was there, not counts or abundance
-load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+load('C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
 table(method$gear)
 table(method$goal)
 method <- method %>% 
@@ -198,7 +198,7 @@ fish_occurrence <- fish_occurrence %>%
   filter(UID %in% uid)
 
 #fish_occurrence df is the file to use for the presence absence analysis.
-save(fish_occurrence, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+save(fish_occurrence, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
 ```
 
@@ -225,8 +225,8 @@ Join the biological data to the hydrologic data using the UID, which was already
 Chunk7:
 1. join the fish presence data to the fish_event_flowline_join, and run a logistic regression using lat, long, total upstream drainage area, slope. 
 ```{r}
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
-load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
 fish_occurrence <- fish_occurrence %>% 
   filter(UID %in% fish_event_flowline_join$UID) #remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
@@ -316,7 +316,7 @@ join the fish count data to the fish_event_flowline_join, and run a zero inflate
 ```{r}
 
 #load the fish count data
-load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData')
+load('C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData')
 
 
 #remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location.
@@ -335,7 +335,7 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
 
 
 #load in the fish occurrence file just to extract the 0 occurence data, and to extract the UIDs that were already editted in be total pick up and efish only
-load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 uid <- fish_occurrence$UID
 
 
@@ -379,7 +379,7 @@ fish_count_with_zeros <- fish_count_with_zeros %>%
 
 
 #join the method data because we will include reach length as a predictor variable
-load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+load('C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
 colSums(is.na(method))
 method <- method %>% 
   select(-daylight, -target, -Comments, -Data_Comments)
@@ -387,7 +387,7 @@ fish_count_with_zeros <- left_join(fish_count_with_zeros, method, by = "UID")
 
 
 #fish_count_with_zeros df is the file to use for the zero inflated poisson regression analysis and for the clustering sites based on abundance.
-save(fish_count_with_zeros, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData") 
+save(fish_count_with_zeros, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData") 
 
 
  
@@ -400,7 +400,7 @@ ggplot(data = fish_count_with_zeros, aes(x = count))+
 
 
 
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 
 
 
@@ -438,8 +438,8 @@ join the fish length data to the fish_event_flowline_join, calucate the variance
 
 ```{r}
 
-load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData')
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load('C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData')
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 
 fish <- unique(fish_size$common_name)
 

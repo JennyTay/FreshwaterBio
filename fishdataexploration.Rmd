@@ -305,8 +305,7 @@ ggplot(data = test, aes(x = run_num, y = richness_mean)) +
 
 
 Here we look at the data spatially 
-We want to download the HUC 8, 10, and 12 shapefiles and merge them togeth
-we also want to downlaod all the flowlines for each state and merge them together
+
 
 ``` {r}
 
@@ -450,7 +449,7 @@ flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialDat
 
 
 #load fish data
-shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 #remove NA names
 shp <- shp %>% 
   filter(!is.na(cmmn_nm),
@@ -460,7 +459,7 @@ shp <- shp %>%
 
 
 #load new englad state data
-states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 
 
@@ -486,12 +485,12 @@ names(shp)[12] <- "huc12name"
 #plot fish distriubtion on a map to view annually
 #first need to make it a spatial file and then load in watershed data, and stream data, and state data
 
-table(shp$common_name)
+table(shp$cmmn_nm)
 
 for( i in 1:length(unique(shp$cmmn_nm))){
   
   ggplot()+
-    geom_sf(data = states[states$NAME != "MAINE",])+
+    geom_sf(data = states[states,])+
     geom_sf(data = shp[shp$cmmn_nm == unique(shp$cmmn_nm)[i], ], color = "red", size = .5)+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
