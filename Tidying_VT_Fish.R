@@ -14,10 +14,10 @@ library(readxl)
 #########################################################
 
 
-vt <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
+vt <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
                  col_names = TRUE, sheet = "All VDEC Fish Data w TE Species")
 
-fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
+fish <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
                  col_names = TRUE, sheet = "Fish Library", range = cell_cols("A:I"))
 fish <- fish %>% 
   select(FishID, Species)
@@ -123,7 +123,7 @@ save(dec_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_d
 
 
 
-dfw <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DFG Fish Data/Vermont electrofishing data 1954-2020.xlsx",
+dfw <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT DFG Fish Data/Vermont electrofishing data 1954-2020.xlsx",
                  col_names = TRUE)
 
 
@@ -218,10 +218,19 @@ dfw_fish <- dfw_fish %>%
   select(UID, common_name, count, weight_g, length_mm)
 
 
+
 #to make comparable to other data sets, repeat rows with lengths the number of times based on the count value. 
 
 n <-  dfw_fish$count
 dfw_fish <- dfw_fish[rep(seq_len(nrow(dfw_fish)), n),] #
+
+#the counts are tied to the fish_size, but now we want the count to represent the total count per species
+
+dfw_fish <- dfw_fish %>% 
+  group_by(UID, common_name) %>% 
+  mutate(count2 = sum(unique(count))) %>% 
+  select(-count) %>% 
+  rename(count = count2)
 
 
 
@@ -261,9 +270,9 @@ dfw_method <- dfw_method %>%  #average the lengths and widths of the UIDs that h
 
 ####################################
 #save dataframe
-save(dfw_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_method.RData")
-save(dfw_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_event.RData")
-save(dfw_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_fish.RData")
+save(dfw_method, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_method.RData")
+save(dfw_event, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_event.RData")
+save(dfw_fish, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_fish.RData")
 
 
 

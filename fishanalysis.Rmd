@@ -41,6 +41,7 @@ fish_event <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialDat
 
 Chuck2:
 Spatially join the huc and the flowline data to the all_fish_event. now every fish surveying event is aligned with hdyrologic data.
+These two datasets have removed the lentic surveys.
 
 ```{r}
 
@@ -147,7 +148,7 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
             "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
             "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
             "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
-            "lake trout"
+            "lake trout", "atlantic sturgeon", "blackspotted stickleback", "muskellunge", "sunapee trout"
 )
 
 
@@ -160,8 +161,8 @@ uid <- unique(fish_presence$UID)
 fish <- unique(fish_presence$common_name)
 
 #make a dataframe that has each UID repeated for each fish spp
-absence <- data.frame('UID' = rep(uid, each = 82))
-absence$common_name <- rep(fish, times = 28458)
+absence <- data.frame('UID' = rep(uid, each = 78))
+absence$common_name <- rep(fish, times = 28457)
 #keep only rows in the absence list that are no in the fish_presence list
 keep <- anti_join(absence, fish_presence, by = c("UID", "common_name"))
 #add additional scientific names to the new absence data frame
@@ -311,6 +312,7 @@ hist(logistreg$log_TotalDASqK)
 
 Chunk8
 2. First prepare the fish count data (like we did in chunk 4 for the presence absence data) and add in the zero data from the presence absence data
+keep only records using total pick up, efish, and the ones that listed the reach length so we can calculate count/stream reach length. then rbind to the 'keep' absence dataset abve, which is the absence data for each survey event.  
 join the fish count data to the fish_event_flowline_join, and run a zero inflated regression using lat, long, total upstream drainage area, slope. Use the zero values from the fish_occurrence file 
 
 ```{r}
@@ -330,7 +332,7 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
             "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
             "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
             "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
-            "lake trout"
+            "lake trout", "atlantic sturgeon", "blackspotted stickleback", "muskellunge", "sunapee trout"
 )
 
 
@@ -339,12 +341,11 @@ load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fis
 uid <- fish_occurrence$UID
 
 
-#filter the common names, the UIDs, and keep only the data from the first run.
+#filter the common names, the UIDs, we will keep all runs, because removing all but the first run removes all of ME and too many observations.
 fish_count <- fish_count %>% 
   filter(!common_name %in% remove,
          !is.na(common_name),
-         UID %in% uid,
-         run_num == 1)
+         UID %in% uid)
 
 
 
@@ -391,9 +392,6 @@ save(fish_count_with_zeros, file =  "C:/Users/jrogers/Documents/necascFreshwater
 
 
  
-ggplot(data = fish_count_with_zeros, aes(x = count))+
-  geom_histogram()+
-  xlim(1,100)
 
 
 
@@ -454,20 +452,24 @@ remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
             "white perch","shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
             "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
             "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
-            "lake trout"
+            "lake trout", "atlantic sturgeon", "blackspotted stickleback", "muskellunge", "sunapee trout"
 )
 
 fish_size <- fish_size %>% 
   filter(!common_name %in% remove) %>% 
   filter(!is.na(common_name))
 
+
+
+#fix observations that are clearly erroneous 
+
+fish_size$length_mm[fish_size$length_mm == 110105] <- 110 #this makes sense based on the weight, and I assume the accidentally typed in two lengths in a row 
+fish_size$length_mm[fish_size$length_mm == 5200] <- 520 #well just assume they added an extra zero
+fish_size$length_mm[fish_size$length_mm == 880 & fish_size$common_name == "brook trout"] <- 88 #well just assume they added an extra zero, which makes sence based on the weigth
+fish_size$length_mm[fish_size$length_mm == 7474] <- 74 #well just assume they typed in the number twice by accident
+
 ggplot(data = fish_size, aes(x = length_mm))+
   geom_histogram()
-
-#remove the blacknose dace observatin that is greater than 7000mm - clearly an error
-fish_size <- fish_size %>% 
-  filter(length_mm <7000)
-
 
 
 
@@ -497,7 +499,7 @@ for( i in 1:length(unique(fish_size$common_name))){
   print(i)
 } 
 
-
+ 
 
 #calculate variance for each spp by UID. First need to remove outliers so ensure normal dist. cant do this for the bimodal distributions (anadromous spp)
 

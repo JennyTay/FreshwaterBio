@@ -9,10 +9,10 @@ library(tidyverse)
 
 
 #load data
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
 
 #add life history information
@@ -20,7 +20,7 @@ tmp1 <- fish_presence%>%
   select(common_name) %>% 
   unique %>%
   mutate(lifehistory = 
-           ifelse(common_name %in% c("american eel", "sea lamprey", "american shad", "rainbow smelt", 
+           ifelse(common_name %in% c("american eel", "atlantic sturgeon", "sea lamprey", "american shad", "rainbow smelt", 
                                                  "blueback herring", "alewife", "hickory shad", "ninespine stickleback"), 
                               "diadromous", 
                   ifelse(common_name %in% c("mummichog", "hogchoker", "atlantic silverside", "spotfin killifish",
@@ -28,7 +28,7 @@ tmp1 <- fish_presence%>%
                                             "bay anchovy", "fourspine stickleback", "atlantic menhaden", "sheepshead minnow", 
                                             "three-spined stickleback", "rainwater killifish", "inland silverside", 
                                             "atlantic tomcod", "white perch", "northern searobin", "striped searobin", 
-                                            "striped bass", "spot", "spotfin mojarra", "weakfish", "crevalle jack"), 
+                                            "striped bass", "spot", "spotfin mojarra", "weakfish", "crevalle jack", "blackspotted stickleback"), 
                          "estuarine",
                          ifelse(common_name %in% c("northern kingfish", "bluefish", "king mackerel","winter flounder", 
                                                    "summer flounder", "butterfish"),
@@ -68,7 +68,7 @@ final <- left_join(final, tmp2, by = "common_name")
 final <- left_join(final, tmp3, by = "common_name")
 
 final <- final %>% 
-  select(common_name, scientific_name, lifehistory, total_count, lotic, lentic, unk_wtrbody, RI, CT, MA, VT, NH) %>% 
+  select(common_name, scientific_name, lifehistory, total_count, lotic, lentic, unk_wtrbody, RI, CT, MA, VT, NH, ME) %>% 
   arrange(lifehistory, lotic)
 
 write.csv(final, "tmpfigures/fishannotation.csv")

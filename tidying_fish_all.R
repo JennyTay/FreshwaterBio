@@ -51,7 +51,7 @@ str(event)
 table(event$state)
 table(event$year)
 
-save(event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+save(event, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 
 
 
@@ -98,6 +98,7 @@ fish$scientific_name[fish$scientific_name == 'lepomis spp.'] <- "lepomis sp"
 fish$scientific_name[fish$scientific_name == 'cyprinidae family'] <- "cyprinidae"
 fish$scientific_name[fish$scientific_name == 'notropis atheinoides'] <- "notropis atherinoides"
 fish$scientific_name[fish$scientific_name == 'prosopium cylindraceus'] <- "prosopium cylindraceum"
+fish$scientific_name[fish$scientific_name == 'chrosomus neogaeus'] <- "phoxinus neogaeus"
 
 #need to add in common names
 fish$common_name[fish$scientific_name =="acipenser brevirostrum"] <- "shortnose sturgeon"
@@ -224,7 +225,6 @@ fish$common_name[fish$scientific_name =="poecilia reticulata"] <- "guppy"
 
 fish$common_name[fish$scientific_name =="oncorhynchus-salmo genera"] <- "salmon and trout genus"
 fish$common_name[fish$scientific_name =="margariscus nachtriebi"] <- "northern pearl dace"
-fish$common_name[fish$scientific_name =="chrosomus neogaeus"] <- "finescale dace"  ### phoxinus neogaeus is what we have above for finescale dace
 fish$common_name[fish$scientific_name =="gasterosteidae family"] <- "stickleback family"
 fish$common_name[fish$scientific_name =="alosa-clupea spp."] <- "river herring"
 fish$common_name[fish$scientific_name =="culaea inconstans"] <- "brook stickleback"
@@ -339,12 +339,14 @@ fish$scientific_name[fish$scientific_name == "oncorhynchus-salmo genera"] <- NA
 head(fish)
 
 #want three fish datasets: a spp count by run and survey; and one with spp lengths; and a spp presence absence
-
+fish <- fish %>% 
+  filter(!is.na(common_name)) #remove rows without a species name
 
 fish_count <- fish %>% 
   filter(!is.na(count)) %>% 
   select(UID, run_num, count, common_name, scientific_name, genus) %>% 
-  unique()  #thi shoudl just be unique
+  unique()  #this should just be unique
+#remember that the fish count will be longer than the fish presence because there are different counts in different run numbers, all for the same UID
 
 fish_size <- fish  %>% 
   filter(!is.na(length_mm)) %>% 
@@ -485,6 +487,7 @@ dat8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NDH/
 
 #load fish data
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 
 dat <- left_join(fish_count, event, by = "UID")
@@ -502,6 +505,23 @@ shp <- st_as_sf(x = dat,
 
 st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 
+
+
+
+dat <- left_join(fish_presence, event, by = "UID")
+
+unique(dat$UID[is.na(dat$latitude)])
+#112 unique fish survey UID do not have corresponding event data: 8 from MA, 15 from NH DFG, 76 from RI DEM , 12 from ME 
+#remove the surveys with no location information
+dat <- dat %>% 
+  filter(!is.na(latitude))
+
+#make the fish data frame an sf object so it can be plotted spatially
+shp <- st_as_sf(x = dat,                         
+                coords = c("longitude", "latitude"),
+                crs = st_crs(dat8))
+
+st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
 
 
 

@@ -91,11 +91,10 @@ plots of counts
 head(fish_occurrence)
 
 #load fish data
-shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
 #remove NA names
 shp <- shp %>% 
-  filter(!is.na(cmmn_nm),
-         watrbdy == "lotic") %>% #remove the lentic sites
+  filter(watrbdy == "lotic") %>% #remove the lentic sites
   select(UID) %>% 
   unique()
 
@@ -105,27 +104,27 @@ shp <- shp %>%
 
 
 
-counts <- left_join(shp, fish_occurrence, by = "UID") %>% 
+pres <- left_join(shp, fish_occurrence, by = "UID") %>% 
   filter(!is.na(occurrence))
 
 
-table(counts$common_name)
+table(pres$common_name)
 
-for( i in 1:length(unique(counts$common_name))){
+for( i in 1:length(unique(pres$common_name))){
   
   ggplot()+
     geom_sf(data = states)+
-    geom_sf(data = counts[counts$common_name== unique(counts$common_name)[i], ], 
+    geom_sf(data = pres[pres$common_name== unique(pres$common_name)[i], ], 
             aes(color = as.factor(occurrence)))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank())+
-    ggtitle(label = unique(counts$common_name)[i])+
+    ggtitle(label = unique(pres$common_name)[i])+
     labs(color = "Occurrence")
   
   ggsave(
-    filename = paste("tmpfigures/fish_occ_with_zero/", unique(counts$common_name)[i], ".png", sep = ""),
+    filename = paste("tmpfigures/fish_occ_with_zero/", unique(pres$common_name)[i], ".png", sep = ""),
     plot = last_plot(),
     width = 14,
     height = 9,

@@ -22,10 +22,10 @@ Load fish data
 ``` {r}
 
 #load data
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
 
 
@@ -82,6 +82,8 @@ Then we want to remove the fish spp that we think should be removed based on hab
 
 ```{r}
 
+#this file does not include the four new fish spp that are now included with ME's data inclusion (sunapee trout, 	
+#atlantic sturgeon, blackspotted stickleback, and muskellunge). However, all of these spp were found in fewer thatn 4 lotic surveys and would get removed anyways.
 tmp <- read_excel("FishToInclude.xlsx", sheet = 1)
 keep <- tmp$common_name[tmp$`project team initial thoughts` == "include"]
 
@@ -442,14 +444,10 @@ here, we want to attribute each spp code with a HUC 8, 10, 12, flow line ID
 
 ```{r}
 #load the merged HUC boundary files
-dat8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp")
-dat10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc10.shp")
-dat12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc12.shp")
-flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/flowline.shp")
 
 
 #load fish data
-shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
 #remove NA names
 shp <- shp %>% 
   filter(!is.na(cmmn_nm),
@@ -462,23 +460,6 @@ shp <- shp %>%
 states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 
-
-
-
-
-
-#add the HUCs and flowline name to the fish event dataframe
-shp <- st_join(shp, left = TRUE, dat8["name"])
-names(shp)[10] <- "huc8name"
-
-shp <- st_join(shp, left = TRUE, dat10["name"])
-names(shp)[11] <- "huc10name"
-
-shp <- st_join(shp, left = TRUE, dat12["name"])
-names(shp)[12] <- "huc12name"
-
-# need tofigure this out with nearest lines
-#shp <- st_join(shp, left = TRUE, flowline["name"])
 
 
 
@@ -513,72 +494,45 @@ for( i in 1:length(unique(shp$cmmn_nm))){
 
 ```
 
-
-```{r}
-shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
-
-#join event data to each huc shapefile
-shp <- data.frame(shp) #need to make this a dataframe in order to join with an sf object
-
-
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-
-dat <- fish_count %>% 
-  left_join( shp, by = "UID") %>% 
-  filter(year >= 2015 & year <=2020)
-
-dat1 <- dat %>% 
-  filter(huc8name == "Chicopee") %>% 
-  group_by(common_name) %>% 
-  summarise(count = sum(count))
-unique(dat1$common_name)
-
-dat2 <- dat %>% 
-  filter(huc10name == "Ware River")%>% 
-  group_by(common_name) %>% 
-  summarise(count = sum(count))
-write.csv(dat2, "tmpfigures/ware.csv")
-
-dat3 <- dat %>% 
-  filter(huc12name == "West Branch Ware River")%>% 
-  group_by(common_name) %>% 
-  summarise(count = sum(count))
-write.csv(dat3, "tmpfigures/eastware.csv")
-
-
-
-
-dat <- fish_count %>% 
-  left_join( shp, by = "UID") %>% 
-  filter(year >= 2005 & year <=2009)
-
-
-dat3 <- dat %>% 
-  filter(huc12name == "West Branch Ware River")%>% 
-  group_by(common_name) %>% 
-  summarise(count = sum(count))
-write.csv(dat3, "tmpfigures/eastware.csv")
-```
-
-
-
 here we want to plot:
 the species richness by HUC size
-number of surveys that have occured at each HUC size
 
 
 
 ```{r}
-shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+
+#load the merged HUC boundary files
+dat8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp")
+dat10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc10.shp")
+dat12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc12.shp")
+
+shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+
+
+
+#add the HUCs and flowline name to the fish event dataframe
+shp <- st_join(shp, left = TRUE, dat8["name"])
+names(shp)[9] <- "huc8name"
+
+shp <- st_join(shp, left = TRUE, dat10["name"])
+names(shp)[10] <- "huc10name"
+
+shp <- st_join(shp, left = TRUE, dat12["name"])
+names(shp)[11] <- "huc12name"
+
+# need tofigure this out with nearest lines
+#shp <- st_join(shp, left = TRUE, flowline["name"])
 
 #join event data to each huc shapefile
 shp <- data.frame(shp) #need to make this a dataframe in order to join with an sf object
 
 
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 
 
-dat <- fish_count %>% 
+dat <- fish_presence %>% 
   left_join( shp, by = "UID") %>% 
   select(year, common_name, huc8name, huc10name, huc12name) %>% 
   unique() %>%  #need to do unique because some surveys has multiple runs so the same spp could be recorded for the same UID
@@ -612,114 +566,6 @@ ggsave(
   )
 
 
-
-
-#HUC8
-names(dat8)[13] <- "huc8name"
-
-test <- dat8 %>% #join the fish event dataframe to the huc 8 object
-  left_join(shp, by = "huc8name") %>%
-  data.frame() %>% #make a dataframe so it runs faster
-  group_by(huc8name) %>%
-  summarise(count = n()) #count the number of surveys per huc8 over the entire timeline of the data
-
-dat8 <- dat8 %>% #join the counts with the spatial object so we can plot it.
-  left_join(test, by = "huc8name") %>% 
-  select(huc8name, count) %>% 
-  unique()
-
-ggplot(data = dat8)+ #plot of the number of surveys at each HUC8
-  geom_sf(aes(fill = count, color = count))
-  
-ggsave(
-    filename = "tmpfigures/huc8.png",
-    plot = last_plot(),
-    width = 13,
-    height = 15,
-    units = "cm",
-    dpi = 300
-  )
-
-quantile(dat8$count, c(.25, .5, .75, .99))
-
-
-
-#plot of the number of years of surveys at each HUC8
-test <- dat8 %>% #join the fish event dataframe to the huc 8 object
-  left_join(shp, by = "huc8name") %>%
-  data.frame() %>% #make a dataframe so it runs faster
-  select(huc8name, year) %>% 
-  unique() %>% 
-  group_by(huc8name) %>%
-  summarise(count = n()) #count the number of years surveys were done at each watershed
-
-dat8 <- dat8 %>% #join the counts with the spatial object so we can plot it.
-  left_join(test, by = "huc8name") %>% 
-  select(huc8name, count) %>% 
-  unique()
-ggplot(data = dat8)+ #plot of the number of years of surveys at each HUC8
-  geom_sf(aes(fill = count, color = count))
-  
-
-
-
-
-
-#HUC10
-names(dat10)[13] <- "huc10name"
-
-test <- dat10 %>% #join the fish event dataframe to the huc 8 object
-  left_join(shp, by = "huc10name") %>%
-  data.frame() %>% #make a dataframe so it runs faster
-  group_by(huc10name) %>%
-  summarise(count = n()) #count the number of surveys per huc8 over the entire timeline of the data
-
-dat10 <- dat10 %>% #join the counts with the spatial object so we can plot it.
-  left_join(test, by = "huc10name") %>% 
-  select(huc10name, count) %>% 
-  unique()
-
-ggplot(data = dat10)+ #plot of the number of surveys at each HUC8
-  geom_sf(aes(fill = count, color = count))
-
-ggsave(
-    filename = "tmpfigures/huc10.png",
-    plot = last_plot(),
-    width = 13,
-    height = 15,
-    units = "cm",
-    dpi = 300
-  )
-
-quantile(dat10$count, c(.25, .5, .75, .99))
-
-#HUC12
-names(dat12)[13] <- "huc12name"
-
-test <- dat12 %>% #join the fish event dataframe to the huc 8 object
-  left_join(shp, by = "huc12name") %>%
-  data.frame() %>% #make a dataframe so it runs faster
-  group_by(huc12name) %>%
-  summarise(count = n()) #count the number of surveys per huc8 over the entire timeline of the data
-
-dat12 <- dat12 %>% #join the counts with the spatial object so we can plot it.
-  left_join(test, by = "huc12name") %>% 
-  select(huc12name, count) %>% 
-  unique()
-
-ggplot(data = dat12)+ #plot of the number of surveys at each HUC8
-  geom_sf(aes(fill = count, color = count))
-
-ggsave(
-    filename = "tmpfigures/huc12.png",
-    plot = last_plot(),
-    width = 13,
-    height = 15,
-    units = "cm",
-    dpi = 300
-  )
-
-quantile(dat12$count, c(.25, .5, .75, .99))
 
 
 
