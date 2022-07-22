@@ -351,6 +351,18 @@ fish_count <- fish %>%
 fish_size <- fish  %>% 
   filter(!is.na(length_mm)) %>% 
   select(-count) #dont want to do unique() here because there may be the same spp with the same lengths in the same survey
+
+#fix sizes that are clearly erroneous
+fish_size$length_mm[fish_size$length_mm == 110105 & fish_size$common_name == "brook trout"] <- 110 #this makes sense based on the weight, and I assume the accidentally typed in two lengths in a row 
+fish_size$length_mm[fish_size$length_mm == 5200 & fish_size$common_name == "largemouth bass"] <- 520 #well just assume they added an extra zero
+fish_size$length_mm[fish_size$length_mm == 880 & fish_size$common_name == "brook trout"] <- 88 #well just assume they added an extra zero, which makes sence based on the weigth
+fish_size$length_mm[fish_size$length_mm == 7474 & fish_size$common_name == "eastern blacknose dace"] <- 74 #well just assume they typed in the number twice by accident
+fish_size$length_mm[fish_size$length_mm == 2230 & fish_size$common_name == "american eel"] <- 223 #well just assume they added an exta zero by accident
+fish_size$length_mm[fish_size$length_mm == 687 & fish_size$common_name == "common shiner"] <- 68 
+fish_size$length_mm[fish_size$length_mm == 555 & fish_size$common_name == "longnose dace"] <- 55 
+fish_size$length_mm[fish_size$length_mm == 635 & fish_size$common_name == "redbelly dace"] <- 63 
+fish_size$length_mm[fish_size$length_mm == 378 & fish_size$common_name == "redbreast sunfish"] <- 37 
+
   
 fish_presence <- fish %>% 
   select(UID, common_name, scientific_name, genus) %>% 

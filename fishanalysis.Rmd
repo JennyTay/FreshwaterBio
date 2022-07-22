@@ -460,14 +460,6 @@ fish_size <- fish_size %>%
   filter(!is.na(common_name))
 
 
-
-#fix observations that are clearly erroneous 
-
-fish_size$length_mm[fish_size$length_mm == 110105] <- 110 #this makes sense based on the weight, and I assume the accidentally typed in two lengths in a row 
-fish_size$length_mm[fish_size$length_mm == 5200] <- 520 #well just assume they added an extra zero
-fish_size$length_mm[fish_size$length_mm == 880 & fish_size$common_name == "brook trout"] <- 88 #well just assume they added an extra zero, which makes sence based on the weigth
-fish_size$length_mm[fish_size$length_mm == 7474] <- 74 #well just assume they typed in the number twice by accident
-
 ggplot(data = fish_size, aes(x = length_mm))+
   geom_histogram()
 
@@ -501,7 +493,6 @@ for( i in 1:length(unique(fish_size$common_name))){
 
  
 
-#calculate variance for each spp by UID. First need to remove outliers so ensure normal dist. cant do this for the bimodal distributions (anadromous spp)
 
 
 ```

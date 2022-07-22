@@ -11,73 +11,6 @@ huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NH
 
 
 
-#################  Vermont natural heritage  ###################
-
-
-
-
-st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
-
-rare <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
-uncom <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_Uncommon_animals")
-
-
-#select just the freshwater mussels
-mus1 <- rare %>% 
-  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
-  select(EO_ID, S_NAME, ENGLISH,SURVEYDATE, EO_DATA, GEN_DESC ) %>% 
-  mutate(EO_ID = as.character(EO_ID))
-
- mus2 <- uncom %>% 
-  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
-  mutate(EO_ID = paste(ENGLISH, Shape_Length, sep = "_")) %>% 
-  select(EO_ID, S_NAME, ENGLISH, SURVEYDATE, EO_DATA, GEN_DESC, VISITS)
-
-
-mus3 <- bind_rows(mus1, mus2) %>% 
-  data.frame() %>% 
-  select(-Shape)
-
-write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/heritage_data.csv")
-
-
-
-
-
-################  NH natural heritage #####################
-
-
-#read in the source feature excel, the long fields EO data excel,  the source feature shape file, and the EO shape file
-
-src1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
-src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
-eo1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
-eo2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
-
-src1 <- src1 %>% 
-  select(1:3)
-
-src2keep <- src2 %>% 
-  data.frame() %>% 
-  select(EO_ID, SOURCE_FEA, SOURCE_F_1)
-
-src <- left_join(src1, src2keep, by = c("EO_ID", "SOURCE_FEA")) 
-
-
-eo1 <- eo1 %>% 
-  select(1:3)
-
-eo2keep <- eo2 %>% 
-  data.frame() %>% 
-  select(EO_ID, SNAME, SCOMNAME) 
-
-eo <- left_join(eo1, eo2keep, by  = "EO_ID")
-
-nh <- left_join(src, eo, by = "EO_ID") %>% 
-  select(EO_ID, SOURCE_FEA, VISIT_NOTES, SOURCE_F_1, SNAME, SCOMNAME, EO_DATA, GEN_DESC)
-
-write_csv(nh, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/nh_heritage_data.csv")
-
 ###########################################################
 
 ##################   mussel2002  ##########################
@@ -960,14 +893,14 @@ st_write(shp, "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppd
 
 ################################################################################################
   
-#this code prepares the MA source files so that they have the EO_Data information so we can edit
+#this code prepares the NatureServe source files so that they have the EO_Data information so we can edit
 
 #################################################################################################
 
 
 
 
-
+################ Massachusetts #################################
 
 
 st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_EOReps.gdb")
@@ -1033,6 +966,73 @@ write.csv(ma_srcpoly, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 
 
 
+
+#################  Vermont natural heritage  ###################
+
+
+
+
+st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
+
+rare <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
+uncom <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_Uncommon_animals")
+
+
+#select just the freshwater mussels
+mus1 <- rare %>% 
+  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
+  select(EO_ID, S_NAME, ENGLISH,SURVEYDATE, EO_DATA, GEN_DESC ) %>% 
+  mutate(EO_ID = as.character(EO_ID))
+
+mus2 <- uncom %>% 
+  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
+  mutate(EO_ID = paste(ENGLISH, Shape_Length, sep = "_")) %>% 
+  select(EO_ID, S_NAME, ENGLISH, SURVEYDATE, EO_DATA, GEN_DESC, VISITS)
+
+
+mus3 <- bind_rows(mus1, mus2) %>% 
+  data.frame() %>% 
+  select(-Shape)
+
+write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/heritage_data.csv")
+
+
+
+
+
+################  NH natural heritage #####################
+
+
+#read in the source feature excel, the long fields EO data excel,  the source feature shape file, and the EO shape file
+
+src1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
+src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
+eo1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
+eo2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
+
+src1 <- src1 %>% 
+  select(1:3)
+
+src2keep <- src2 %>% 
+  data.frame() %>% 
+  select(EO_ID, SOURCE_FEA, SOURCE_F_1)
+
+src <- left_join(src1, src2keep, by = c("EO_ID", "SOURCE_FEA")) 
+
+
+eo1 <- eo1 %>% 
+  select(1:3)
+
+eo2keep <- eo2 %>% 
+  data.frame() %>% 
+  select(EO_ID, SNAME, SCOMNAME) 
+
+eo <- left_join(eo1, eo2keep, by  = "EO_ID")
+
+nh <- left_join(src, eo, by = "EO_ID") %>% 
+  select(EO_ID, SOURCE_FEA, VISIT_NOTES, SOURCE_F_1, SNAME, SCOMNAME, EO_DATA, GEN_DESC)
+
+write_csv(nh, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/nh_heritage_data.csv")
 
 
 
