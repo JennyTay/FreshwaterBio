@@ -572,6 +572,173 @@ ggplot()+
 
 ```
 
+Shannon Wiener and Simpsons Index
+```{r}
+
+#### Shannon Wiener
+
+
+shannon1 <- fish_count_with_zeros %>% 
+  filter(count>0,
+         !is.na(count),
+         !is.na(common_name))
+
+shannon <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
+  filter(!is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name, common_name) %>% 
+  summarise(n = sum(count)) %>% 
+  data.frame()
+
+shannon2 <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
+  filter(!is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name)%>% 
+  summarise(N = sum(count)) %>% 
+  data.frame()
+
+shannon3 <- left_join(shannon, shannon2, by = "huc12_name") %>% 
+  mutate(tmp = n/N,
+         tmp2 = log(tmp),
+         tmp3 = tmp * tmp2) %>% 
+  group_by(huc12_name) %>% 
+  summarise(shannonwiener = -(sum(tmp3)))
+
+
+
+
+huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, shannon3, by = c("name" = "huc12_name"))
+
+hist(dat$shannonwiener)
+
+dat$shannonwiener <- as.numeric(dat$shannonwiener)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = shannonwiener))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = mean(dat$shannonwiener, na.rm = T))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "Shannon Wiener (H`), huc12 scale",
+    fill = "H`")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/shannonwiener.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+ 
+ 
+ #### Simpsons Index
+ 
+ 
+ simpsons <- left_join(shannon, shannon2, by = "huc12_name") %>% 
+  mutate(tmp = n*(n-1),
+         tmp2 = N*(N-1),
+         tmp3 = tmp / tmp2) %>% 
+  group_by(huc12_name) %>% 
+  summarise(simpsons = 1 - (sum(tmp3)))
+
+
+ 
+ huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, simpsons, by = c("name" = "huc12_name"))
+
+hist(dat$simpsons)
+
+ 
+
+
+dat$simpsons <- as.numeric(dat$simpsons)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = simpsons))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = 0.5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "Simpsons, huc12 scale",
+    fill = "Probability")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/Simpsons.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+```
+
+
+Species exchange rates
+```{r}
+
+#Species exchange ratio
+
+#SERr = (Simm + Sext) / Stot
+#we will lump pre 2000 and post 2000 for now, 
+
+dat <- fish_occurrence %>% 
+  filter(occurrence == 1)
+
+dat <- left_join(dat, fish_event_huc_join, by = "UID") %>% 
+  mutate(timeperiod = ifelse(year <= 1999, "pre", "post")) %>% 
+  select(huc12_name, common_name, timeperiod) %>% 
+  unique()
+
+
+#check to see how many have a pre and a post
+test <- dat %>% 
+  select(huc12_name, timeperiod) %>% 
+  unique() %>% 
+  group_by(huc12_name) %>% 
+  summarise(count = n())
+keep <- test$huc12_name[test$count==2] #554 out of 1405 have been sampled pre and post
+
+
+dat <- dat %>% 
+  filter(huc12_name %in% keep)
+
+
+### now we want to calculate Simm (the total spp present in the "post" that weren't there in "pre") and Sext (the total spp present in "pre" that weren't there in "post")
+
+
+
+test <- left_join(dat, fish_event_huc_join, by = "UID") %>% 
+  select(huc12_name, year) %>% 
+  unique() %>% 
+  group_by(huc12_name) %>% 
+  summarise(count = n())
+
+
+# abundance weighted similarily
+
+
+```
+
 
 Correlation matrices
 ```{r}
@@ -899,6 +1066,16 @@ dev.off()
 print(i)
 
 }
+
+
+```
+
+
+
+
+```{r}
+
+
 
 
 ```
