@@ -21,7 +21,6 @@ percent addition of cold or warm water spp
 Cluster fish based on cooccurrence - each cluseter is a metric of biodiversity
 
 load libraries
-
 ```{r}
 
 library(tidyverse)
@@ -32,6 +31,7 @@ library(sf)
 
 load datafiles
 
+Load datasets
 ```{r}
 #watershed data
 load("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
@@ -43,7 +43,7 @@ load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fis
 load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
 load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 
-#load new englad state data
+#load new england state data
 states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 #watershed data
@@ -583,6 +583,7 @@ shannon1 <- fish_count_with_zeros %>%
          !is.na(count),
          !is.na(common_name))
 
+#count of each spp by huc
 shannon <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
   filter(!is.na(count),
          !is.na(common_name)) %>% 
@@ -590,12 +591,14 @@ shannon <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
   summarise(n = sum(count)) %>% 
   data.frame()
 
+#Total sum of all counts of all spp
 shannon2 <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
   filter(!is.na(count),
          !is.na(common_name)) %>% 
   group_by(huc12_name)%>% 
   summarise(N = sum(count)) %>% 
   data.frame()
+
 
 shannon3 <- left_join(shannon, shannon2, by = "huc12_name") %>% 
   mutate(tmp = n/N,
@@ -724,17 +727,218 @@ dat <- dat %>%
 
 
 ### now we want to calculate Simm (the total spp present in the "post" that weren't there in "pre") and Sext (the total spp present in "pre" that weren't there in "post")
+post <- dat %>% 
+  filter(timeperiod == "post")
+
+
+pre <- dat %>% 
+  filter(timeperiod == "pre")
+
+test <- full_join(post, pre, by = c("huc12_name", "common_name"))
+
+Simm <- test %>% 
+  filter(is.na(timeperiod.y)) %>% 
+  group_by(huc12_name) %>% 
+  summarise(Simm = n())
+
+Sext <- test %>% 
+  filter(is.na(timeperiod.x)) %>% 
+  group_by(huc12_name) %>% 
+  summarise(Sext = n())
+
+Stot <- dat %>% 
+  select(huc12_name, common_name) %>% 
+  unique() %>% 
+  group_by(huc12_name) %>% 
+  summarise(Stot = n())
+
+final <- left_join(Stot, Sext, by = "huc12_name")
+final <- left_join(final, Simm, by = "huc12_name") 
+final$Sext[is.na(final$Sext)] <- 0
+final$Simm[is.na(final$Simm)] <- 0
+
+final <- final %>% 
+  mutate(SER = (Simm + Sext) / Stot)
 
 
 
-test <- left_join(dat, fish_event_huc_join, by = "UID") %>% 
-  select(huc12_name, year) %>% 
+
+
+ huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, final, by = c("name" = "huc12_name"))
+
+hist(dat$SER)
+
+ 
+
+
+dat$SER <- as.numeric(dat$SER)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = SER))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = 0.5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "Species Exchange Ratio, huc12 scale",
+    fill = "SER")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/SER.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+
+# abundance weighted similarly, SERa
+#p1 = proportional abundance at time 1
+#p2 = proportional abundance at time 2
+
+#SERa = sum(P1 - P2)^2 / sum(p1^2) + sum(p2^2) - sum(p1*p2)
+
+
+dat <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>%  
+  filter(count>0,
+         !is.na(count),
+         !is.na(common_name)) %>% 
+  select(huc12_name, count, common_name, year) %>% 
+  mutate(timeperiod = ifelse(year<=1999, "pre", "post"))
+
+#check to see how many have a pre and a post
+test <- dat %>% 
+  select(huc12_name, timeperiod) %>% 
   unique() %>% 
   group_by(huc12_name) %>% 
   summarise(count = n())
+keep <- test$huc12_name[test$count==2] #550 out of 1402 have been sampled pre and post
 
 
-# abundance weighted similarily
+dat <- dat %>% 
+  filter(huc12_name %in% keep)
+
+
+
+#time 1 (before 1999), pre
+
+#count of each spp by huc
+dat2 <-  dat %>%
+  filter(timeperiod == "pre",
+         !is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name, common_name) %>% 
+  summarise(n1 = sum(count)) %>% 
+  data.frame()
+
+#Total sum of all counts of all spp
+dat3 <- dat %>%
+  filter(timeperiod == "pre",
+         !is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name)%>% 
+  summarise(N1 = sum(count)) %>% 
+  data.frame()
+
+propabund1 <- left_join(dat2, dat3, by = "huc12_name") %>% 
+  mutate(P1 = n1/N1)
+
+
+
+
+
+
+
+#time 2 (>= 2000), post
+
+#count of each spp by huc
+dat2 <-  dat %>%
+  filter(timeperiod == "post",
+         !is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name, common_name) %>% 
+  summarise(n2 = sum(count)) %>% 
+  data.frame()
+
+#Total sum of all counts of all spp
+dat3 <- dat %>%
+  filter(timeperiod == "post",
+         !is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name)%>% 
+  summarise(N2 = sum(count)) %>% 
+  data.frame()
+
+propabund2 <- left_join(dat2, dat3, by = "huc12_name") %>% 
+  mutate(P2 = n2/N2)
+
+SERa <- full_join(propabund1, propabund2, by = c("huc12_name", "common_name"))
+
+SERa$P1[is.na(SERa$P1)] <- 0
+SERa$P2[is.na(SERa$P2)] <- 0
+
+
+SERa <- SERa %>% 
+  group_by(huc12_name, common_name) %>% 
+  mutate(num = (P1 - P2)^2,
+         denom1 = P1^2,
+         denom2 = P2^2,
+         denom3 = P1*P2) %>% 
+  ungroup() %>% 
+  group_by(huc12_name) %>% 
+  summarise(SERa = (sum(num)) / ((sum(denom1) + sum(denom2) - sum(denom3))))
+
+
+#SERa = sum(P1 - P2)^2 / sum(p1^2) + sum(p2^2) - sum(p1*p2)
+
+
+
+
+dat <- left_join(huc12, SERa, by = c("name" = "huc12_name"))
+
+hist(dat$SER)
+
+ 
+
+
+dat$SERa <- as.numeric(dat$SERa)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = SERa))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = 0.5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "Species Abundance Ratio, huc12 scale",
+    fill = "SERa")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/SERa.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
 
 
 ```
