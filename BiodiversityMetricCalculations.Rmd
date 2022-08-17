@@ -573,6 +573,7 @@ ggplot()+
 ```
 
 Shannon Wiener and Simpsons Index
+left of here!! need to redo these but using total count / the number of surveys per huc12
 ```{r}
 
 #### Shannon Wiener
@@ -806,10 +807,20 @@ ggplot()+
 
 
 # abundance weighted similarly, SERa
+# we need to divide the counts by the total number of surveys per huc12 in each time period.
 #p1 = proportional abundance at time 1
 #p2 = proportional abundance at time 2
 
 #SERa = sum(P1 - P2)^2 / sum(p1^2) + sum(p2^2) - sum(p1*p2)
+ 
+ 
+#need to get the number of surveys in each HUC so we can divide abundance by the number of surveys
+surveycounts <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>% 
+   mutate(timeperiod = ifelse(year<=1999, "pre", "post")) %>% 
+   select(UID, huc12_name, timeperiod) %>% 
+   unique() %>% 
+   group_by(huc12_name, timeperiod) %>% 
+   summarise(suveynum = n())
 
 
 dat <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>%  
@@ -818,6 +829,9 @@ dat <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>%
          !is.na(common_name)) %>% 
   select(huc12_name, count, common_name, year) %>% 
   mutate(timeperiod = ifelse(year<=1999, "pre", "post"))
+
+dat <- left_join(dat, surveycounts, by= c("huc12_name", "timeperiod")) %>% 
+  mutate(count_new = count / suveynum)
 
 #check to see how many have a pre and a post
 test <- dat %>% 
@@ -838,19 +852,19 @@ dat <- dat %>%
 #count of each spp by huc
 dat2 <-  dat %>%
   filter(timeperiod == "pre",
-         !is.na(count),
+         !is.na(count_new),
          !is.na(common_name)) %>% 
   group_by(huc12_name, common_name) %>% 
-  summarise(n1 = sum(count)) %>% 
+  summarise(n1 = sum(count_new)) %>% 
   data.frame()
 
 #Total sum of all counts of all spp
 dat3 <- dat %>%
   filter(timeperiod == "pre",
-         !is.na(count),
+         !is.na(count_new),
          !is.na(common_name)) %>% 
   group_by(huc12_name)%>% 
-  summarise(N1 = sum(count)) %>% 
+  summarise(N1 = sum(count_new)) %>% 
   data.frame()
 
 propabund1 <- left_join(dat2, dat3, by = "huc12_name") %>% 
@@ -867,19 +881,19 @@ propabund1 <- left_join(dat2, dat3, by = "huc12_name") %>%
 #count of each spp by huc
 dat2 <-  dat %>%
   filter(timeperiod == "post",
-         !is.na(count),
+         !is.na(count_new),
          !is.na(common_name)) %>% 
   group_by(huc12_name, common_name) %>% 
-  summarise(n2 = sum(count)) %>% 
+  summarise(n2 = sum(count_new)) %>% 
   data.frame()
 
 #Total sum of all counts of all spp
 dat3 <- dat %>%
   filter(timeperiod == "post",
-         !is.na(count),
+         !is.na(count_new),
          !is.na(common_name)) %>% 
   group_by(huc12_name)%>% 
-  summarise(N2 = sum(count)) %>% 
+  summarise(N2 = sum(count_new)) %>% 
   data.frame()
 
 propabund2 <- left_join(dat2, dat3, by = "huc12_name") %>% 
@@ -909,7 +923,6 @@ SERa <- SERa %>%
 
 dat <- left_join(huc12, SERa, by = c("name" = "huc12_name"))
 
-hist(dat$SER)
 
  
 
@@ -940,6 +953,372 @@ ggplot()+
     dpi = 200
   )
 
+ 
+ 
+
+```
+
+
+
+
+
+Biodiversity metrics using thermal attributes and traits vs spp names
+```{r}
+library(readxl)
+
+traits <- read_xlsx("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/ThermalPreferences.xlsx")
+traits <- traits %>% 
+  select(common_name, `Temperatures Notes`) %>% 
+  rename(tmp = `Temperatures Notes`)
+
+table(traits$tmp)
+
+
+#first lets do cold richness, warm richness, and ratio of warm to cold richness
+
+
+
+#spp richness - ie number of cold, warm and cool spp: huc12
+
+test <- left_join(fish_occurrence, traits, by = "common_name") %>% 
+  filter(occurrence == 1)
+
+richness_huc12 <- left_join(test, fish_event_huc_join, by = 'UID') %>% 
+  select(UID, common_name, tmp, huc12_name) %>% 
+  unique() %>% 
+  filter(!is.na(tmp)) %>% 
+  group_by(huc12_name) %>% 
+  summarise(rch_huc12 = length(unique(common_name)),
+            cd_rch_huc12 = length(unique(common_name[tmp %in% c("cold")])),
+            cl_rch_huc12 = length(unique(common_name[tmp %in% c("cool")])),
+            w_rch_huc12 = length(unique(common_name[tmp %in% c("warm")])),
+            e_rch_huc12 = length(unique(common_name[tmp %in% c("eurythermal")]))) %>% 
+  mutate(pct_cd = cd_rch_huc12 / rch_huc12, #percent cold
+         pct_w = w_rch_huc12 / rch_huc12) #percent warm
+  
+  
+
+
+huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, richness_huc12, by = c("name" = "huc12_name"))
+
+
+hist(richness_huc12$pct_cd)
+hist(richness_huc12$pct_w)
+
+dat$pct_cd <- as.numeric(dat$pct_cd)
+
+#plot of percent cold speceies
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = pct_cd))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = .4)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "pct cold richness",
+    fill = "richness")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/spprichness_pct_cold_huc12_scale.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+
+
+#plot of percent warm species
+ 
+ ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = pct_w))+
+  scale_fill_gradient2(low = "blue",
+  mid = "white",
+  high = "red",
+  midpoint = .4)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "pct warm richness",
+    fill = "richness")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/spprichness_pct_warm_huc12_scale.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+
+
+# exchange rates:
+# ratio of the number of cold spp to the number of warm spp in time one and then time 2.  
+ 
+ 
+ #spp richness: huc12
+
+test <- left_join(fish_occurrence, traits, by = "common_name") %>% 
+  filter(occurrence == 1)
+
+richness_huc12 <- left_join(test, fish_event_huc_join, by = 'UID') %>% 
+  select(UID, year, common_name, tmp, huc12_name) %>% 
+  unique() %>% 
+  filter(!is.na(tmp)) %>% 
+  mutate(timeperiod = ifelse(year <= 1999, "pre", "post")) %>% 
+  group_by(huc12_name, timeperiod) %>% 
+  summarise(rch_huc12 = length(unique(common_name)),
+            cd_rch_huc12 = length(unique(common_name[tmp %in% c("cold")])),
+            cl_rch_huc12 = length(unique(common_name[tmp %in% c("cool")])),
+            w_rch_huc12 = length(unique(common_name[tmp %in% c("warm")])),
+            e_rch_huc12 = length(unique(common_name[tmp %in% c("eurythermal")]))) %>% 
+  mutate(pct_cd = cd_rch_huc12 / rch_huc12,
+         pct_w = w_rch_huc12 / rch_huc12,
+         diff_pct_cd_w = pct_cd - pct_w) # postitive number means greater percent were cold, 1 means all cold, -1 means all warm
+
+
+#check to see how many have a pre and a post
+test <- richness_huc12 %>% 
+  select(huc12_name, timeperiod) %>% 
+  unique() %>% 
+  group_by(huc12_name) %>% 
+  summarise(count = n())
+keep <- test$huc12_name[test$count==2] #554 out of 1405 have been sampled pre and post
+
+
+richness_huc12 <- richness_huc12 %>% 
+  filter(huc12_name %in% keep) %>% 
+  select(huc12_name, timeperiod, diff_pct_cd_w) %>% 
+  pivot_wider(names_from = timeperiod, values_from = diff_pct_cd_w) %>%  
+  mutate(chng = post - pre) #negative number means the percent cold is decreasing. it doesnt necessarily mean cold spp are leaving, it could mean warm spp are coming.
+
+  
+  
+
+
+huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, richness_huc12, by = c("name" = "huc12_name"))
+
+
+hist(richness_huc12$chng)
+
+
+dat$chng <- as.numeric(dat$chng)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = chng))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = 0)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "pct change",
+    fill = "richness")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/spprichness_chng_huc12_scale.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+
+ 
+ 
+
+ #proportional abundance of cold, cool and warm spp pre and post.
+ #for these calculations, we divided by the total count by the number of survey conducted in the time period in that huc.
+ 
+ 
+ #need to get the number of surveys in each HUC so we can divide abundance by the number of surveys
+ surveycounts <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>% 
+   mutate(timeperiod = ifelse(year<=1999, "pre", "post")) %>% 
+   select(UID, huc12_name, timeperiod) %>% 
+   unique() %>% 
+   group_by(huc12_name, timeperiod) %>% 
+   summarise(suveynum = n())
+ 
+ 
+ # abundance 
+  dat <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>%  
+  filter(count>0,
+         !is.na(count),
+         !is.na(common_name)) %>% 
+  select(huc12_name, count, common_name, year) %>% 
+  mutate(timeperiod = ifelse(year<=1999, "pre", "post"))
+ 
+ dat <- left_join(dat, traits, by  = "common_name") %>% 
+   filter(!is.na(tmp))
+
+#check to see how many have a pre and a post
+test <- dat %>% 
+  select(huc12_name, timeperiod) %>% 
+  unique() %>% 
+  group_by(huc12_name) %>% 
+  summarise(count = n())
+keep <- test$huc12_name[test$count==2] #550 out of 1401 have been sampled pre and post
+
+
+dat <- dat %>% 
+  filter(huc12_name %in% keep)
+
+
+
+#count of each spp by huc
+dat2 <-  dat %>%
+  filter(!is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name, timeperiod, tmp) %>% 
+  summarise(n1 = sum(count)) %>% 
+  data.frame()
+
+dat2 <- left_join(dat2, surveycounts, by = c("huc12_name", "timeperiod")) %>% 
+  mutate(count_new = n1 / suveynum)
+
+#Total sum of all counts of all spp
+dat3 <- dat %>%
+  filter(!is.na(count),
+         !is.na(common_name)) %>% 
+  group_by(huc12_name, timeperiod)%>% 
+  summarise(N1 = sum(count)) %>% 
+  data.frame()
+
+dat3 <- left_join(dat3, surveycounts, by = c("huc12_name", "timeperiod")) %>% 
+  mutate(Tot_count_new = N1 / suveynum)
+
+propabund1 <- left_join(dat2, dat3, by = c("huc12_name", "timeperiod")) %>% 
+  mutate(P1 = count_new/Tot_count_new)
+
+
+
+huc12 <- huc12 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc12, propabund1, by = c("name" = "huc12_name"))
+
+
+#pre 1999 COLD
+ggplot()+
+  geom_sf(data = dat[dat$timeperiod == "pre" & dat$tmp == "cold",], lwd = 0.2,
+          aes(fill = P1))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = .5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "cold proportional abundance, pre 1999",
+    fill = "proabund")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/pro_abun_pre_1999.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+ 
+ #post 1999 COLD
+ggplot()+
+  geom_sf(data = dat[dat$timeperiod == "post" & dat$tmp == "cold",], lwd = 0.2,
+          aes(fill = P1))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = .5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "cold proportional abundance, 2000 on",
+    fill = "proabund")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/pro_abun_post_2000.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+ 
+ 
+ 
+ 
+ 
+ #pre 1999 WARM
+ggplot()+
+  geom_sf(data = dat[dat$timeperiod == "pre" & dat$tmp == "warm",], lwd = 0.2,
+          aes(fill = P1))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = .5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "warm proportional abundance, pre 1999",
+    fill = "proabund")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/warm_pro_abun_pre_1999.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+ 
+ #post 1999 WARM
+ggplot()+
+  geom_sf(data = dat[dat$timeperiod == "post" & dat$tmp == "warm",], lwd = 0.2,
+          aes(fill = P1))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = .5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "warm proportional abundance, 2000 on",
+    fill = "proabund")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/warm_pro_abun_post_2000.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
 
 ```
 
