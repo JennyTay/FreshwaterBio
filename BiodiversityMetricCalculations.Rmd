@@ -573,10 +573,22 @@ ggplot()+
 ```
 
 Shannon Wiener and Simpsons Index
-left of here!! need to redo these but using total count / the number of surveys per huc12
 ```{r}
 
+
+#need to get the number of surveys in each HUC so we can divide abundance by the number of surveys
+surveycounts <- left_join(fish_count_with_zeros, 
+                          fish_event_huc_join, 
+                          by = "UID") %>% 
+   select(UID, huc12_name) %>% 
+   unique() %>% 
+   group_by(huc12_name) %>% 
+   summarise(suveynum = n())
+
+
+
 #### Shannon Wiener
+
 
 
 shannon1 <- fish_count_with_zeros %>% 
@@ -592,6 +604,9 @@ shannon <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
   summarise(n = sum(count)) %>% 
   data.frame()
 
+shannon <- left_join(shannon, surveycounts, by = "huc12_name") %>% 
+  mutate(n1 = n/suveynum)
+
 #Total sum of all counts of all spp
 shannon2 <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
   filter(!is.na(count),
@@ -600,9 +615,11 @@ shannon2 <- left_join(fish_event_huc_join, shannon1, by = "UID") %>%
   summarise(N = sum(count)) %>% 
   data.frame()
 
+shannon2 <- left_join(shannon2, surveycounts, by = "huc12_name") %>% 
+  mutate(N1 = N/suveynum)
 
 shannon3 <- left_join(shannon, shannon2, by = "huc12_name") %>% 
-  mutate(tmp = n/N,
+  mutate(tmp = n1/N1,
          tmp2 = log(tmp),
          tmp3 = tmp * tmp2) %>% 
   group_by(huc12_name) %>% 
@@ -807,7 +824,6 @@ ggplot()+
 
 
 # abundance weighted similarly, SERa
-# we need to divide the counts by the total number of surveys per huc12 in each time period.
 #p1 = proportional abundance at time 1
 #p2 = proportional abundance at time 2
 
@@ -1207,6 +1223,34 @@ dat3 <- left_join(dat3, surveycounts, by = c("huc12_name", "timeperiod")) %>%
 
 propabund1 <- left_join(dat2, dat3, by = c("huc12_name", "timeperiod")) %>% 
   mutate(P1 = count_new/Tot_count_new)
+
+
+
+
+#For the hucs and times that had zero of a certain temperature spp, we want to the add those in as 0
+#make a dataframe that has each HUC repeated for each timeperiod and temp preference (8 total rows per huc12)
+huc12_name <- unique(propabund1$huc12_name)
+tmp <- unique(propabund1$tmp)
+timeperiod <- c(rep("pre", times = 4), rep("post", times = 4))
+absence <- data.frame('huc12_name' = rep(huc12_name, each = 8))
+absence$timeperiod <-  rep(timeperiod, times = nrow(absence)/8)
+absence$tmp <- rep(tmp, times = nrow(absence)/8)
+
+#keep only rows in the absence list that are not in the propabund1
+keep <- anti_join(absence, propabund1, by = c("huc12_name", "tmp", "timeperiod"))
+
+#add presence absence information
+keep$P1 <- 0
+
+propabund1 <- propabund1 %>% 
+  select(names(keep))
+
+
+#bind the presence and absence columns together
+propabund1 <- rbind(propabund1, keep)
+propabund1 <- propabund1 %>% 
+  arrange(huc12_name, timeperiod)
+
 
 
 
@@ -1653,12 +1697,3 @@ print(i)
 
 ```
 
-
-
-
-```{r}
-
-
-
-
-```

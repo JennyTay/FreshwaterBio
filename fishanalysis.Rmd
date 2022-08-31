@@ -120,7 +120,148 @@ save(fish_event_huc_join, file =  "C:/Users/jrogers/Documents/necascFreshwaterBi
 Chunk3:
 Calcuate average elevation, slopes, land cover etc within each HUC size
 ```{r}
-load("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+
+
+flowline <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+
+huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
+
+#convert the lines to midpoints
+flowline <- flowline %>% 
+  st_zm()  %>% 
+  filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
+  select(LengthKM, StreamOrde, AreaSqKm, TotDASqKm, Slope, MaxElevRaw, MinElevRaw)
+
+
+#we will just read this in bc it has the CRS that we want
+lines04 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_04/truncatedFlowlines04.shp")
+flowline <- st_transform(flowline, crs = st_crs(lines04)) #need to get it into planar CRS (x/y coorindates in meters, NOT lat/long in decimal degrees)
+
+
+lines_spatial <- as(flowline, "Spatial") #make a spatial data file
+lines_midpoints <- SpatialLinesMidPoints(lines_spatial) #get the midpoints
+
+rm(flowline, lines_spatial, lines04)
+
+#lines_midpoints - this is a point file for every stream reach in our study region
+
+#Now, we want to join the 'lines_midpoints' to the huc8, 10, and 12 data, so that each point is associated with a specific huc
+
+#Then we will calculate the average slope, elevation, etc
+
+
+lines_midpoints <- as(lines_midpoints, "sf") #convert back to an sf object
+head(lines_midpoints)
+
+#get them into the same crs
+lines_midpoints <- st_transform(lines_midpoints, st_crs(huc8)) #transform the lines to match the nhd data files
+st_crs(huc8) == st_crs(lines_midpoints) #confirm they are correctly projected.. they now are
+
+
+#add columns for lat and long
+lines_midpoints <- lines_midpoints %>% 
+  mutate(long = unlist(map(lines_midpoints$geometry,1)),
+           lat = unlist(map(lines_midpoints$geometry,2)))
+
+
+#prepare the huc files - select the attributes we want and remove the duplicated rows
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc12 <- huc12 %>% 
+  select(tnmid, areasqkm , name) %>% 
+  rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
+huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
+#this df needs aditional editting
+#Outlet Missisquoi River - HUc12_name this is the same shape, but it actually has two separate tnmid
+#Outlet Sutton River and Riviere Sutton are the same shape, but have different HUC 12 names and have different tnmid
+#Ruiss Coslett-Riviere Aux Brochets vs Groat Creek are the same shape with different names and tmnid
+
+huc12 <- huc12 %>% 
+  filter(huc12_tnmid != "{7964F492-75EA-4AA7-8E77-A96D99348771}",
+         huc12_name != "Riviere Sutton",
+         huc12_name != "Ruiss Coslett-Riviere Aux Brochets")
+
+
+
+
+
+#spatial join the huc12, huc8, and huc10 to the temperature lines points
+sf_use_s2(FALSE)
+lines_huc_join <- st_join(lines_midpoints, huc8, left = FALSE)
+lines_huc_join <- st_join(lines_huc_join, huc10, left = FALSE)
+lines_huc_join <- st_join(lines_huc_join, huc12, left = FALSE)
+
+
+
+
+metadata12 <- lines_huc_join %>% 
+  data.frame() %>% 
+  select(-geometry) %>% 
+  filter(MinElevRaw > 0,
+         TotDASqKm > 0,
+         Slope >0) %>% 
+  mutate(MinElevRaw_m = MinElevRaw/100) %>% 
+  group_by(huc12_name) %>% 
+  summarise(mean_long = mean(long),
+            mean_lat = mean(lat),
+            mean_elev_m = mean(MinElevRaw_m),
+            ord13_km = sum(LengthKM[StreamOrde <= 3]),
+            ord49_km = sum(LengthKM[StreamOrde > 3]),
+            totDA_sqkm = sum(TotDASqKm))
+save(metadata12, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc12.RData")
+
+
+
+metadata10 <- lines_huc_join %>% 
+  data.frame() %>% 
+  select(-geometry) %>% 
+  filter(MinElevRaw > 0,
+         TotDASqKm > 0,
+         Slope >0) %>% 
+  mutate(MinElevRaw_m = MinElevRaw/100) %>% 
+  group_by(huc10_name) %>% 
+  summarise(mean_long = mean(long),
+            mean_lat = mean(lat),
+            mean_elev_m = mean(MinElevRaw_m),
+            ord13_km = sum(LengthKM[StreamOrde <= 3]),
+            ord49_km = sum(LengthKM[StreamOrde > 3]),
+            totDA_sqkm = sum(TotDASqKm))
+save(metadata10, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc10.RData")
+
+
+
+metadata08 <- lines_huc_join %>% 
+  data.frame() %>% 
+  select(-geometry) %>% 
+  filter(MinElevRaw > 0,
+         TotDASqKm > 0,
+         Slope >0) %>% 
+  mutate(MinElevRaw_m = MinElevRaw/100) %>% 
+  group_by(huc8_name) %>% 
+  summarise(mean_long = mean(long),
+            mean_lat = mean(lat),
+            mean_elev_m = mean(MinElevRaw_m),
+            ord13_km = sum(LengthKM[StreamOrde <= 3]),
+            ord49_km = sum(LengthKM[StreamOrde > 3]),
+            totDA_sqkm = sum(TotDASqKm))
+save(metadata08, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc08.RData")
+
 
 ```
 

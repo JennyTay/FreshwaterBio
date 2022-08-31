@@ -1,0 +1,158 @@
+---
+title: "Biodiversity Modeling With Temperature"
+output:
+  word_document: default
+  html_notebook: default
+---
+
+In this Rmd file, we will explore relationships between biodiversity metrics and temperature metrics. 
+
+
+Species richness and temperature
+```{r}
+
+
+#fish data
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+
+#fish survey metadata
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+
+#temperature data
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc10.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc08.RData")
+
+#watershed data
+huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
+#watershed metadata
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc12.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc10.RData")
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc08.RData")
+
+
+#remove absence data
+fish_occurrence <- fish_occurrence %>% 
+  filter(occurrence == 1)
+
+
+
+
+
+#spp richness: huc12
+
+richness_huc12 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>% 
+  mutate(timeperiod = ifelse(year <= 1999, "pre", "post")) %>% 
+  group_by(huc12_name, timeperiod) %>% 
+  summarise(richess_huc12 = length(unique(common_name)),
+            survey_count = length(unique(UID)))
+
+
+#join to huc12 metatdata
+richness_huc12 <- left_join(richness_huc12, metadata12, by = "huc12_name")
+  
+
+#join to temperature metrics
+dat <-left_join(metrics12, richness_huc12, by = c("huc12_name", "timeperiod"))%>% 
+  filter(!is.na(richess_huc12),
+         !is.na(huc12_name)) 
+
+plot(dat$mean_lat, dat$mean_summer_temp)
+
+summary(lm(richess_huc12 ~ survey_count + mean_summer_temp + mean_lat, data = dat))
+
+
+
+
+
+#spp richness: huc10
+
+richness_huc10 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID')%>% 
+  mutate(timeperiod = ifelse(year <= 1999, "pre", "post")) %>% 
+  group_by(huc10_name, timeperiod) %>% 
+  summarise(richness_huc10 = length(unique(common_name)),
+            count = length(unique(UID)))
+
+dat <-left_join(metrics10, richness_huc10, by = c("huc10_name", "timeperiod"))%>% 
+  filter(!is.na(richness_huc10),
+         !is.na(huc10_name))
+  
+  
+cor(dat$mean_summer_temp, dat$richness_huc10)
+
+summary(lm(richness_huc10 ~ count + mean_summer_temp, data = dat))
+
+
+
+#spp richness: huc8
+
+richness_huc8 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>% 
+  mutate(timeperiod = ifelse(year <= 1999, "pre", "post")) %>%  
+  group_by(huc8_name, timeperiod) %>% 
+  summarise(richness_huc8 = length(unique(common_name)),
+            count = length(unique(UID)))
+  
+
+dat <-left_join(metrics08, richness_huc8, by = c("huc8_name", "timeperiod"))%>% 
+  filter(!is.na(richness_huc8),
+         !is.na(huc8_name))
+    
+
+cor(dat$count, dat$richness_huc8)
+
+summary(lm(richness_huc8 ~ count + mean_summer_temp, data = dat))
+
+ 
+ 
+ ## spp richness, beta - alpha / gamma
+ 
+ #want to divide the huc 12 richness by the huc 8 richness
+ dat <- left_join(fish_event_huc_join, richness_huc12, by = "huc12_name")
+ dat <- left_join(dat, richness_huc8, by = "huc8_name")
+ dat <- dat %>% 
+   data.frame() %>% 
+   select(richess_huc12, richness_huc8, huc12_name) %>% 
+   unique()
+ dat$beta <- dat$richess_huc12/ dat$richness_huc8
+
+ huc12 <- huc12 %>% 
+  filter(states != "CN")
+ 
+ dat <- left_join(huc12, dat, by = c("name" = "huc12_name"))
+
+hist(dat$beta)
+
+dat$beta <- as.numeric(dat$beta)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = beta))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = mean(dat$beta, na.rm = T))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "beta diversity = alpha/gamma",
+    fill = "diversity")+
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/spprichness_beta.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+
+
+```
