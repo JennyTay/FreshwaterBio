@@ -345,22 +345,6 @@ save(fish_occurrence, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/mo
 ```
 
 
-Chunk5:
-2. prepare fish_count data.  keep only records using total pick up, efish, the first pass, and the ones that listed the reach length so we can calculate count/stream reach length. then rbind to the 'keep' absence dataset abve, which is the absence data for each survey event.  
-```{r}
-
-
-```
-
-Chunk6
-3. prepare fish_length data. plot lengths of each fish - if somewhat normal, calcualte the stdev of each to get a measure of variance, the range, mean, max, and min.  For this, i think we can use all surveys because it's not an abundance measure, so we are not going to assume absence anywhere else (ie no need to join with the 'keep' data set).  therefore its ok if the survey was targeted or a different gear type , etc.
-```{r}
-
-
-```
-
-
-
 
 Join the biological data to the hydrologic data using the UID, which was already joined in chunk2:
 

@@ -12,7 +12,7 @@ Species richness and temperature
 ```{r}
 
 
-#fish data
+#fish occurrence data
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
@@ -21,12 +21,12 @@ load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/al
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
-#temperature data
+#stream temperature data
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc10.RData")
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc08.RData")
 
-#watershed data
+#watershed shapefiles
 huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
 huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
@@ -37,7 +37,9 @@ load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/meta
 load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/metadata_huc08.RData")
 
 
-#remove absence data
+
+
+#remove absence data from the fish occurrence data
 fish_occurrence <- fish_occurrence %>% 
   filter(occurrence == 1)
 
@@ -53,7 +55,6 @@ richness_huc12 <- left_join(fish_occurrence, fish_event_huc_join, by = 'UID') %>
   summarise(richess_huc12 = length(unique(common_name)),
             survey_count = length(unique(UID)))
 
-
 #join to huc12 metatdata
 richness_huc12 <- left_join(richness_huc12, metadata12, by = "huc12_name")
   
@@ -66,6 +67,9 @@ dat <-left_join(metrics12, richness_huc12, by = c("huc12_name", "timeperiod"))%>
 plot(dat$mean_lat, dat$mean_summer_temp)
 
 summary(lm(richess_huc12 ~ survey_count + mean_summer_temp + mean_lat, data = dat))
+
+
+
 
 
 

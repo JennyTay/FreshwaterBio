@@ -199,6 +199,20 @@ save(metrics08, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_dat
 
 
 
-ggplot(data = metrics12[metrics12$huc12_name == "Abbott Run",], mapping = aes(x = year, y = max_temp))+
-  geom_line()+
-  geom_smooth(method = "lm")
+#plot temperatures
+
+load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
+
+dat <- left_join(huc12, metrics12, by = c("name" = "huc12_name"))
+
+ggplot()+
+  geom_sf(data = dat[dat$timeperiod == "pre",], 
+          aes(fill = mean_summer_temp), color = NA)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  ggtitle(label = "mean summer temperature")+
+  labs(fill = "Temperature (C)")
+
+

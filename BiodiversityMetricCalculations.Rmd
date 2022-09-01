@@ -82,6 +82,118 @@ nrow(dat[dat$count>10,])
 nrow(dat[dat$count>5,])
 nrow(dat[dat$count>1,])
 
+
+
+# plot the number of survyes that have occurred in each HUC 12, 10, 8
+
+#HUC12
+dat <- fish_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc12_name) %>% 
+  summarise(surveynum = length(unique(UID))) %>% 
+  mutate(count = ifelse(surveynum %in% c(1:5), "1-5",
+                        ifelse(surveynum %in% c(6:25), "6-25",
+                               ifelse(surveynum %in% c(26:100), "26-100", ">100"))))
+
+dat$count <- factor(dat$count, levels = c("1-5", "6-25", "26-100", ">100"))
+
+
+dat <- left_join(huc12, dat, by = c("name" = "huc12_name"))
+
+ ggplot()+
+    geom_sf(data = dat[!is.na(dat$surveynum),], 
+            aes(fill = count))+
+    geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = "HUC12 surveys")+
+    labs(fill = "Survey Count")
+ 
+ 
+ ggsave(
+    filename = "C:/Users/jrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/surveynum_huc12.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+ 
+ 
+ 
+ #HUC10
+dat <- fish_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc10_name) %>% 
+  summarise(surveynum = length(unique(UID))) %>% 
+  mutate(count = ifelse(surveynum %in% c(1:5), "1-25",
+                        ifelse(surveynum %in% c(6:25), "26-100",
+                               ifelse(surveynum %in% c(26:100), "101-200", ">200"))))
+
+dat$count <- factor(dat$count, levels = c("1-25", "26-100", "101-200", ">200"))
+
+
+dat <- left_join(huc10, dat, by = c("Name" = "huc10_name"))
+
+ ggplot()+
+    geom_sf(data = dat[!is.na(dat$surveynum),], 
+            aes(fill = count))+
+    geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = "HUC10 surveys")+
+    labs(fill = "Survey Count")
+ 
+ ggsave(
+    filename = "C:/Users/jrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/surveynum_huc10.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+ 
+ 
+ 
+ 
+  #HUC8
+dat <- fish_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc8_name) %>% 
+  summarise(surveynum = length(unique(UID))) %>% 
+  mutate(count = ifelse(surveynum %in% c(1:100), "1-100",
+                        ifelse(surveynum %in% c(101:500), "101:500",
+                               ifelse(surveynum %in% c(501:1000), "501:1000", ">1000"))))
+
+dat$count <- factor(dat$count, levels = c("1-100", "101:500", "501:1000", ">1000"))
+
+
+dat <- left_join(huc8, dat, by = c("name" = "huc8_name"))
+
+ ggplot()+
+    geom_sf(data = dat[!is.na(dat$surveynum),], 
+            aes(fill = count))+
+    geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = "HUC8 surveys")+
+    labs(fill = "Survey Count")
+ 
+ ggsave(
+    filename = "C:/Users/jrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/surveynum_huc8.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+ 
 ```
 
 
