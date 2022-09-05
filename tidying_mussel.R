@@ -972,7 +972,7 @@ write.csv(ma_srcpoly, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 
 
 
-st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
+st_layers(dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
 
 rare <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
 uncom <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_Uncommon_animals")
@@ -1005,10 +1005,10 @@ write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mu
 
 #read in the source feature excel, the long fields EO data excel,  the source feature shape file, and the EO shape file
 
-src1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
-src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
-eo1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
-eo2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
+src1 <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
+src2 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
+eo1 <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
+eo2 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
 
 src1 <- src1 %>% 
   select(1:3)
@@ -1037,3 +1037,36 @@ write_csv(nh, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Muss
 
 
 
+
+#this file was edited in my ondrive folder
+
+
+
+
+nhmussel <- read_xlsx("C:/Users/jrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/Heritage Spreadsheet/nh_heritage_data_extraction_JR.xlsx")
+nhmussel <- nhmussel %>% 
+  select(EO_ID, SOURCE_FEA, SOURCE_F_1, SNAME, SCOMNAME, date, live_count, shell_count, 
+         live_occurrence, shell_occurrence, live_length_mm, reach_length_m, reach_width, 
+         search_time)
+
+
+#left join the edited data to the source shape file by the EO_ID, SOURCE_FEA, SOURCE_F_1
+
+
+shp <- src2 %>% 
+  select(EO_ID, SOURCE_FEA, SOURCE_F_1)
+
+dat <- left_join(nhmussel, shp, by = c("EO_ID", "SOURCE_FEA", "SOURCE_F_1"))
+
+#need to add in the common names or the scientific names
+
+dat$SNAME[dat$SCOMNAME == "triangle floater"] <- "Alasmidonta undulata"
+dat$SNAME[dat$SCOMNAME == "eastern elliptio"] <- "Elliptio complanata"
+dat$SNAME[dat$SCOMNAME == "Asian Clam"] <- "Corbicula fluminea"
+dat$SNAME[dat$SNAME == "A. undulata"] <- "Alasmidonta undulata"
+dat$SNAME[dat$SNAME == "Eastern Elliptio"] <- "Elliptio complanata"
+
+dat$SCOMNAME[dat$SNAME == "Alasmidonta undulata"] <- ""
+dat$SCOMNAME[dat$SNAME == "Eastern Elliptio"] <- ""
+dat$SCOMNAME[dat$SNAME == "Eastern Floater"] <- ""
+dat$SCOMNAME[dat$SNAME == "Elliptio complanata"] <- ""
