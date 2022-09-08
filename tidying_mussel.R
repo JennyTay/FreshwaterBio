@@ -809,6 +809,162 @@ save(vt_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 
 
+###########################################################
+
+################  NH natural heritage #####################
+
+###########################################################
+
+
+#read in the source feature excel, the long fields EO data excel,  the source feature shape file, and the EO shape file
+
+# src1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
+# src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
+# eo1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
+# eo2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
+# 
+# src1 <- src1 %>% 
+#   select(1:3)
+# 
+# src2keep <- src2 %>% 
+#   data.frame() %>% 
+#   select(EO_ID, SOURCE_FEA, SOURCE_F_1)
+# 
+# src <- left_join(src1, src2keep, by = c("EO_ID", "SOURCE_FEA")) 
+# 
+# 
+# eo1 <- eo1 %>% 
+#   select(1:3)
+# 
+# eo2keep <- eo2 %>% 
+#   data.frame() %>% 
+#   select(EO_ID, SNAME, SCOMNAME) 
+# 
+# eo <- left_join(eo1, eo2keep, by  = "EO_ID")
+# 
+# nh <- left_join(src, eo, by = "EO_ID") %>% 
+#   select(EO_ID, SOURCE_FEA, VISIT_NOTES, SOURCE_F_1, SNAME, SCOMNAME, EO_DATA, GEN_DESC)
+# 
+# write_csv(nh, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/nh_heritage_data.csv")
+# #this is the file that we will edit
+
+
+
+
+#this file was edited in my ondrive folder
+
+
+
+
+nhmussel <- read_xlsx("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/Heritage Spreadsheet/nh_heritage_data_extraction_JR.xlsx")
+nhmussel <- nhmussel %>% 
+  select(EO_ID, SOURCE_FEA, SOURCE_F_1, SNAME, SCOMNAME, date, live_count, shell_count, 
+         live_occurrence, shell_occurrence, live_length_mm, reach_length_m, reach_width, 
+         search_time)
+
+
+#left join the edited data to the source shape file by the EO_ID, SOURCE_FEA
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp") #get the polygon to crop with
+src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
+
+shp <- st_transform(src2, st_crs(huc8)) %>% 
+  select(EO_ID, SOURCE_FEA, SOURCE_F_1) %>% 
+  st_centroid() %>% 
+  mutate(longitude = unlist(map(geometry, 1)),
+         latitude = unlist(map(geometry, 2))) 
+
+dat <- left_join(nhmussel, shp, by = c("EO_ID", "SOURCE_FEA"))
+
+#need to add in the common names or the scientific names
+dat$SNAME <- tolower(dat$SNAME)
+dat$SCOMNAME <- tolower(dat$SCOMNAME)
+
+
+dat$SNAME[dat$SCOMNAME == "triangle floater"] <- "alasmidonta undulata"
+dat$SNAME[dat$SCOMNAME == "eastern elliptio"] <- "elliptio complanata"
+dat$SNAME[dat$SCOMNAME == "asian clam"] <- "corbicula fluminea"
+dat$SNAME[dat$SCOMNAME == "eastern floater"] <- "pyganodon cataracta"
+dat$SNAME[dat$SNAME == "a. undulata"] <- "alasmidonta undulata"
+dat$SNAME[dat$SNAME == "strophitis undulatus"] <- "strophitus undulatus"
+
+
+dat$SCOMNAME[dat$SNAME == "alasmidonta undulata"] <- "triangle floater"
+dat$SCOMNAME[dat$SNAME == "elliptio complanata"] <- "eastern elliptio"
+dat$SCOMNAME[dat$SNAME == "lampsilis radiata"] <- "eastern lampmussel"
+dat$SCOMNAME[dat$SNAME == "pyganodon cataracta"] <- "eastern floater"
+dat$SCOMNAME[dat$SNAME == "strophitus undulatus"] <- "creeper"
+
+#tidy method columns
+
+dat <- dat %>% 
+  rename(search_time_hr = search_time,
+         scientific_name = SNAME,
+         common_name = SCOMNAME,
+         length_mm = live_length_mm,
+         wet_width_avg_m = reach_width)
+
+dat$length_mm <- gsub("mm", "", dat$length_mm)
+
+dat$reach_length_m <- gsub("m", "", dat$reach_length_m)
+dat$reach_length_m <- gsub(" ", "", dat$reach_length_m)
+dat$wet_width_avg_m <- gsub("m", "", dat$wet_width_avg_m)
+
+dat$search_time_hr <- gsub("hr", "", dat$search_time_hr)
+dat$search_time_hr <- gsub("", "", dat$search_time_hr)
+dat$search_time_hr <- gsub(" s", "", dat$search_time_hr)
+
+dat <- dat %>% 
+  mutate(UID = paste("NH", dat$EO_ID, dat$SOURCE_FEA, dat$date, sep = "_"),
+         state = "NH",
+         project = "nh_NatureServeDatabase",
+         source = "AmyLamb",
+         date2 = paste("6/1/", date, sep = ""),
+         date3 = mdy(date2),
+         search_time_min = as.numeric(search_time_hr)*60,
+         reach_length_m = as.numeric(reach_length_m),
+         length_mm = as.numeric(length_mm),
+         wet_width_avg_m = as.numeric(wet_width_avg_m)) %>% 
+  select(-date, -date2) %>% 
+  filter(!is.na(date3)) %>% 
+  rename(date = date3)
+
+
+
+nh_mussel_event <- dat %>% 
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  filter(!is.na(latitude))
+
+nh_mussel_occurrence <- dat %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
+  filter(!is.na(live_occurrence) | !is.na(shell_occurrence))
+
+nh_mussel_count <- dat %>% 
+  select(UID, common_name, scientific_name, live_count, shell_count) %>% 
+  filter(!is.na(live_count) | !is.na(shell_count))
+
+
+nh_mussel_length <- dat %>% 
+  select(UID, common_name, scientific_name, length_mm)%>% 
+  filter(!is.na(length_mm))
+
+nh_mussel_method <- dat %>% 
+  select(UID, reach_length_m, wet_width_avg_m, search_time_min)%>% 
+  filter(!is.na(reach_length_m) | !is.na(wet_width_avg_m) | !is.na(search_time_min))
+
+
+save(nh_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/nh_mussel_event.RData")
+save(nh_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/nh_mussel_occurrence.RData")
+save(nh_mussel_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/nh_mussel_count.RData")
+save(nh_mussel_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/nh_mussel_length.RData")
+save(nh_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/nh_mussel_method.RData")
+
+
+
+
+
+
+
+
 
 
 ####
@@ -830,22 +986,22 @@ for (i in 1:length(files)){
 #bind event data
 me_mussel_event$project <- as.character(me_mussel_event$project) #shoudl go back to the maine tidying and add in the text for each project integer, for now, just do this
 
-all_mussel_event <- bind_rows(ma_mussel_event, me_mussel_event, ri_mussel_event, vt_mussel_event)
+all_mussel_event <- bind_rows(ma_mussel_event, me_mussel_event, ri_mussel_event, vt_mussel_event, nh_mussel_event)
 
 #bind occurrence data
 
-all_mussel_occurrence <- bind_rows(ma_mussel_occurrence, me_mussel_occurrence, ri_mussel_occurrence, vt_mussel_occurrence) #there are 20 repeated values here.. need to fix
+all_mussel_occurrence <- bind_rows(ma_mussel_occurrence, me_mussel_occurrence, ri_mussel_occurrence, vt_mussel_occurrence, nh_mussel_occurrence) #there are 20 repeated values here.. need to fix
 
 #bind count data
 
-all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count)
+all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count, nh_mussel_count)
 
 #bind length data
-all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length)
+all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length, nh_mussel_length)
 
 #bind method data
 
-all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method, vt_mussel_method) #this needs more cleaning
+all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method, nh_mussel_method) #this needs more cleaning
 
 
 
@@ -999,82 +1155,3 @@ write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mu
 
 
 
-
-################  NH natural heritage #####################
-
-
-#read in the source feature excel, the long fields EO data excel,  the source feature shape file, and the EO shape file
-
-src1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/Source-Features-Visits-table.xlsx")
-src2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/MusselSourceFeatures_NHB_June2022.shp")
-eo1 <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/LongFields_nhb_2022.xlsx")
-eo2 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/musselEOs_nhb_Feb2022.shp")
-
-src1 <- src1 %>% 
-  select(1:3)
-
-src2keep <- src2 %>% 
-  data.frame() %>% 
-  select(EO_ID, SOURCE_FEA, SOURCE_F_1)
-
-src <- left_join(src1, src2keep, by = c("EO_ID", "SOURCE_FEA")) 
-
-
-eo1 <- eo1 %>% 
-  select(1:3)
-
-eo2keep <- eo2 %>% 
-  data.frame() %>% 
-  select(EO_ID, SNAME, SCOMNAME) 
-
-eo <- left_join(eo1, eo2keep, by  = "EO_ID")
-
-nh <- left_join(src, eo, by = "EO_ID") %>% 
-  select(EO_ID, SOURCE_FEA, VISIT_NOTES, SOURCE_F_1, SNAME, SCOMNAME, EO_DATA, GEN_DESC)
-
-write_csv(nh, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/NH Mussel Data/nh_heritage_data.csv")
-
-
-
-
- 
-#this file was edited in my ondrive folder
-
-
-
-
-nhmussel <- read_xlsx("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/Heritage Spreadsheet/nh_heritage_data_extraction_JR.xlsx")
-nhmussel <- nhmussel %>% 
-  select(EO_ID, SOURCE_FEA, SOURCE_F_1, SNAME, SCOMNAME, date, live_count, shell_count, 
-         live_occurrence, shell_occurrence, live_length_mm, reach_length_m, reach_width, 
-         search_time)
-
-
-#left join the edited data to the source shape file by the EO_ID, SOURCE_FEA, SOURCE_F_1
-
-
-shp <- src2 %>% 
-  select(EO_ID, SOURCE_FEA, SOURCE_F_1)
-
-dat <- left_join(nhmussel, shp, by = c("EO_ID", "SOURCE_FEA", "SOURCE_F_1"))
-
-#need to add in the common names or the scientific names
-dat$SNAME <- tolower(dat$SNAME)
-dat$SCOMNAME <- tolower(dat$SCOMNAME)
-
-
-dat$SNAME[dat$SCOMNAME == "triangle floater"] <- "alasmidonta undulata"
-dat$SNAME[dat$SCOMNAME == "eastern elliptio"] <- "elliptio complanata"
-dat$SNAME[dat$SCOMNAME == "asian clam"] <- "corbicula fluminea"
-dat$SNAME[dat$SCOMNAME == "eastern floater"] <- "pyganodon cataracta"
-dat$SNAME[dat$SNAME == "a. undulata"] <- "alasmidonta undulata"
-dat$SNAME[dat$SNAME == "strophitis undulatus"] <- "strophitus undulatus"
-
-
-dat$SCOMNAME[dat$SNAME == "alasmidonta undulata"] <- "triangle floater"
-dat$SCOMNAME[dat$SNAME == "elliptio complanata"] <- "eastern elliptio"
-dat$SCOMNAME[dat$SNAME == "lampsilis radiata"] <- "eastern lampmussel"
-dat$SCOMNAME[dat$SNAME == "pyganodon cataracta"] <- "eastern floater"
-dat$SCOMNAME[dat$SNAME == "strophitus undulatus"] <- "creeper"
-
-#left off here - tidy up the reminaing columns, and then add into the mussel tidydata set
