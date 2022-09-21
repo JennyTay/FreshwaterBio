@@ -1127,7 +1127,6 @@ write.csv(ma_srcpoly, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 
 
 
-
 st_layers(dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
 
 rare <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
@@ -1153,5 +1152,5 @@ mus3 <- bind_rows(mus1, mus2) %>%
 write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/heritage_data.csv")
 
 
-
+#### left off here -- finished with the NH nature serve data, want to add in the VT nature serve data
 
