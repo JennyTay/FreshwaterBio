@@ -1,0 +1,63 @@
+---
+title: "Biodiversity Model"
+author: "Jenny Rogers"
+date: '2022-09-22'
+output: html_document
+---
+
+
+In the 
+
+```{r}
+library(tidyverse)
+library(sf)
+library(lubridate)
+
+
+```
+
+
+In this first chunk, read in files: 
+fish counts with zeros, fish event huc join, flow metrics by survey
+```{r}
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetrics/survey_huc8flowmetrics.RData")
+
+```
+
+
+
+
+
+
+here we will select the columns we want and join them together
+```{r}
+counts <- fish_count_with_zeros %>% 
+  select(UID, count, common_name)
+
+event <- fish_event_huc_join %>% 
+  select(UID, state, year, month, huc8_name)
+
+flow <- sites %>% 
+  select(huc8_name, year, month, 14:22)
+
+dat <- left_join(counts, event, by = "UID")
+dat <- left_join(dat, flow, by = c("huc8_name", "year", "month"))
+
+#now we want to join the event data to the previous years metrics so we have last years conditions. LEEFT OFF here
+
+
+dat <- dat %>% 
+  mutate(year = year - 1)
+names(flow)[4:12] <- paste("lastyr", names(flow)[4:12], sep = "_")
+dat <- left_join(dat, flow, by = c("huc8_name", "year", "month"))
+dat <- dat %>% 
+  mutate(year = year + 1) #recorrect the year
+
+test <- dat %>% 
+  filter(common_name == "longnose sucker",
+         !is.na(min_month))
+plot(test$low_dur_days, test$count)
+```
