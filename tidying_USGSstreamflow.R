@@ -74,7 +74,8 @@ sitefile_create<- data.frame(
 sitefile_create<-sitefile_create %>% 
   filter(huc8_name %in% names(qin)[2:39],
          year >= 1982) %>% 
-  mutate(wateryr = ifelse(month %in% c(10,11,12), year+1, year)) 
+  mutate(wateryr = ifelse(month %in% c(10,11,12), year+1, year)) %>% 
+  unique()
 
 
 
@@ -177,4 +178,8 @@ sites <- left_join(sites, metrics_year_timing_wet, by = c("huc8_name", "wateryr"
 
 
 save(sites, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetrics/survey_huc8flowmetrics.RData")
+
+
+
+#calcuate each metric using the entire flow record, so this will be joined just with the Huc8_name, no year associated with it.
 

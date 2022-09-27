@@ -23,6 +23,7 @@ fish counts with zeros, fish event huc join, flow metrics by survey
 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetrics/survey_huc8flowmetrics.RData")
 
 ```
@@ -32,10 +33,12 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetri
 
 
 
-here we will select the columns we want and join them together
+first join the count data, to the event data, to the flow data.
+ 
 ```{r}
 counts <- fish_count_with_zeros %>% 
-  select(UID, count, common_name)
+  select(UID, count, common_name) %>% 
+  filter(common_name == "brook trout")
 
 event <- fish_event_huc_join %>% 
   select(UID, state, year, month, huc8_name)
@@ -46,7 +49,7 @@ flow <- sites %>%
 dat <- left_join(counts, event, by = "UID")
 dat <- left_join(dat, flow, by = c("huc8_name", "year", "month"))
 
-#now we want to join the event data to the previous years metrics so we have last years conditions. LEEFT OFF here
+#now we want to join the event data to the previous years metrics so we have last years conditions. 
 
 
 dat <- dat %>% 
@@ -56,8 +59,52 @@ dat <- left_join(dat, flow, by = c("huc8_name", "year", "month"))
 dat <- dat %>% 
   mutate(year = year + 1) #recorrect the year
 
+
 test <- dat %>% 
-  filter(common_name == "longnose sucker",
-         !is.na(min_month))
-plot(test$low_dur_days, test$count)
+  filter(!is.na(lastyr_min_month))
+test$min_month <- as.integer(test$min_month)
+
+ggplot(data = test, mapping = aes(x = lastyr_low_dur_days, y = count))+
+  geom_point()+
+  facet_wrap(nrow = 5, vars(state))+
+  labs(x = "Last year high duration (days)",
+       y = "Count")
+
+ggplot(data = test, mapping = aes(x = lastyr_high_dur_days))+
+  geom_histogram()+
+  facet_wrap(nrow = 3, vars(state))+
+  labs(x = "Last year high duration (days)",
+       y = "Count")
+plot(test$lastyr_min_month, test$count)
+```
+
+
+Now, join the count data to the flowline meta data
+
+```{r}
+
+dat <- left_join(dat, fish_event_flowline_join, by = "UID") %>%  ##LEFT OFF HERE.. can join by more repeated columns!
+  filter(!is.na(StreamOrde))#remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
+
+#add columns for lat and long
+countmdl <- countmdl %>% 
+  mutate(long = unlist(map(countmdl$geometry, 1)),
+         lat = unlist(map(countmdl$geometry, 2)))
+
+#sum the NAs in each column
+colSums(is.na(countmdl))
+
+
+#remove sites where the slope is less than 0 and where total drainage area is less than 0 because this is impossible
+countmdl <- countmdl %>% 
+  filter(Slope > 0)
+countmdl <- countmdl %>% 
+  filter(TotalDASqK > 0)
+
+
+summary(mdl <- lm(count ~ lat, data = countmdl[countmdl$common_name == "fallfish",]))
+
+```
+
+
 ```

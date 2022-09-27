@@ -351,8 +351,8 @@ Join the biological data to the hydrologic data using the UID, which was already
 Chunk7:
 1. join the fish presence data to the fish_event_flowline_join, and run a logistic regression using lat, long, total upstream drainage area, slope. 
 ```{r}
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
-load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 
 fish_occurrence <- fish_occurrence %>% 
   filter(UID %in% fish_event_flowline_join$UID) #remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
