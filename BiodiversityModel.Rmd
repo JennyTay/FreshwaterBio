@@ -20,11 +20,31 @@ library(lubridate)
 In this first chunk, read in files: 
 fish counts with zeros, fish event huc join, flow metrics by survey
 ```{r}
-
+#fish data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+#fish event and hydrography join
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowlineV2_join.RData")
+
+#USGS gauge data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetrics/survey_huc8flowmetrics.RData")
+
+#SHEDs temp data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_annaul.RData")
+
+#watershed shape files
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+
+
+#USFS flow metrics
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_historical_crop.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_endofcen_crop.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_midcen_crop.RData")
+
 
 ```
 
@@ -33,15 +53,23 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetri
 
 
 
-first join the count data, to the event data, to the flow data.
+first make a proportional abundance column and then join the count data to the event data and to the flow data.
  
 ```{r}
 counts <- fish_count_with_zeros %>% 
-  select(UID, count, common_name) %>% 
-  filter(common_name == "brook trout")
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = ((count / totalcount)*100)) %>% 
+  select(UID, count, totalcount, propabun, common_name) %>% 
+  filter(common_name == "pumpkinseed")
+
+
+
 
 event <- fish_event_huc_join %>% 
-  select(UID, state, year, month, huc8_name)
+  data.frame() %>% 
+  select(UID, state, year, month, huc8_name, huc12_name, huc8_areasqkm, huc12_areasqkm)
 
 flow <- sites %>% 
   select(huc8_name, year, month, 14:22)
@@ -49,62 +77,62 @@ flow <- sites %>%
 dat <- left_join(counts, event, by = "UID")
 dat <- left_join(dat, flow, by = c("huc8_name", "year", "month"))
 
-#now we want to join the event data to the previous years metrics so we have last years conditions. 
 
 
+#join the temperature data at the huc12 scale by time period
 dat <- dat %>% 
-  mutate(year = year - 1)
-names(flow)[4:12] <- paste("lastyr", names(flow)[4:12], sep = "_")
-dat <- left_join(dat, flow, by = c("huc8_name", "year", "month"))
-dat <- dat %>% 
-  mutate(year = year + 1) #recorrect the year
+  mutate(timeperiod = ifelse(year <= 1999, "pre", "post")) %>% 
+  left_join(metrics12, by = c("huc12_name", "timeperiod"))
+
+#join the temperature data at the huc12 scale by year
+names(metrics_annual)[3:7] <- paste("annual", names(metrics_annual)[3:7], sep = "_")
+dat <- left_join(dat, metrics_annual, by = c("huc12_name", "year"))
 
 
-test <- dat %>% 
-  filter(!is.na(lastyr_min_month))
-test$min_month <- as.integer(test$min_month)
 
-ggplot(data = test, mapping = aes(x = lastyr_low_dur_days, y = count))+
-  geom_point()+
-  facet_wrap(nrow = 5, vars(state))+
-  labs(x = "Last year high duration (days)",
-       y = "Count")
-
-ggplot(data = test, mapping = aes(x = lastyr_high_dur_days))+
-  geom_histogram()+
-  facet_wrap(nrow = 3, vars(state))+
-  labs(x = "Last year high duration (days)",
-       y = "Count")
-plot(test$lastyr_min_month, test$count)
-```
-
-
-Now, join the count data to the flowline meta data
-
-```{r}
-
-dat <- left_join(dat, fish_event_flowline_join, by = "UID") %>%  ##LEFT OFF HERE.. can join by more repeated columns!
-  filter(!is.na(StreamOrde))#remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event to nearest stream
-
-#add columns for lat and long
-countmdl <- countmdl %>% 
+#join the flowlineV2 with the COMID
+fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>% 
   mutate(long = unlist(map(countmdl$geometry, 1)),
-         lat = unlist(map(countmdl$geometry, 2)))
+         lat = unlist(map(countmdl$geometry, 2))) %>% 
+  data.frame() %>% 
+  select(-geometry)
 
-#sum the NAs in each column
-colSums(is.na(countmdl))
-
-
-#remove sites where the slope is less than 0 and where total drainage area is less than 0 because this is impossible
-countmdl <- countmdl %>% 
-  filter(Slope > 0)
-countmdl <- countmdl %>% 
-  filter(TotalDASqK > 0)
+dat <- dat %>% 
+  select(-c(state, year, month)) %>% 
+  left_join(fish_event_flowlineV2_join, by = "UID")
 
 
-summary(mdl <- lm(count ~ lat, data = countmdl[countmdl$common_name == "fallfish",]))
 
-```
+#join to the USFS flow metrics
+flowmet_historical_crop <- flowmet_historical_crop %>% 
+  data.frame() %>% 
+  select(COMID, TOTDASQKM, WBAREATYPE, 9:34) %>% 
+  mutate(COMID = as.integer(COMID))
+dat <- dat %>% 
+  left_join(flowmet_historical_crop, by = "COMID")
+
+
+
+#organize dataframe
+dat <- dat %>% 
+  select("UID", "COMID", "lat", "long",
+         "GNIS_ID", "GNIS_NAME", "state", 
+         "date", "year", "month", 
+         "count", "totalcount", "propabun", "common_name", 
+         "waterbody", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc12_name", 
+         "LENGTHKM", "huc8_areasqkm",  "huc12_areasqkm", 
+         "q_mean_rel", "q_max_rel" ,"low_dur_days", "high_dur_days", "min_month", "monthly_min_flow", 
+         "max_month", "monthly_max_flow", "timeperiod", "max_temp", "mean_jul_temp", "mean_summer_temp", 
+         "mean_max_temp_30d", "mean_n_day_gt_22", 
+         "annual_max_temp", "annual_mean_jul_temp", "annual_mean_summer_temp", "annual_mean_max_temp_30d", 
+         "annual_mean_n_day_gt_22", 
+         "TOTDASQKM", "WBAREATYPE", "MA_HIST", "MJAN_HIST",  "MFEB_HIST", "MMAR_HIST", "MAPR_HIST", "MMAY_HIST", 
+         "MJUN_HIST", "MJUL_HIST", "MAUG_HIST", "MSEP_HIST", "MOCT_HIST", "MNOV_HIST", "MDEC_HIST", "MDJF_HIST", 
+         "MMAM_HIST" , "MJJA_HIST" , "MSON_HIST", "HIQ1_5_HIST", "HIQ10_HIST", "HIQ25_HIST", "LO7Q1_HIST", 
+         "LO7Q10_HIST" ,"BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST")
+
+ggplot(data = dat, mapping = aes(x = min_month, y = propabun))+
+  geom_point()
 
 
 ```

@@ -29,12 +29,13 @@ all_fish_event
 
 Chunk1: load dataframes
 ```{r}
-flowline <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
-huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
-huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
-huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+flowline_EPA <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 
-fish_event <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
 
 ```
 
@@ -88,7 +89,7 @@ fish_event_huc_join <- st_join(fish_event_huc_join, huc12, left = FALSE)
 fish_event_huc_join <- fish_event_huc_join %>% 
   filter(waterbody == 'lotic')
 
-
+#Join the fish event data to the NHDplusHR data set
 flowline <- flowline %>% st_zm() %>% 
   filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
   select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
@@ -107,12 +108,42 @@ fish_event_flowline_join <- fish_event_flowline_join %>%  #just keep lotic sites
   rename(event_to_flowln_dist_m = dist)
 #we will use "MinElevSmo" as the elevation measuremtn of the NHD reach.  It is very similar to the MinElevRaw.
 
+
+
 rm(flowline, huc8, huc10, huc12, dist, nearest)
 
 #note that there will be more rows in the HUC dataset because some of the events too far from flowlines were removed.
 
-save(fish_event_flowline_join, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
-save(fish_event_huc_join, file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+
+
+#join the event data to the NHDplusV2 data set - this is the product that has the COMID, so we will make the same fish event flowline join file, but with this version so that we can use streamcat data and the USFS flow metrics
+
+
+
+
+flowline_EPA <- flowline_EPA %>% st_zm() %>% 
+  filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
+  select(COMID, GNIS_ID, GNIS_NAME, LENGTHKM, REACHCODE)
+
+
+#for the flowline, we want to join the point to the nearest flowline, so we need a different approach.
+nearest <- st_nearest_feature(fish_event, flowline_EPA) #returns a vector of the index of the flowline that is nearest to each point
+dist <- st_distance(fish_event, flowline_EPA[nearest,], by_element = TRUE) #get dist from each point to the flowline
+dist <- as.numeric(dist)
+hist(dist)
+fish_event_flowlineV2_join <- cbind(fish_event, st_drop_geometry(flowline_EPA)[nearest,]) #join flowline to the fish event based on the index value of the 
+fish_event_flowlineV2_join$dist <- dist #add the distence in meters
+fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
+  filter(waterbody == "lotic" & dist <500) %>%  
+  rename(event_to_flowln_dist_m = dist)
+
+
+
+save(fish_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+
+save(fish_event_flowline_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+
+save(fish_event_flowlineV2_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowlineV2_join.RData")
 
 ```
 
@@ -122,11 +153,11 @@ Calcuate average elevation, slopes, land cover etc within each HUC size
 ```{r}
 
 
-flowline <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
 
-huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
-huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
-huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 
 
 #convert the lines to midpoints

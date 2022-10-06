@@ -13,9 +13,9 @@ library(maptools)
 
 # read in zones 1, 2, 4, rbind to create one file
 
-lines01 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_01/truncatedFlowlines01.shp")
-lines02 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_02/truncatedFlowlines02.shp")
-lines04 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_04/truncatedFlowlines04.shp")
+lines01 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_01/truncatedFlowlines01.shp")
+lines02 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_02/truncatedFlowlines02.shp")
+lines04 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_04/truncatedFlowlines04.shp")
 
 lines <- rbind(lines01, lines02)
 lines <- rbind(lines, lines04)
@@ -127,12 +127,12 @@ save(sheds_temp_huc_join, file = "C:/Users/jrogers/Documents/necascFreshwaterBio
 
 #read in annual temperature metrics, just keep the feature IDs that are in our region, and just keep the historical data for now.
 
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_huc_join.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_huc_join.RData")
 names(sheds_temp_huc_join) <- tolower(names(sheds_temp_huc_join))
 
 keep <- unique(sheds_temp_huc_join$featureid)
 
-temp01 <- readRDS("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/model-predict-year-01.rds") %>% 
+temp01 <- readRDS("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/model-predict-year-01.rds") %>% 
   filter(featureid %in% keep,
          adjust_air_temp == 0)
 
@@ -157,11 +157,28 @@ save(sheds_temp_metrics_huc_join, file = "C:/Users/jrogers/Documents/necascFresh
 
 rm(temp01, temp02, temp04)
 
+
+# make three new dataframes, grouped by the huc 12names
+# summarise across the huc by the year
+#    need to select the metrics we summarise more carefully, but for now I just did a couple
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc_join.RData")
+
+metrics_annual <- sheds_temp_metrics_huc_join %>% 
+  group_by(huc12_name, year) %>% 
+  summarise(max_temp = mean(max_temp),
+            mean_jul_temp = mean(mean_jul_temp),
+            mean_summer_temp = mean(mean_summer_temp),
+            mean_max_temp_30d = mean(max_temp_30d),
+            mean_n_day_gt_22 = mean(n_day_temp_gt_22))
+save(metrics_annual, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_annaul.RData")
+
+
 # make three new dataframes, grouped by the huc 12,10, 8 names
 # summarise across the huc by the pre and post timeperiod
 #    need to select the metrics we summarise more carefully, but for now I just did a couple
 
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc_join.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc_join.RData")
 
 sheds_temp_metrics_huc_join <- sheds_temp_metrics_huc_join %>% 
   mutate(timeperiod = ifelse(year <= 1999, "pre", "post"))
@@ -173,7 +190,7 @@ metrics12 <- sheds_temp_metrics_huc_join %>%
             mean_summer_temp = mean(mean_summer_temp),
             mean_max_temp_30d = mean(max_temp_30d),
             mean_n_day_gt_22 = mean(n_day_temp_gt_22))
-save(metrics12, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
+save(metrics12, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 
 
 
@@ -184,7 +201,7 @@ metrics10 <- sheds_temp_metrics_huc_join %>%
             mean_summer_temp = mean(mean_summer_temp),
             mean_max_temp_30d = mean(max_temp_30d),
             mean_n_day_gt_22 = mean(n_day_temp_gt_22))
-save(metrics10, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc10.RData")
+save(metrics10, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc10.RData")
 
 
 
@@ -201,7 +218,7 @@ save(metrics08, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_dat
 
 #plot temperatures
 
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 
 dat <- left_join(huc12, metrics12, by = c("name" = "huc12_name"))
 
