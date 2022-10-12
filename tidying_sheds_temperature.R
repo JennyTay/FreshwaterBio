@@ -136,11 +136,11 @@ temp01 <- readRDS("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafi
   filter(featureid %in% keep,
          adjust_air_temp == 0)
 
-temp02 <- readRDS("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/model-predict-year-02.rds") %>% 
+temp02 <- readRDS("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/model-predict-year-02.rds") %>% 
   filter(featureid %in% keep,
          adjust_air_temp == 0) 
 
-temp04 <- readRDS("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/model-predict-year-04.rds") %>% 
+temp04 <- readRDS("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/model-predict-year-04.rds") %>% 
   filter(featureid %in% keep,
          adjust_air_temp == 0) 
 

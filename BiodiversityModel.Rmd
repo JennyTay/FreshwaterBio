@@ -12,6 +12,7 @@ In the
 library(tidyverse)
 library(sf)
 library(lubridate)
+library(corrplot)
 
 
 ```
@@ -44,6 +45,13 @@ huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NH
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_historical_crop.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_endofcen_crop.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_midcen_crop.RData")
+
+
+#StreamCat
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_census.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_landcov.RData") 
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_imp.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID.RData")
 
 
 ```
@@ -92,8 +100,8 @@ dat <- left_join(dat, metrics_annual, by = c("huc12_name", "year"))
 
 #join the flowlineV2 with the COMID
 fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>% 
-  mutate(long = unlist(map(countmdl$geometry, 1)),
-         lat = unlist(map(countmdl$geometry, 2))) %>% 
+  mutate(long = unlist(map(fish_event_flowlineV2_join$geometry, 1)),
+         lat = unlist(map(fish_event_flowlineV2_join$geometry, 2))) %>% 
   data.frame() %>% 
   select(-geometry)
 
@@ -112,27 +120,150 @@ dat <- dat %>%
   left_join(flowmet_historical_crop, by = "COMID")
 
 
+#join to the streamcat data
+strmcatByyr_census <- strmcatByyr_census %>% 
+  select(-year)
+strmcatByyr_landcov <- strmcatByyr_landcov %>% 
+  select(-year)
+
+dat <- dat %>% 
+  left_join(strmcat_byCOMID, by = "COMID")
+dat <- dat %>% 
+  left_join(strmcatByyr_census, by = "COMID")#this is the 2010 data... we might want to do this year in the future..
+dat <- dat %>% 
+  left_join(strmcatByyr_landcov, by = "COMID")#this is 2001 NLCD data.. we probably will want to download a coupel more, but for now, I just did one year. they also have some that just look at the riparian buffer..
+dat <- dat %>% 
+  left_join(strmcatByyr_imp, by = c("COMID", "timeperiod"))
+
+
+#we probably want to add in data for road crossings and riparian area 
 
 #organize dataframe
 dat <- dat %>% 
   select("UID", "COMID", "lat", "long",
          "GNIS_ID", "GNIS_NAME", "state", 
-         "date", "year", "month", 
+         "date", "year", "month", "timeperiod",   
          "count", "totalcount", "propabun", "common_name", 
-         "waterbody", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc12_name", 
-         "LENGTHKM", "huc8_areasqkm",  "huc12_areasqkm", 
+         "waterbody", "WBAREATYPE", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc12_name", 
+         "LENGTHKM", "huc8_areasqkm",  "huc12_areasqkm", "WsAreaSqKm", 
          "q_mean_rel", "q_max_rel" ,"low_dur_days", "high_dur_days", "min_month", "monthly_min_flow", 
-         "max_month", "monthly_max_flow", "timeperiod", "max_temp", "mean_jul_temp", "mean_summer_temp", 
-         "mean_max_temp_30d", "mean_n_day_gt_22", 
-         "annual_max_temp", "annual_mean_jul_temp", "annual_mean_summer_temp", "annual_mean_max_temp_30d", 
-         "annual_mean_n_day_gt_22", 
-         "TOTDASQKM", "WBAREATYPE", "MA_HIST", "MJAN_HIST",  "MFEB_HIST", "MMAR_HIST", "MAPR_HIST", "MMAY_HIST", 
+         "max_month", "monthly_max_flow", "max_temp", "mean_jul_temp", "mean_summer_temp", 
+         "mean_max_temp_30d", "mean_n_day_gt_22",  "annual_max_temp", "annual_mean_jul_temp", 
+         "annual_mean_summer_temp", "annual_mean_max_temp_30d", "annual_mean_n_day_gt_22", 
+         "MA_HIST", "MJAN_HIST",  "MFEB_HIST", "MMAR_HIST", "MAPR_HIST", "MMAY_HIST", 
          "MJUN_HIST", "MJUL_HIST", "MAUG_HIST", "MSEP_HIST", "MOCT_HIST", "MNOV_HIST", "MDEC_HIST", "MDJF_HIST", 
          "MMAM_HIST" , "MJJA_HIST" , "MSON_HIST", "HIQ1_5_HIST", "HIQ10_HIST", "HIQ25_HIST", "LO7Q1_HIST", 
-         "LO7Q10_HIST" ,"BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST")
+         "LO7Q10_HIST" ,"BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST",
+         "BFIWs", "DamDensWs", "DamNIDStorWs", "DamNrmStorWs", "ElevWs", "NABD_DensWs", 
+         "NABD_NIDStorWs", "NABD_NrmStorWs", "WtDepWs", "HUDen_Ws",
+         "PopDen_Ws", "PctOw_Ws", "PctIce_Ws","PctUrbOp_Ws", "PctUrbLo_Ws", "PctUrbMd_Ws", "PctUrbHi_Ws",
+         "PctBl_Ws", "PctDecid_Ws", "PctConif_Ws", "PctMxFst_Ws", "PctShrb_Ws", "PctGrs_Ws", "PctHay_Ws", 
+         "PctCrop_Ws", "PctWdWet_Ws", "PctHbWet_Ws", "PctImp_Ws", "PctImp_WsRp100")
 
-ggplot(data = dat, mapping = aes(x = min_month, y = propabun))+
-  geom_point()
+#we did not include 'TOTDASQKM' from the USGS flow metrics because it was identical and sourced from 'WsAreaSqKm' in StreamCat
+
+
+
+
+```
+
+In this code chunk, we sort through all the variables and remove ones that will not be good predictors
+1. zero/low variance across the study area
+2. high intercorrelation
+3. low predictive power or relatiomship to our outcome variable
+
+We might want to explore combining certain variables together with PCA (for example, all the temperature ones)
+```{r}
+colSums(is.na(dat))
+
+
+str(dat)
+
+#variance across study area
+
+nzv <- nearZeroVar(dat[,22:100], saveMetrics = T)
+
+nzv$metric <- row.names(nzv)
+remove <- nzv$metric[nzv$zeroVar == TRUE | nzv$nzv == TRUE]
+
+
+dat2 <- dat %>% 
+  select(-remove)
+
+#look for correlation between variables from the same dataset (SHEDs, huc8 streamflow, USGS flow metrics, Streamcat, metadata (lat,long, watershed size, elev, length) )
+
+
+usgsgague <- dat2 %>% 
+  select(28:35) 
+usgsgague <- usgsgague[complete.cases(usgsgague),] #remove rows with NA
+cor <- cor(usgsgague, method = c("spearman")) #make correlation matrix
+corrplot(cor, type = "lower") #plot
+#removes correlatioms 0.5 and higher
+keep1 <- c("low_dur_days", "high_dur_days", "min_month", "monthly_min_flow", "max_month") 
+#removes "q_mean_rel", "q_max_rel", "monthly_max_flow
+
+sheds <- dat2 %>% 
+  select(36:44)
+sheds <- sheds[complete.cases(sheds),]
+cor <- cor(sheds, method = c("spearman"))
+corrplot(cor, type = "lower")
+#these are all incredible correlated so we will just keep one - annual_mean_max_temp_30d
+
+keep2 <- "annual_mean_max_temp_30d" 
+#this removes "max_temp", "mean_jul_temp", "mean_summer_temp", "mean_max_temp_30d", "annual_max_temp",
+#              "annual_mean_jul_temp", "annual_mean_summer_temp", "annual_mean_n_day_gt_22"
+
+
+usfs <- dat2 %>% 
+  select(44:70)
+usfs <- usfs[complete.cases(usfs),] #remove rows with NA
+cor <- cor(usfs, method = c("spearman")) #make correlation matrix
+corrplot(cor, type = "lower") #plot
+#all of the magnitude variables are very correlated so we will just keep one, Mean JJA, and then we will keep the other non-magnitude variables, which were not correlated at all to anything esle
+
+keep3 <- c("MJJA_HIST","BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST") 
+#this removes "MA_HIST", "MJAN_HIST","MFEB_HIST", "MMAR_HIST", "MAPR_HIST", "MMAY_HIST", "MJUN_HIST", 
+#             "MJUL_HIST","MAUG_HIST", "MSEP_HIST", "MOCT_HIST", "MNOV_HIST", "MDEC_HIST", "MDJF_HIST", 
+#             "MMAM_HIST", "MSON_HIST", "HIQ1_5_HIST", "HIQ10_HIST", "HIQ25_HIST", 
+#             "LO7Q1_HIST", "LO7Q10_HIST"
+
+strmct <- dat2 %>% 
+  select(71:91)
+strmct <- strmct[complete.cases(strmct),] #remove rows with NA
+cor <- cor(strmct, method = c("spearman")) #make correlation matrix
+corrplot(cor, type = "lower") #plot
+#the high, med, low, and impervious surface, and housing density, and population are all correlated, but not very very high... we migth want to do a pca with these, though that will make it harder to interpret.
+keep4 <-  c("BFIWs", "ElevWs", "WtDepWs", "HUDen_Ws", "PopDen_Ws", "PctOw_Ws", "PctUrbOp_Ws",
+           "PctBl_Ws", "PctDecid_Ws", "PctConif_Ws", "PctMxFst_Ws", "PctShrb_Ws", "PctGrs_Ws",
+           "PctHay_Ws", "PctWdWet_Ws", "PctHbWet_Ws", "PctImp_Ws", "PctImp_WsRp100")
+#removes: "PctUrbLo_Ws", "PctUrbMd_Ws", "PctUrbHi_Ws"
+
+
+dat3 <- dat2 %>% 
+  select(count, propabun, lat, long, state, year, month, source, huc8_name,WsAreaSqKm, keep1, keep2, keep3, keep4) 
+
+#now check for correlation among the retained predictors
+final <- dat3 %>% 
+  select(3,4, 10:39)
+final <- final[complete.cases(final),] #remove rows with NA
+cor <- cor(final, method = c("spearman")) #make correlation matrix
+corrplot(cor, type = "lower") #plot
+
+
+```
+Here, 
+logistic regression plots showing the relatiomship of presence and absence for each variable,
+linear regiression plots for proportional abundacne
+t test with pvalue table for logistic regression plots
+
+```{r}
+
+dat <- dat %>% 
+  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+  select(91, 3,4,22, 25:90)
+ggplot(data = dat, mapping = aes(x = CFM_HIST, y = occurrence))+
+  geom_jitter(size = 8, alpha = 0.1)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"))
 
 
 ```
