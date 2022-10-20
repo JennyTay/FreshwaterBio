@@ -13,6 +13,7 @@ library(tidyverse)
 library(sf)
 library(lubridate)
 library(corrplot)
+library(caret)
 
 
 ```
@@ -24,6 +25,7 @@ fish counts with zeros, fish event huc join, flow metrics by survey
 #fish data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+fish_shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
 
 #fish event and hydrography join
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
@@ -64,22 +66,23 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_b
 first make a proportional abundance column and then join the count data to the event data and to the flow data.
  
 ```{r}
+
 counts <- fish_count_with_zeros %>%
-  filter(gear == "efish_backpack",
-         !is.na(reach_length_m),
-         reach_length_m >0,
-         !is.na(avg_reach_width_m),
-         avg_reach_width_m >0,
-         !is.na(efish_duration_s),
-         efish_duration_s > 0) %>% 
+  filter(gear == "efish_backpack") %>% 
   group_by(UID) %>% 
   mutate(totalcount = sum(count)) %>% 
   ungroup() %>% 
-  mutate(propabun = ((count / totalcount)*100)) %>% 
+  mutate(propabun = (count / totalcount)) %>% 
   select(UID, count, totalcount, propabun, common_name, gear, reach_length_m, avg_reach_width_m, efish_duration_s) %>% 
-  mutate(abund_m_km_hr = count / (reach_length_m * avg_reach_width_m * efish_duration_s) *1000 * 3600) %>% 
-  filter(common_name == "pumpkinseed")
+  mutate(abund_km = count / (reach_length_m) *1000) %>% 
+  filter(common_name == "slimy sculpin")
 
+#plot the observed proportional abundance
+shp <- left_join(fish_shp, counts, by = "UID") %>%
+  filter(!is.na(propabun)) %>%
+  mutate(occurrence = ifelse(count>0, 1, 0))
+ggplot(data = shp)+
+  geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, col = "black")
 
 
 
@@ -151,7 +154,7 @@ dat <- dat %>%
   select("UID", "COMID", "lat", "long",
          "GNIS_ID", "GNIS_NAME", "state", 
          "date", "year", "month", "timeperiod",   
-         "count", "totalcount", "abund_m_km_hr", "common_name", 
+         "count", "totalcount", "abund_km", "propabun", "common_name", 
          "waterbody", "WBAREATYPE", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc12_name", 
          "LENGTHKM", "huc8_areasqkm",  "huc12_areasqkm", "WsAreaSqKm", 
          "q_mean_rel", "q_max_rel" ,"low_dur_days", "high_dur_days", "min_month", "monthly_min_flow", 
@@ -189,7 +192,7 @@ str(dat)
 
 #variance across study area
 
-nzv <- nearZeroVar(dat[,22:100], saveMetrics = T)
+nzv <- nearZeroVar(dat[,23:101], saveMetrics = T)
 
 nzv$metric <- row.names(nzv)
 remove <- nzv$metric[nzv$zeroVar == TRUE | nzv$nzv == TRUE]
@@ -202,7 +205,7 @@ dat2 <- dat %>%
 
 
 usgsgague <- dat2 %>% 
-  select(28:35) 
+  select(29:36) 
 usgsgague <- usgsgague[complete.cases(usgsgague),] #remove rows with NA
 cor <- cor(usgsgague, method = c("spearman")) #make correlation matrix
 corrplot(cor, type = "lower") #plot
@@ -211,7 +214,7 @@ keep1 <- c("low_dur_days", "high_dur_days", "min_month", "monthly_min_flow", "ma
 #removes "q_mean_rel", "q_max_rel", "monthly_max_flow
 
 sheds <- dat2 %>% 
-  select(36:45)
+  select(37:45)
 sheds <- sheds[complete.cases(sheds),]
 cor <- cor(sheds, method = c("spearman"))
 corrplot(cor, type = "lower")
@@ -236,7 +239,7 @@ keep3 <- c("MJJA_HIST","BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST")
 #             "LO7Q1_HIST", "LO7Q10_HIST"
 
 strmct <- dat2 %>% 
-  select(72:98)
+  select(72:92)
 strmct <- strmct[complete.cases(strmct),] #remove rows with NA
 cor <- cor(strmct, method = c("spearman")) #make correlation matrix
 corrplot(cor, type = "lower") #plot
@@ -248,32 +251,29 @@ keep4 <-  c("BFIWs", "ElevWs", "WtDepWs", "HUDen_Ws", "PopDen_Ws", "PctOw_Ws", "
 
 
 dat3 <- dat2 %>% 
-  select(count, abund_m_km_hr, lat, long, state, year, month, source, huc8_name,WsAreaSqKm, all_of(keep1), all_of(keep2), all_of(keep3), all_of(keep4)) 
+  select(count, abund_km, propabun, lat, long, state, year, month, source, huc8_name,WsAreaSqKm, all_of(keep1), all_of(keep2), all_of(keep3), all_of(keep4)) 
 
 #now check for correlation among the retained predictors
 final <- dat3 %>% 
-  select(3,4, 10:39)
+  select(4,5, 11:40)
 final <- final[complete.cases(final),] #remove rows with NA
 cor <- cor(final, method = c("spearman")) #make correlation matrix
 corrplot(cor, type = "lower") #plot
 
 
 ```
-Here, 
-logistic regression plots showing the relatiomship of presence and absence for each variable,
-linear regiression plots for proportional abundacne
-t test with pvalue table for logistic regression plots
+histograms of the predictor data to see if anything needs to be transformed
 
 ```{r}
 
 dat3 <- dat3 %>% 
   mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
-  select(occurrence, count, abund_m_km_hr, year, month, state, source, huc8_name, lat, long, 10:39)
+  select(occurrence, count, abund_km, propabun, year, month, state, source, huc8_name, lat, long, 11:40)
 
 
 #first make histograms of covariates to see whats normally distributed
 
-for (i in 9:40) {
+for (i in 10:41) {
   
   ggplot(data = dat3, mapping = aes(x = dat3[[i]]))+
     geom_histogram(binwidth = )+
@@ -294,28 +294,38 @@ dat3 <- dat3 %>%
 
 ```
 
-model counts using all the variables
-zero inflated negative binomial model
-If count is 0 = its absent. If its >0, we model the count
+model relative abundance with a zero-inflated binomial model from the glmmTMB package
 ```{r}
 
-library(pscl) #to run a zero inflated model
-library(lme4) #to run a linear mixed effect model
+library(glmmTMB)
 
 
-ggplot(data = dat3, mapping = aes(x = log(abund_m_km_hr)))+
+
+
+```
+
+
+
+
+Model relative abundance
+First do a logistic regression with presence vs absence
+Then do a logistic regression with the relative abundance
+If prob is less than 0.1, we assume its absent. If its >0, we model the relative abundance
+```{r}
+
+#histogram of relative abundance
+ggplot(data = dat3[dat3$occurrence ==1,], mapping = aes(x = propabun))+
   geom_histogram()
 
-dat3$occurrence <- ifelse(dat3$count>0, 1, 0)
+#plot a map of observed relative abundance - need to join to the shapefile with UID
+rel_abundance <- left_join(fish_shp, dat2, by ="UID") %>% 
+  mutate(occurrence  = ifelse(count > 0, 1, 0))
+ggplot(data = rel_abundance)+
+  geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
 
 
-# lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + MJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
-#                            CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
-#                            PctBl_Ws + PctDecid_Ws + PctConif_Ws + PctMxFst_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
-#                            PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100
 
-
-#count model for pumpkinseed
+#presence absence model for pumpkinseed
 logreg_pumpk <- glm(occurrence ~ lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + MJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
                            CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
                            PctBl_Ws + PctDecid_Ws + PctConif_Ws + PctMxFst_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
@@ -326,17 +336,105 @@ logreg_pumpk <- glm(occurrence ~ lat + long + logWsAreaSqKm + annual_mean_max_te
 summary(logreg_pumpk)
 
 #test prediction on the data
-pred <- dat3[,c(3,4,10:39)]
+pred <- dat3[,c(10:41)]
+predict_logreg <- predict(logreg_pumpk, newdata = pred, type = "response")
+compare_logreg <- data.frame("occurrence" = dat3$occurrence, "predict_logreg" = predict_logreg)
+
+#plot
+dat2$prediction <- compare_logreg$predict_logreg
+log_reg_results <- left_join(fish_shp, dat2, by ="UID")
+ggplot(data = log_reg_results[!is.na(log_reg_results$prediction),])+
+  geom_sf(aes(col=prediction))
+
+
+
+#relative abundance model for pumpkinseed
+relabun_pumpk <- glm(propabun ~ lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + MJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
+                           CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
+                           PctBl_Ws + PctDecid_Ws + PctConif_Ws + PctMxFst_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
+                           PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100 ,
+                         family = "quasibinomial", #this family, vs 'binomial bc the dependent variable is not integers 0 / 1
+                         data = dat3)
+
+summary(relabun_pumpk)
+
+
+#test prediction on the data
+pred <- dat3[,c(10:41)]
+predict_relabun <- predict(relabun_pumpk, newdata = pred, type = "response")
+compare_relabun <- data.frame("relabun" = dat3$propabun, "predict_relabun" = predict_relabun)
+
+
+#plot
+dat2$prediction <- compare_relabun$predict_relabun
+relabun_results <- left_join(fish_shp, dat2, by ="UID")
+ggplot(data = relabun_results[!is.na(relabun_results$prediction),])+
+  geom_sf(aes(fill=prediction, size = prediction), pch = 21, col="grey50")
+
+
+#plot 
+
+dat2$occurrence_predict <- compare_logreg$predict_logreg
+dat2$rel_abun_predict <- compare_relabun$predict_relabun
+dat2$finalpred <- ifelse(dat2$occurrence_predict<0.1, 0, dat2$rel_abun_predict)
+final_pumpk_results <- left_join(fish_shp, dat2, by ="UID")
+final_pumpk_results$occurrence <- ifelse(final_pumpk_results$finalpred>0, 1,0)
+ggplot(data = final_pumpk_results[!is.na(final_pumpk_results$finalpred),])+
+  geom_sf(aes(fill = as.factor(occurrence), size = finalpred), pch = 21, col="black")
+
+
+
+
+```
+
+
+
+
+model abundance (count/length) using all the variables
+logist regression followed by a linear regression
+If prob is <0.1 its absent. If its >0.1, we use the count
+```{r}
+
+library(pscl) #to run a zero inflated model
+library(lme4) #to run a linear mixed effect model
+
+
+ggplot(data = dat3, mapping = aes(x = log(abund_km)))+
+  geom_histogram()
+
+
+# lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + MJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
+#                            CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
+#                            PctBl_Ws + PctDecid_Ws + PctConif_Ws + PctMxFst_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
+#                            PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100
+
+
+#presence absence model for pumpkinseed
+logreg_pumpk <- glm(occurrence ~ lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + MJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
+                           CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
+                           PctBl_Ws + PctDecid_Ws + PctConif_Ws + PctMxFst_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
+                           PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100 ,
+                         family = "binomial",
+                         data = dat3)
+
+summary(logreg_pumpk)
+
+#test prediction on the data
+pred <- dat3[,c(9:40)]
 predict_logreg <- predict(logreg_pumpk, newdata = pred, type = "response")
 compare_logreg <- data.frame("occurrence" = dat3$occurrence, "prob" = predict_logreg)
 
-ggplot(data = compare_logreg, mapping = aes(x = occurrence, y = prob))+
-  geom_point(alpha = 0.05, size = 5)
+
+#plot
+dat2$prediction <- compare_logreg$prob
+log_reg_results <- left_join(fish_shp, dat2, by ="UID")
+ggplot(data = log_reg_results[!is.na(log_reg_results$prediction),])+
+  geom_sf(aes(col=prediction))
 
 
 #model the log abundance
 
-dat3$logabund <- log(dat3$abund_m_km_hr + 1)
+dat3$logabund <- log(dat3$abund_km + 1)
 lm_pumpk <- glm(logabund ~ lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + MJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
                            CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
                            PctBl_Ws + PctDecid_Ws + PctConif_Ws + PctMxFst_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
@@ -346,21 +444,29 @@ lm_pumpk <- glm(logabund ~ lat + long + logWsAreaSqKm + annual_mean_max_temp_30d
 summary(lm_pumpk)
 
 #test prediction on the data
-pred <- dat3[,c(3,4,10:39)]
+pred <- dat3[,c(9:40)]
 predict_lm <- predict(lm_pumpk, newdata = pred, type = "response")
-compare_lm <- data.frame("abund" = dat3$logabund, "prob" = predict_lm)
+compare_lm <- data.frame("abund" = dat3$logabund, "mdl_abund" = predict_lm)
 
-ggplot(data = compare_lm, mapping = aes(x = abund, y = prob))+
-  geom_point(alpha = 0.05, size = 5)+
-  geom_smooth()
+#plot
+dat2$prediction <- compare_lm$mdl_abund
+lm_pumpk_results <- left_join(fish_shp, dat2, by ="UID")
+ggplot(data = lm_pumpk_results[!is.na(lm_pumpk_results$prediction),])+
+  geom_sf(aes(col=prediction))
 
-final <- data.frame("abundance" = dat3$logabund, predict_prob = compare_logreg$prob, predict_abund = compare_lm$prob)
-final$prob_binary <- ifelse(final$predict_prob >0.2, 1, 0)
-final$abundance_prediction <- final$prob_binary*final$predict_abund
 
-ggplot(data = final, mapping = aes(x = abundance, y = abundance_prediction))+
-  geom_point(alpha = 0.05, size = 5)+
-  geom_smooth()
+#plot 
+
+dat2$logpred <- compare_logreg$prob
+dat2$abunPred <- compare_lm$mdl_abund
+dat2$finalpred <- ifelse(dat2$logpred<0.1, 0, dat2$abunPred)
+final_pumpk_results <- left_join(fish_shp, dat2, by ="UID")
+final_pumpk_results$occurrence <- ifelse(final_pumpk_results$finalpred>0, 1,0)
+ggplot(data = final_pumpk_results[!is.na(final_pumpk_results$finalpred),])+
+  geom_sf(aes(fill = as.factor(occurrence), size = finalpred), pch = 21, col="black")
+
+
+#linear mixed model
 
 
 
