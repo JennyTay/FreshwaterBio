@@ -157,6 +157,9 @@ Model species richness using a mutivariate linear mode at the HUC12 scale
 
 ```{r}
 
+library(foreign)
+library(nnet)
+
 counts <- fish_count_with_zeros %>%
   filter(gear == "efish_backpack") %>%
   left_join(final_traits, by = "common_name") 
@@ -173,8 +176,10 @@ temp_counts <- counts %>%
   select(UID, tmp, totalcount, temp_count) %>% 
   unique() %>% 
   mutate(propabun_tmp = temp_count/totalcount) %>% 
-  select(UID, tmp, propabun_tmp) %>% 
-  pivot_wider(names_from = tmp, values_from = propabun_tmp) #LEFT OFF HERE!!! maybe need to make a ifelse statement, if cold >0.6, cold dominated...
+  filter(temp_count> 0)
+
+#revalue counts of greater than 500 to be 500 -- eventually we want to edit the fish count file to exclude juveniles.. hopefully this will get rid of some of the really large counts..
+temp_counts$temp_count[temp_counts$temp_count>500] <- 500
 
 #plot the observed proportional abundance
 shp <- left_join(fish_shp, temp_counts, by = "UID") %>%
@@ -183,8 +188,19 @@ ggplot(data = shp)+
   geom_sf(aes(fill = propabun_tmp, col = propabun_tmp, alpha = 0.5), pch = 21)+
   facet_wrap(~tmp, nrow = 2)
 
-temp_counts <- left_join(temp_counts, dat3, by = "UID")
+#for the multinomial analysis, we want the dependent variable to be catagores, rather than a proportion of different categories
+#one way to do this, is to repeat each observation 'n' times
+#for example, is a site had 5 cold spp and 5 cool spp, we would make five rows for cold and five rows for cool.
+n <-  temp_counts$temp_count
+temp_counts <- temp_counts[rep(seq_len(nrow(temp_counts)), n),]
+temp_counts <- temp_counts %>% 
+  select(tmp, UID) %>% 
+  left_join(dat3, by = "UID")
 
+
+temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "cool")
+test <- multinom(tmp2 ~ lat + long + ElevWs, data = temp_counts)
+summary(test)
 
 
 sp_timing_counts <- counts%>% 
