@@ -165,6 +165,7 @@ counts <- fish_count_with_zeros %>%
   left_join(final_traits, by = "common_name") 
 
 
+#set up the temperature dataframe.  Want to count the number of cold, cool, warm, and eurythermal 
 temp_counts <- counts %>% 
   group_by(UID) %>% 
   mutate(totalcount = sum(count)) %>% 
@@ -197,10 +198,45 @@ temp_counts <- temp_counts %>%
   select(tmp, UID) %>% 
   left_join(dat3, by = "UID")
 
-
+#convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
 temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "cool")
-test <- multinom(tmp2 ~ lat + long + ElevWs, data = temp_counts)
+
+#run the multinomial model
+test <- multinom(tmp2 ~ lat + long + logWsAreaSqKm + 
+                 annual_mean_max_temp_30d + 
+                 logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 
+                 BFIWs + ElevWs + WtDepWs + PctOw_Ws + PctUrbOp_Ws +
+                 PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
+                 PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100,
+                 data = temp_counts)
 summary(test)
+
+#calcuate predicted probablies of each outcome.
+
+predict <- temp_counts %>% 
+  select(-c(1,5, 6,7,8,9, 36)) %>% 
+  unique()
+
+pp <- predict(test, newdata = predict, "probs")
+
+predict2 <- data.frame("UID" = predict$UID,
+                       "cool" = pp[,1],
+                       "cold" = pp[,2],
+                       "eury" = pp[,3],
+                       "warm" = pp[,4])
+
+predict3 <- left_join(fish_shp, predict2, by = "UID") %>%
+  select(cool, cold, eury, warm) %>% 
+  pivot_longer(1:4, names_to = "temperature", values_to = "proportion")
+  
+ggplot(data = predict3[predict3$proportion>0,])+
+  geom_sf(aes(fill = proportion), pch = 21, col = "black")+
+  facet_wrap(~temperature, nrow = 2)
+
+
+
+#odds = exp(logodds)
+#probability = odds/(1+odds)
 
 
 sp_timing_counts <- counts%>% 
