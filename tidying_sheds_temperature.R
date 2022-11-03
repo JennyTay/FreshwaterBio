@@ -36,7 +36,7 @@ lines_midpoints <- SpatialLinesMidPoints(lines_spatial) #get the midpoints
 #crop by huc8
 
 lines_midpoints <- as(lines_midpoints, "sf") #convert back to an sf object
-huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp") #get the polygon to crop with
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp") #get the polygon to crop with
 
 st_crs(huc8) == st_crs(lines_midpoints) #check to see if they are the same projection - they are not
 lines_midpoints <- st_transform(lines_midpoints, st_crs(huc8)) #transform the lines to match the nhd data files
@@ -47,7 +47,7 @@ lines_midpoints_crop <- st_crop(lines_midpoints, huc8) #crop the points from the
 
 
 
-states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 states <- st_transform(states, st_crs(huc8)) #transform the lines to match the nhd data files
 lines_midpoints_subset <- lines_midpoints[states, ] #this worked to crop
 
@@ -72,9 +72,9 @@ rm(lines_spatial, lines_midpoints, lines, lines01, lines02, lines04)
 # we will use the same method we used to join the hucs to the fish survey event to instead join the temperature stream point 
 
 
-huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
-huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
-huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 
 
 #prepare the huc files - select the attributes we want and remove the duplicated rows
@@ -217,13 +217,15 @@ save(metrics08, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_dat
 
 
 #plot temperatures
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_annaul.RData")
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 
-dat <- left_join(huc12, metrics12, by = c("name" = "huc12_name"))
+dat <- left_join(huc12, metrics12, by = "huc12_name")
+
 
 ggplot()+
-  geom_sf(data = dat[dat$timeperiod == "pre",], 
+  geom_sf(data = dat[dat$timeperiod == "post",], 
           aes(fill = mean_summer_temp), color = NA)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
         panel.grid.major = element_blank(),
@@ -232,4 +234,16 @@ ggplot()+
   ggtitle(label = "mean summer temperature")+
   labs(fill = "Temperature (C)")
 
+
+dat <- right_join(huc12, metrics_annual, by = "huc12_name")
+
+ggplot()+
+  geom_sf(data = dat[dat$year == 1990,], 
+          aes(fill = annual_mean_summer_temp), color = NA)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank())+
+  ggtitle(label = "mean annual summer temperature")+
+  labs(fill = "Temperature (C)")
 

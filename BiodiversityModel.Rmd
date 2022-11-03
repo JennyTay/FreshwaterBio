@@ -52,8 +52,10 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_trai
 
 
 first make a proportional abundance column and then join the count data to the event data and to all the covariates
- 
+Then model relative abundance with a zero-inflated binomial model from the glmmTMB package
 ```{r}
+
+library(glmmTMB)
 
 counts <- fish_count_with_zeros %>%
   filter(gear == "efish_backpack") %>% 
@@ -84,30 +86,21 @@ dat <- dat %>%
   select(UID, occurrence, count, abund_km, propabun, year, month, state, source, huc8_name, lat, long, 18:43)
 
 
-```
 
-
-
-
-
-model relative abundance with a zero-inflated binomial model from the glmmTMB package
-
-```{r}
-#first plot relative abundance values and map the distribution of those values
 #histogram of relative abundance
+ggplot(data = dat, mapping = aes(x = propabun))+
+  geom_histogram()
+#histogram of relative abundance without the zeros so we can see the other data
 ggplot(data = dat[dat$occurrence ==1,], mapping = aes(x = propabun))+
   geom_histogram()
 
-#plot a map of observed relative abundance - need to join to the shapefile with UID
+#map of observed relative abundance - need to join to the shapefile with UID
 rel_abundance <- left_join(fish_shp, dat, by ="UID") 
 ggplot(data = rel_abundance)+
   geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
 
 
-library(glmmTMB)
 
-dat3$state <- as.factor(dat3$state)
-dat3$source <- as.factor(dat3$source)
 
 mdl <- glmmTMB(occurrence ~ 
                  lat + long + logWsAreaSqKm + 
@@ -121,6 +114,13 @@ mdl <- glmmTMB(occurrence ~
                family = "binomial")
 
 summary(mdl)
+
+#make a table of the model resuls
+
+# results <- fixef(mdl)
+# results2 <- as.data.frame(results$cond)
+# results2$variable <- row.names(results2)
+# results3 <- results$zi
 
 #predict the model on the historical data
 pred_data <- dat[,11:38]
@@ -186,7 +186,7 @@ temp_counts$temp_count[temp_counts$temp_count>500] <- 500
 shp <- left_join(fish_shp, temp_counts, by = "UID") %>%
   filter(!is.na(propabun_tmp)) 
 ggplot(data = shp)+
-  geom_sf(aes(fill = propabun_tmp, col = propabun_tmp, alpha = 0.5), pch = 21)+
+  geom_sf(aes(fill = propabun_tmp, col = propabun_tmp), pch = 21, alpha = 0.5)+
   facet_wrap(~tmp, nrow = 2)
 
 #for the multinomial analysis, we want the dependent variable to be catagores, rather than a proportion of different categories
@@ -202,14 +202,14 @@ temp_counts <- temp_counts %>%
 temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "cool")
 
 #run the multinomial model
-test <- multinom(tmp2 ~ lat + long + logWsAreaSqKm + 
+mdl <- multinom(tmp2 ~ lat + long + logWsAreaSqKm + 
                  annual_mean_max_temp_30d + 
                  logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 
                  BFIWs + ElevWs + WtDepWs + PctOw_Ws + PctUrbOp_Ws +
                  PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
                  PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100,
                  data = temp_counts)
-summary(test)
+summary(mdl)
 
 #calcuate predicted probablies of each outcome.
 
@@ -217,7 +217,7 @@ predict <- temp_counts %>%
   select(-c(1,5, 6,7,8,9, 36)) %>% 
   unique()
 
-pp <- predict(test, newdata = predict, "probs")
+pp <- predict(mdl, newdata = predict, "probs")
 
 predict2 <- data.frame("UID" = predict$UID,
                        "cool" = pp[,1],
@@ -229,8 +229,8 @@ predict3 <- left_join(fish_shp, predict2, by = "UID") %>%
   select(cool, cold, eury, warm) %>% 
   pivot_longer(1:4, names_to = "temperature", values_to = "proportion")
   
-ggplot(data = predict3[predict3$proportion>0,])+
-  geom_sf(aes(fill = proportion), pch = 21, col = "black")+
+ggplot(data = predict3[predict3$proportion>0 & !is.na(predict3$proportion),])+
+  geom_sf(aes(col = proportion))+
   facet_wrap(~temperature, nrow = 2)
 
 
