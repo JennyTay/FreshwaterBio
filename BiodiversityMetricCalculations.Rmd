@@ -1659,6 +1659,81 @@ print(i)
 
 
 
+
+
+#####################################
+
+#cluster based on the occurrence of other species for each HUC10, lumping all stream orders within each HUC 8
+#use the proportional abundance instead of presence
+
+#####################################
+
+
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+
+counts <- fish_count_with_zeros %>%
+  filter(gear == "efish_backpack") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = (count / totalcount)) %>% 
+  select(UID, propabun, common_name)
+  
+tmp <- left_join(counts, fish_event_huc_join, by = "UID") %>% 
+  unique()
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+
+  
+tmp <- left_join(fish_occurrence, fish_event_huc_join, by = "UID") 
+
+
+for (i in unique(tmp$huc10_name)) {
+
+dat <- tmp %>% 
+  filter(huc10_name == i) %>% 
+  filter(!is.na(common_name))
+#remove spp that are never present
+keep <- dat %>% 
+  group_by(common_name) %>% 
+  summarise(occ = sum(occurrence)) %>% 
+  filter(occ > 0)
+
+
+dat <- dat %>%
+  filter(common_name %in% keep$common_name ) %>%  
+  select(UID, common_name, occurrence) %>% 
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = paste("tmpfigures/fish_clusters_huc10/", i, ".png", sep = ""), units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg, main = paste(i, "n = ", ncol(test), sep = " "), cex = 1.5)
+
+dev.off()
+
+print(i)
+
+}
+
+
+
+
+
+
+
+
+
 #########################################
 
 #cluster based on the occurrence of other species for each HUC8 and for groups of stream orders within each huc 8

@@ -65,7 +65,7 @@ counts <- fish_count_with_zeros %>%
   mutate(propabun = (count / totalcount)) %>% 
   select(UID, count, totalcount, propabun, common_name, gear, reach_length_m, avg_reach_width_m, efish_duration_s) %>% 
   mutate(abund_km = count / (reach_length_m) *1000) %>% 
-  filter(common_name == "redfin pickerel")
+  filter(common_name == "brook trout")
 
 #plot the observed proportional abundance
 shp <- left_join(fish_shp, counts, by = "UID") %>%
@@ -86,6 +86,18 @@ dat <- dat %>%
   select(UID, occurrence, count, abund_km, propabun, year, month, state, source, huc8_name, lat, long, 18:43)
 
 
+#plot of variables vs proportional abundance
+dat$occurrence <- as.factor(dat$occurrence)
+ggplot(data = dat, mapping = aes(x = occurrence, y = pctforest_Ws))+
+  geom_violin()+
+  geom_boxplot(width = 0.1)+
+  geom_smooth(method = "lm")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+  labs(title = "brook trout")
+
 
 #histogram of relative abundance
 ggplot(data = dat, mapping = aes(x = propabun))+
@@ -99,10 +111,10 @@ rel_abundance <- left_join(fish_shp, dat, by ="UID")
 ggplot(data = rel_abundance)+
   geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
 
+#use PCA to combine all the variables used in the conditional model (or both models?) need to do this
 
 
-
-mdl <- glmmTMB(occurrence ~ 
+mdl <- glmmTMB(propabun ~ 
                  lat + long + logWsAreaSqKm + 
                  annual_mean_max_temp_30d + 
                  logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 

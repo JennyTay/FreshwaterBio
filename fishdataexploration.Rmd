@@ -22,10 +22,10 @@ Load fish data
 ``` {r}
 
 #load data
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
 
 

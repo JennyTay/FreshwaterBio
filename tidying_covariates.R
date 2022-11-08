@@ -1,5 +1,5 @@
 
-
+library(corrplot)
 
 #fish data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
