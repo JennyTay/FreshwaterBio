@@ -1884,3 +1884,48 @@ print(i)
 
 ```
 
+
+Cluster based on covariates
+```{r}
+library(vegan)
+
+#fish data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+#tidied covariates (this is called dat3)
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+
+
+
+
+counts <- fish_count_with_zeros %>%
+  filter(gear == "efish_backpack",
+         run_num ==1) %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  filter(totalcount>0) %>% 
+  mutate(propabun = (count / totalcount))
+
+
+#join the counts to the tidying covariates, dat3
+dat <- left_join(counts, dat3, by = "UID") %>% 
+  select(1, 4, 14, 15,16, 22:47) %>% 
+  group_by(UID, lat, long, low_dur_days, high_dur_days, min_month, monthly_min_flow, max_month, annual_mean_max_temp_30d, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, BFIWs, ElevWs, WtDepWs, PctOw_Ws, PctUrbOp_Ws, PctBl_Ws, PctShrb_Ws, PctGrs_Ws, PctHay_Ws, PctWdWet_Ws, PctHbWet_Ws, PctImp_Ws, PctImp_WsRp100, pctforest_Ws, logWsAreaSqKm, logMJJA_HIST, common_name) %>%
+  summarise(n = n()) %>%
+  filter(n > 1)
+
+%>% 
+  pivot_wider(names_from = "common_name", values_from = "propabun")
+
+com <-  dat[,29:106]
+env <-  dat[,1:28]
+
+m_com <-  as.matrix(com)
+
+#nmds code
+set.seed(4352)
+nmds <-  metaMDS(m_com, distance = "bray")
+nmds
+
+```

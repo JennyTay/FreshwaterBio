@@ -3,6 +3,8 @@
 
 library(sf)
 library(sp)
+library(maptools)
+library(rgeos)
 
 ne <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDPlusNE/NHDPlus01/NHDSnapshot/Hydrography/NHDFlowline.shp")
 ma <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDPlusV21_MA_02_NHDSnapshot_04/NHDPlusMA/NHDPlus02/NHDSnapshot/Hydrography/NHDFlowline.shp")
@@ -47,9 +49,6 @@ st_write(NE_crop, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/Spatia
 
 
 
-#USGS gauge data
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetrics/survey_huc8flowmetrics.RData")
-
 #SHEDs temp data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_annaul.RData")
@@ -70,7 +69,7 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_b
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
 huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
-NE_crop <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+NHDplusV2_NewEngCrop <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
 
 
 #prepare the huc files - select the attributes we want and remove the duplicated rows
@@ -106,12 +105,123 @@ huc12 <- huc12 %>%
          huc12_name != "Ruiss Coslett-Riviere Aux Brochets")
 
 
+
+
+
+
+
 #convert the NHD to points so we can join to the HUC
 #convert the lines to midpoints
-NE_crop <- NE_crop %>% st_zm() %>% 
+NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop %>% st_zm() %>% 
   filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
-  select(COMID, GNIS_ID, GNIS_NAME, LENGTHKM, REACHCODE)
+  select(COMID)
+#read in this dataset because its a projection that works with the spatiallinesmidpoints function
+lines04 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_04/truncatedFlowlines04.shp")
 
-lines_spatial <- as(NE_crop, "Spatial") #make a spatial data file
+NHDplusV2_NewEngCrop <- st_transform(NHDplusV2_NewEngCrop, st_crs(lines04))
+rm(lines04)
+
+lines_spatial <- as(NHDplusV2_NewEngCrop, "Spatial") #make a spatial data file
 lines_midpoints <- SpatialLinesMidPoints(lines_spatial) #get the midpoints
+lines_midpoints <- as(lines_midpoints, "sf") #convert back to an sf object
 
+st_crs(huc8) == st_crs(lines_midpoints) #check to see if they are the same projection - they are not
+lines_midpoints <- st_transform(lines_midpoints, st_crs(huc8)) #transform the lines to match the nhd data files
+st_crs(huc8) == st_crs(lines_midpoints) #confirm they are correctly projected.. they now are
+names(lines_midpoints)[1] <- "COMID"
+
+lines_midpoints <- lines_midpoints%>% 
+  mutate(long = unlist(map(lines_midpoints$geometry,1)),
+         lat = unlist(map(lines_midpoints$geometry,2)))
+
+#get the lat and long from the geography column
+
+sf_use_s2(FALSE)
+NHDv2_huc_join <- st_join(lines_midpoints, huc8, left = FALSE)
+NHDv2_huc_join <- st_join(NHDv2_huc_join, huc10, left = FALSE)
+NHDv2_huc_join <- st_join(NHDv2_huc_join, huc12, left = FALSE)
+
+
+
+
+
+#join to the covariates by COMID
+
+NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcat_byCOMID, by = "COMID")
+NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_census, by = "COMID")
+NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_imp, by = "COMID")
+NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_landcov, by = "COMID")
+
+
+flowmet_historical_crop <- as.data.frame(flowmet_historical_crop)
+flowmet_historical_crop$COMID <- as.integer(flowmet_historical_crop$COMID)
+NHDv2_huc_join <- left_join(NHDv2_huc_join, flowmet_historical_crop, by = "COMID")
+
+#join to the sheds data by HUC12 name.  the model is built using the modeled temperature at the year of the survey, but in the prediction data
+#set, we will jsut use the average baseline temperature
+
+metrics12 <- metrics12 %>% 
+  group_by(huc12_name) %>% 
+  summarise(max_temp = mean(max_temp),
+            mean_jul_temp = mean(mean_jul_temp),
+            mean_summer_temp = mean(mean_summer_temp),
+            mean_max_temp_30d = mean(mean_max_temp_30d),
+            mean_n_day_gt_22 = mean(mean_n_day_gt_22))
+
+NHDv2_huc_join <- left_join(NHDv2_huc_join, metrics12, by = "huc12_name")
+
+
+
+
+
+#edit the variables that we editted in the covariate dataset
+NHDv2_huc_join <- NHDv2_huc_join %>% 
+  mutate(pctforest_Ws = PctDecid_Ws + PctConif_Ws + PctMxFst_Ws, 
+         logWsAreaSqKm = log(WsAreaSqKm),
+         logMJJA_HIST = log(MJJA_HIST)) %>% 
+  select(-WsAreaSqKm, -MJJA_HIST, -PctDecid_Ws, -PctConif_Ws, -PctMxFst_Ws ) %>% 
+  rename(annual_mean_max_temp_30d = mean_max_temp_30d) #put annual in front so that it matches the covariates
+
+
+#select just the variables we keep in the covariate dataset
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+
+
+NHDv2_huc_join <- NHDv2_huc_join %>% 
+  select(COMID, names(dat3)[2:3], names(dat3)[14:34]) %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+
+
+#join to the line file because its currently in the mid point form
+NHDplusV2_NewEngCrop <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop %>% st_zm() %>% 
+  filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
+  select(COMID) 
+
+NHDplusV2_NewEngCrop <- left_join(NHDplusV2_NewEngCrop, NHDv2_huc_join, by = "COMID")
+
+
+
+save(NHDplusV2_NewEngCrop, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+
+
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = BFI_HIST))+
+  geom_sf()
+
+
+clu <- NHDplusV2_NewEngCrop %>%
+  data.frame() %>% 
+  select("annual_mean_max_temp_30d", "BFI_HIST", "CFM_HIST", "W95_HIST", 
+         "BFIWs", "ElevWs", "PctImp_WsRp100", "pctforest_Ws")
+clu <- clu[complete.cases(clu),]
+
+
+#clustering isnt working because the dataframe is too big. will need to cut the data frame down randonly, maybe assign random number and drop 20,000
+clusters <- hclust(dist(clu))
