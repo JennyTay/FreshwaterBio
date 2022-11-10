@@ -1888,6 +1888,7 @@ print(i)
 Cluster based on covariates
 ```{r}
 library(vegan)
+library(tidyverse)
 
 #fish data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
@@ -1909,23 +1910,57 @@ counts <- fish_count_with_zeros %>%
 
 
 #join the counts to the tidying covariates, dat3
-dat <- left_join(counts, dat3, by = "UID") %>% 
-  select(1, 4, 14, 15,16, 22:47) %>% 
+
+#There are some duplicated UIDs so we want to remove them
+test <- left_join(counts, dat3, by = "UID") %>% 
+  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+  select(1, 4, 15,16, 22:47, 48) %>% 
   group_by(UID, lat, long, low_dur_days, high_dur_days, min_month, monthly_min_flow, max_month, annual_mean_max_temp_30d, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, BFIWs, ElevWs, WtDepWs, PctOw_Ws, PctUrbOp_Ws, PctBl_Ws, PctShrb_Ws, PctGrs_Ws, PctHay_Ws, PctWdWet_Ws, PctHbWet_Ws, PctImp_Ws, PctImp_WsRp100, pctforest_Ws, logWsAreaSqKm, logMJJA_HIST, common_name) %>%
   summarise(n = n()) %>%
   filter(n > 1)
+unique(test$UID)
+#[1] "RI_3_1_16_1170509"  "RI_4_1_4_1170810"   "RI_9_NA_60_1100709"
 
-%>% 
-  pivot_wider(names_from = "common_name", values_from = "propabun")
+counts <- counts %>% 
+  filter(!UID == "RI_3_1_16_1170509" & !UID == "RI_4_1_4_1170810" & !UID == "RI_9_NA_60_1100709")
 
-com <-  dat[,29:106]
-env <-  dat[,1:28]
+test <- left_join(counts, dat3, by = "UID") %>% 
+  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+  select(1, 4,  15,16, 27:48) %>%  
+  pivot_wider(names_from = "common_name", values_from = "occurrence")
+
+sapply(test, function(x) sum(is.na(x)))
+
+test <- test[complete.cases(test),]
+
+#com <-  test[,25:102] #Takes a really long time.. maybe do a few at a time
+com <-  test[1:2000,25:60]
+env <-  test[1:2000,2:24]
+
+#count NAs in each spreadsheed
+sapply(com, function(x) sum(is.na(x)))
+sapply(env, function(x) sum(is.na(x)))
+
+
+
 
 m_com <-  as.matrix(com)
 
 #nmds code
 set.seed(4352)
-nmds <-  metaMDS(m_com, distance = "bray")
+nmds <-   metaMDS(m_com, distance = "gower")
 nmds
 
+en <- envfit(nmds, env, permutations = 999, na.rm = TRUE)
+plot(nmds, type='t', display=c('species'))
+
+
+
+png(height = 15, width = 15, file = "tmpfigures/nmds.png", units = "in", res = 150, type = "cairo")
+
+
+plot(nmds, type='t', display=c('species'), cex = 1.5)
+plot(en)
+
+dev.off()
 ```

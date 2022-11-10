@@ -212,8 +212,18 @@ save(NHDplusV2_NewEngCrop, file = "C:/Users/jenrogers/Documents/necascFreshwater
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 
-ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = BFI_HIST))+
-  geom_sf()
+ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = ElevWs))+
+  geom_sf() +
+  scale_color_gradientn(colors = terrain.colors(10), na.value = NA)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())+
+  labs(title = "Elevation (m)",
+       color = "m")
 
 
 clu <- NHDplusV2_NewEngCrop %>%
