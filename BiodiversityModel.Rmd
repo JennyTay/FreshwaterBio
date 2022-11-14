@@ -211,7 +211,7 @@ temp_counts <- temp_counts %>%
   left_join(dat3, by = "UID")
 
 #convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
-temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "cool")
+temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "warm")
 
 #run the multinomial model
 mdl <- multinom(tmp2 ~ lat + long + logWsAreaSqKm + 
@@ -221,7 +221,56 @@ mdl <- multinom(tmp2 ~ lat + long + logWsAreaSqKm +
                  PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
                  PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100,
                  data = temp_counts)
-summary(mdl)
+results <- summary(mdl)
+
+#plot the OR and the 95% confidence interval for Cold fish (vs warm fish)
+coef <- data.frame(results$coefficients) #make a coef table
+coef <- coef %>%  # keep only the cold coefficients 
+  mutate(temperature = rownames(coef)) %>% 
+  filter(temperature == "cold") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:23, names_to = "variable", values_to = "coef")
+se <- data.frame(results$standard.errors) #make a standard error table
+se <- se %>%  #keep only the cold water standard errors
+  mutate(temperature = rownames(se)) %>% 
+  filter(temperature == "cold") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:23, names_to = "variable", values_to = "se")
+
+#create a dataframe with the variables, coef and se in one dataframe
+results2 <- data.frame( 
+  "variable" = coef$variable,
+  "coef" = coef$coef,
+  "se" = se$se)
+
+#calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results2 <- results2 %>% 
+  mutate(z = coef/se,
+         p = (1 - pnorm(abs(z), 0, 1)) * 2,
+         CIlow = coef - (1.96*se),
+         CIhigh = coef + (1.96*se),
+         OR = exp(coef),
+         ORCIlow = exp(CIlow),
+         ORCIhigh = exp(CIhigh)) %>% 
+  arrange(OR)
+#the plot is ordering by the alphbatized letters of the variables, so we will make them factors ordered by the value of of the OR
+results2$variable <- factor(results2$variable, levels = results2$variable)
+#dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
+  geom_point()+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), width = 0)+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/coldtraitDotPlot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
 
 #calcuate predicted probablies of each outcome.
 
@@ -251,6 +300,10 @@ ggplot(data = predict3[predict3$proportion>0 & !is.na(predict3$proportion),])+
 #probability = odds/(1+odds)
 
 
+
+
+
+#set up the timing dataframe (ie the season that spp spawn)
 sp_timing_counts <- counts%>% 
   group_by(UID) %>% 
   mutate(totalcount = sum(count)) %>% 
@@ -262,14 +315,47 @@ sp_timing_counts <- counts%>%
   select(UID, timing, totalcount, timing_count) %>% 
   unique() %>% 
   mutate(propabun_timing = timing_count/totalcount) %>% 
-  select(-totalcount)
+  select(-totalcount) %>% 
+  filter(timing_count>0)
+
+#revalue counts of greater than 500 to be 500 -- eventually we want to edit the fish count file to exclude juveniles.. hopefully this will get rid of some of the really large counts..
+sp_timing_counts$timing_count[sp_timing_counts$timing_count>500] <- 500
+
 
 #plot the observed proportional abundance
 shp <- left_join(fish_shp, sp_timing_counts, by = "UID") %>%
   filter(!is.na(propabun_timing)) 
 ggplot(data = shp)+
-  geom_sf(aes(fill = propabun_timing, col = propabun_timing, alpha = 0.5), pch = 21)+
+  geom_sf(aes(fill = propabun_timing, col = propabun_timing), alpha = 0.5, pch = 21)+
   facet_wrap(~timing, nrow = 2)
+
+
+#for the multinomial analysis, we want the dependent variable to be catagores, rather than a proportion of different categories
+#one way to do this, is to repeat each observation 'n' times
+#for example, is a site had 5 cold spp and 5 cool spp, we would make five rows for cold and five rows for cool.
+n <-  sp_timing_counts$timing_count
+sp_timing_counts <- sp_timing_counts[rep(seq_len(nrow(sp_timing_counts)), n),]
+sp_timing_counts <- sp_timing_counts %>% 
+  select(timing, UID) %>% 
+  left_join(dat3, by = "UID")
+
+#convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
+sp_timing_counts$timing <- relevel(as.factor(sp_timing_counts$timing), ref = "warm")
+
+#run the multinomial model
+mdl <- multinom(timing ~ lat + long + logWsAreaSqKm + 
+                 annual_mean_max_temp_30d + 
+                 logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 
+                 BFIWs + ElevWs + WtDepWs + PctOw_Ws + PctUrbOp_Ws +
+                 PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
+                 PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100,
+                 data = sp_timing_counts)
+results <- summary(mdl)
+
+
+
+
+
 
 
 
@@ -284,13 +370,19 @@ sp_strat_counts <- counts%>%
   select(UID, strategy, totalcount, strategy_count) %>% 
   unique() %>% 
   mutate(propabun_strat = strategy_count/totalcount) %>% 
-  select(-totalcount)
+  select(-totalcount)%>% 
+  filter(strategy_count>0)
+
+hist(sp_strat_counts$strategy_count)
+
+#revalue counts of greater than 500 to be 500 -- eventually we want to edit the fish count file to exclude juveniles.. hopefully this will get rid of some of the really large counts..
+sp_strat_counts$strategy_count[sp_strat_counts$strategy_count>1000] <- 1000
 
 #plot the observed proportional abundance
 shp <- left_join(fish_shp, sp_strat_counts, by = "UID") %>%
   filter(!is.na(propabun_strat)) 
 ggplot(data = shp)+
-  geom_sf(aes(fill = propabun_strat, col = propabun_strat, alpha = 0.5), pch = 21)+
+  geom_sf(aes(fill = propabun_strat, col = propabun_strat), alpha = 0.5, pch = 21)+
   facet_wrap(~strategy, nrow = 1)
 
 
