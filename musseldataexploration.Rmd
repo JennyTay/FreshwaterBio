@@ -12,6 +12,7 @@ output: html_document
 
 #load new englad state data
 states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+rivers <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline_RiiversOnly_NE.shp")
 
 shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_occurrence.shp")
 
@@ -50,19 +51,32 @@ for( i in 1:length(unique(shp$cmmn_nm))){
 }
 
 
+VT <- states %>% 
+  filter(NAME == "VERMONT")
+
+
 ```
 number of unique survey events
 
 ```{r}
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_event.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_count.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_method.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_length.RData")
 
 tmp <- all_mussel_event %>% 
   group_by(state) %>% 
   summarise(count = n())
 
 unique(all_mussel_method$survey_method)
+
+#number of sureys with occurrence vs counts
+length(unique(all_mussel_count$UID))
+#1544
+length(unique(all_mussel_occurrence$UID))
+#3789
+
 
 
 ```
@@ -78,7 +92,7 @@ table(all_mussel_event$year)
 all_mussel_event$year[all_mussel_event$year == 1 & !is.na(all_mussel_event$year)] <- sample(1980:2005, length(all_mussel_event$year[all_mussel_event$year == 1]), replace = T)
 
 
-ggplot(data = all_mussel_event, mapping = aes(x = year))+
+ggplot(data = all_mussel_event[all_mussel_event$year>1975 & all_mussel_event$state !="NY",], mapping = aes(x = year))+
   geom_bar(aes(fill = state))+
   theme(axis.line = element_line(colour = "black"),
         panel.background = element_rect(fill = "white"),

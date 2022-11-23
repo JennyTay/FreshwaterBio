@@ -1,5 +1,8 @@
 
 library(corrplot)
+library(sf)
+library(tidyverse)
+library(caret)
 
 #fish data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
@@ -178,7 +181,12 @@ usfs <- dat2 %>%
   select(41:66)
 usfs <- usfs[complete.cases(usfs),] #remove rows with NA
 cor <- cor(usfs, method = c("spearman")) #make correlation matrix
+
+png(height = 10, width = 15, file = "tmpfigures/usfscorrplot.png", units = "in", res = 150, type = "cairo")
 corrplot(cor, type = "lower") #plot
+dev.off()
+
+round(colMeans(cor[1:22, 1:22]), 2)
 #all of the magnitude variables are very correlated so we will just keep one, Mean JJA, and then we will keep the other non-magnitude variables, which were not correlated at all to anything esle
 
 keep3 <- c("MJJA_HIST","BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST") 

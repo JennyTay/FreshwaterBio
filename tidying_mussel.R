@@ -456,6 +456,7 @@ me_mussel_event$longitude[me_mussel_event$UID == "ME-1995-07-20--45.9667-70.1583
 
 me_mussel_occurrence <- me_mussel %>% 
   select(UID, common_name, scientific_name, live_occurrence, shell_occurrence)
+me_mussel_occurrence$common_name[me_mussel_occurrence$common_name == "brook floater (swollen wedgemussel)"] <- "brook floater"
 
 me_mussel_method <- me_mussel %>% 
   select(UID, survey_method)
@@ -761,6 +762,7 @@ save(ri_mussel_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 ######################################################################
 
 
+name_conversion <- read.csv("musselsppnames.csv")
 
 #read in VT DEC data
 
@@ -784,6 +786,9 @@ vtdat$common_name[vtdat$scientific_name == "pyganodon grandis"] <- "giant floate
 vtdat$common_name[vtdat$scientific_name == "lasmigona compressa"] <- "creek heelsplitter"  
 vtdat$common_name[vtdat$scientific_name == "lampsilis ovata"] <- "pocketbook mussel"
 vtdat$common_name[vtdat$scientific_name == "potamilus alatus"] <-  "pink heelsplitter" 
+vtdat$common_name[vtdat$common_name == "squawfoot"] <-  "creeper"
+vtdat$common_name[vtdat$common_name == "pocketbook mussel"] <-  "pocketbook"
+vtdat$common_name[vtdat$common_name == "brook floater (swollen wedgemussel)"] <-  "brook floater"
 
 vt_mussel_event <- vtdat %>% 
   select(UID, state, date, latitude, longitude, project, source) %>% 
@@ -805,6 +810,212 @@ save(vt_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 
 
+
+
+
+#######################################################################
+
+##################### Vermont PDF data ################################
+
+#######################################################################
+
+
+VTevent <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/VT/VT_PDF_Data_Extraction.xlsx",
+                sheet = 1, col_types = c("text", "text", "numeric", "numeric", 
+                                         "date", "text", "text", "text", "text", 
+                                         "text", "numeric", "text", "text", "text", "text"))
+
+
+VToccurr <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/VT/VT_PDF_Data_Extraction.xlsx",
+                      sheet = 2, col_types = c("text", "text", "text", "numeric", "numeric", 
+                                               "numeric", "numeric", "text"))
+
+VTdem <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/VT/VT_PDF_Data_Extraction.xlsx",
+                       sheet = 3, col_types = c("text", "text", "numeric", "numeric", 
+                                                "numeric", "numeric", "numeric", "text"))
+
+
+#tidy the event data
+vt_mussel_pdf_event <- VTevent %>% 
+  select(UID, State, date, latitude, longitude, waterbody) %>% 
+  mutate(source = "MichelleGraziosi-VTDEC-PDFreports",
+         project = "variable mussel reports")
+
+names(vt_mussel_pdf_event)[2:8] <- tolower(names(vt_mussel_pdf_event)[2:8])
+
+
+
+#tidy the occurrence data
+vt_mussel_pdf_occurrence <- VToccurr %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
+  mutate(common_name = tolower(common_name),
+         scientific_name = tolower(scientific_name))
+#correct the name spellings
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "squawfoot"] <- "creeper"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "eastern elliptios"] <- "eastern elliptio"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "eastern lamp mussel"] <- "eastern lampmussel"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "alewife floaters"] <- "alewife floater"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "fluted-shell"] <- "flutedshell"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "fluted shell"] <- "flutedshell"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "pocketbook mussel"] <- "pocketbook"
+vt_mussel_pdf_occurrence$common_name[vt_mussel_pdf_occurrence$common_name == "eastern pearl mussel"] <- "eastern pearlshell"
+vt_mussel_pdf_occurrence$scientific_name[vt_mussel_pdf_occurrence$scientific_name == "strophitus undulates"] <- "strophitus undulatus"
+vt_mussel_pdf_occurrence$scientific_name[vt_mussel_pdf_occurrence$scientific_name == "elliptic complanata"] <- "elliptio complanata"
+vt_mussel_pdf_occurrence$scientific_name[vt_mussel_pdf_occurrence$scientific_name == "anodontoidesferussacianus"] <- "anodontoides ferussacianus"
+vt_mussel_pdf_occurrence$scientific_name[vt_mussel_pdf_occurrence$scientific_name == "lasmigonacompressa"] <- "lasmigona compressa"
+
+
+#add scientific  names to the spp that only have common names
+temp <-vt_mussel_pdf_occurrence %>% 
+  filter(is.na(scientific_name))
+unique(temp$common_name)
+
+temp$scientific_name[temp$common_name == "alewife floater"] <- "anodonta implicata"
+temp$scientific_name[temp$common_name == "brook floater"] <- "alasmidonta varicosa"
+temp$scientific_name[temp$common_name == "creek heelsplitter"] <- "lasmigona compressa"
+temp$scientific_name[temp$common_name == "creeper"] <- "strophitus undulatus"
+temp$scientific_name[temp$common_name == "cylindrical papershell"] <- "anodontoides ferussacianus"
+temp$scientific_name[temp$common_name == "eastern elliptio"] <- "elliptio complanata"
+temp$scientific_name[temp$common_name == "eastern floater"] <- "pyganodon cataracta"
+temp$scientific_name[temp$common_name == "eastern lampmussel"] <- "lampsilis radiata"
+temp$scientific_name[temp$common_name == "eastern pearlshell"] <- "margaritifera margaritifera"
+temp$scientific_name[temp$common_name == "elktoe"] <- "alasmidonta marginata"
+temp$scientific_name[temp$common_name == "flutedshell"] <- "lasmigona costata"
+temp$scientific_name[temp$common_name == "fragile papershell"] <- "leptodea fragilis"
+temp$scientific_name[temp$common_name == "giant floater"] <- "pyganodon grandis"
+temp$scientific_name[temp$common_name == "pink heelsplitter"] <- "potamilus alatus"
+temp$scientific_name[temp$common_name == "pocketbook"] <- "lampsilis ovata "
+temp$scientific_name[temp$common_name == "triangle floater"] <- "alasmidonta undulata"
+
+#add common names to the ones with scientific names
+temp2 <-vt_mussel_pdf_occurrence %>% 
+  filter(is.na(common_name))
+sort(unique(temp2$scientific_name))
+
+temp2$common_name[temp2$scientific_name == "alasmidonta undulata"] <- "triangle floater"
+temp2$common_name[temp2$scientific_name == "alasmidonta varicosa"] <- "brook floater"
+temp2$common_name[temp2$scientific_name == "elliptio complanata"] <- "eastern elliptio"
+temp2$common_name[temp2$scientific_name == "lampsilis ovata"] <- "pocketbook"
+temp2$common_name[temp2$scientific_name == "lampsilis radiata"] <- "eastern lampmussel"
+temp2$common_name[temp2$scientific_name == "lasmigona costata"] <- "flutedshell"
+temp2$common_name[temp2$scientific_name == "margaritifera margaritifera"] <- "eastern pearlshell"
+temp2$common_name[temp2$scientific_name == "strophitus undulatus"] <- "creeper"
+
+#make a df with the rows that originally had both scientific and common names
+temp3 <- vt_mussel_pdf_occurrence %>% 
+  filter(!is.na(scientific_name), !is.na(common_name))
+
+#combine the three datasets back to one occurence dataset
+vt_mussel_pdf_occurrence <- rbind(temp, temp2, temp3)
+
+rm(temp, temp2, temp3)
+
+
+
+#tidy the count data
+vt_mussel_pdf_count <- VToccurr %>% 
+  select(UID, common_name, scientific_name, live_count, shell_count)%>% 
+  mutate(common_name = tolower(common_name),
+         scientific_name = tolower(scientific_name))
+ #fix the spelling
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "squawfoot"] <- "creeper"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "eastern elliptios"] <- "eastern elliptio"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "eastern lamp mussel"] <- "eastern lampmussel"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "alewife floaters"] <- "alewife floater"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "fluted-shell"] <- "flutedshell"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "fluted shell"] <- "flutedshell"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "pocketbook mussel"] <- "pocketbook"
+vt_mussel_pdf_count$common_name[vt_mussel_pdf_count$common_name == "eastern pearl mussel"] <- "eastern pearlshell"
+vt_mussel_pdf_count$scientific_name[vt_mussel_pdf_count$scientific_name == "strophitus undulates"] <- "strophitus undulatus"
+vt_mussel_pdf_count$scientific_name[vt_mussel_pdf_count$scientific_name == "elliptic complanata"] <- "elliptio complanata"
+vt_mussel_pdf_count$scientific_name[vt_mussel_pdf_count$scientific_name == "anodontoidesferussacianus"] <- "anodontoides ferussacianus"
+vt_mussel_pdf_count$scientific_name[vt_mussel_pdf_count$scientific_name == "lasmigonacompressa"] <- "lasmigona compressa"
+
+#add scientific  names to the spp that only have common names
+temp <-vt_mussel_pdf_count %>% 
+  filter(is.na(scientific_name))
+sort(unique(temp$common_name))
+
+temp$scientific_name[temp$common_name == "alewife floater"] <- "anodonta implicata"
+temp$scientific_name[temp$common_name == "brook floater"] <- "alasmidonta varicosa"
+temp$scientific_name[temp$common_name == "creek heelsplitter"] <- "lasmigona compressa"
+temp$scientific_name[temp$common_name == "creeper"] <- "strophitus undulatus"
+temp$scientific_name[temp$common_name == "cylindrical papershell"] <- "anodontoides ferussacianus"
+temp$scientific_name[temp$common_name == "eastern elliptio"] <- "elliptio complanata"
+temp$scientific_name[temp$common_name == "eastern floater"] <- "pyganodon cataracta"
+temp$scientific_name[temp$common_name == "eastern lampmussel"] <- "lampsilis radiata"
+temp$scientific_name[temp$common_name == "eastern pearlshell"] <- "margaritifera margaritifera"
+temp$scientific_name[temp$common_name == "elktoe"] <- "alasmidonta marginata"
+temp$scientific_name[temp$common_name == "flutedshell"] <- "lasmigona costata"
+temp$scientific_name[temp$common_name == "fragile papershell"] <- "leptodea fragilis"
+temp$scientific_name[temp$common_name == "giant floater"] <- "pyganodon grandis"
+temp$scientific_name[temp$common_name == "pink heelsplitter"] <- "potamilus alatus"
+temp$scientific_name[temp$common_name == "pocketbook"] <- "lampsilis ovata "
+temp$scientific_name[temp$common_name == "triangle floater"] <- "alasmidonta undulata"
+
+#add common  names to the spp that only have scientific names
+temp2 <-vt_mussel_pdf_count %>% 
+  filter(is.na(common_name))
+sort(unique(temp2$scientific_name))
+
+temp2$common_name[temp2$scientific_name == "alasmidonta undulata"] <- "triangle floater"
+temp2$common_name[temp2$scientific_name == "alasmidonta varicosa"] <- "brook floater"
+temp2$common_name[temp2$scientific_name == "elliptio complanata"] <- "eastern elliptio"
+temp2$common_name[temp2$scientific_name == "lampsilis ovata"] <- "pocketbook"
+temp2$common_name[temp2$scientific_name == "lampsilis radiata"] <- "eastern lampmussel"
+temp2$common_name[temp2$scientific_name == "lasmigona costata"] <- "flutedshell"
+temp2$common_name[temp2$scientific_name == "margaritifera margaritifera"] <- "eastern pearlshell"
+temp2$common_name[temp2$scientific_name == "strophitus undulatus"] <- "creeper"
+
+#make a df with the rows that originally had both scientific and common names
+temp3 <- vt_mussel_pdf_count %>% 
+  filter(!is.na(scientific_name), !is.na(common_name))
+
+#combine the three datasets back to one count dataset
+vt_mussel_pdf_count <- rbind(temp, temp2, temp3)
+
+
+rm(temp, temp2, temp3)
+
+
+
+
+#tidy the mussel length data
+vt_mussel_pdf_length <- VTdem %>% 
+  select(-QC)
+
+vt_mussel_pdf_length <- vt_mussel_pdf_length %>% 
+  mutate(scientific_name = ifelse(common_name == "brook floater", 
+                                  "alasmidonta varicosa",  
+                                  "margaritifera margaritifera")) %>% 
+  select(UID, common_name, scientific_name, length_mm, mean_length_mm, min_length_mm, max_length_mm, sd_mm)
+
+
+
+#tidy the method data - the search time and average wetted width are not terribily reliable... probabilty should just remove this data
+vt_mussel_pdf_method <- VTevent %>% 
+  select(UID, survey_method, number_searchers, survey_duration_hr, reach_length_surveyed_m, wet_width_avg_m, survey_goal) %>% 
+  rename(reach_length_m = reach_length_surveyed_m,
+         goal = survey_goal,
+         "search time" = survey_duration_hr) #these times and units are not reliatble, will likely want to exclude them
+vt_mussel_pdf_method$reach_length_m <- gsub("m", "", vt_mussel_pdf_method$reach_length_m)
+#two reach lengths were recorded in ft, change to meters
+vt_mussel_pdf_method$reach_length_m[vt_mussel_pdf_method$reach_length_m == "250ft"] <- 76.2
+vt_mussel_pdf_method$reach_length_m[vt_mussel_pdf_method$reach_length_m == "250 ft"] <- 76.2
+vt_mussel_pdf_method$reach_length_m <- as.numeric(vt_mussel_pdf_method$reach_length_m)
+
+#the wetted widths are all in m so just remove the m and make it numeric
+vt_mussel_pdf_method$wet_width_avg_m <- gsub("m", "", vt_mussel_pdf_method$wet_width_avg_m)
+vt_mussel_pdf_method$wet_width_avg_m <- as.numeric(vt_mussel_pdf_method$wet_width_avg_m)
+
+
+
+
+save(vt_mussel_pdf_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_pdf_event.RData")
+save(vt_mussel_pdf_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_pdf_occurrence.RData")
+save(vt_mussel_pdf_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_pdf_count.RData")
+save(vt_mussel_pdf_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_pdf_length.RData")
+save(vt_mussel_pdf_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_pdf_method.RData")
 
 
 
@@ -886,7 +1097,8 @@ dat$SNAME[dat$SCOMNAME == "asian clam"] <- "corbicula fluminea"
 dat$SNAME[dat$SCOMNAME == "eastern floater"] <- "pyganodon cataracta"
 dat$SNAME[dat$SNAME == "a. undulata"] <- "alasmidonta undulata"
 dat$SNAME[dat$SNAME == "strophitis undulatus"] <- "strophitus undulatus"
-
+dat$SCOMNAME[dat$SCOMNAME == "dwarf wedge mussel"] <- "dwarf wedgemussel"
+dat$SCOMNAME[dat$SCOMNAME == "eastern pond mussel"] <- "eastern pondmussel"
 
 dat$SCOMNAME[dat$SNAME == "alasmidonta undulata"] <- "triangle floater"
 dat$SCOMNAME[dat$SNAME == "elliptio complanata"] <- "eastern elliptio"
@@ -963,6 +1175,217 @@ save(nh_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 
 
+#######################################################################
+
+##################### Connecticut PDF data ############################
+
+#######################################################################
+
+
+
+
+
+CTevent <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction.xlsx",
+                      sheet = 4, 
+                      range = cell_cols("A:w"),
+                      col_types = c("text", "text", "text", "text", "text", 
+                                               "numeric", "numeric", "text",
+                                               "date", "date", "text", "text", "text", "text", 
+                                               "text", "text", "text", "text","numeric", 
+                                               "text", "text", "text", "text"))
+
+
+CToccurr <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction.xlsx",
+                       sheet = 5, 
+                       range = cell_cols("A:I"),
+                       col_types = c("text", "text", "text", "numeric", "numeric", 
+                                                "numeric", "text", "numeric","text"))
+
+CTdem <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction.xlsx",
+                    sheet = 6, 
+                    range = cell_cols("A:G"),
+                    col_types = c("text", "text", "text", "numeric", 
+                                  "text", "text", "text"))
+
+
+
+
+
+
+#event
+ct_mussel_event <- CTevent %>% 
+  select(UID, STATE, LATITUDE, LONGITUDE, DATE2, WATERBODY, TITLE) %>% 
+  mutate(source = "LauraSaucierCTDEEP_PDFreports") %>% 
+  rename(project = TITLE,
+         date = DATE2) %>% 
+  filter(!is.na(LATITUDE),
+         !is.na(UID))
+  
+names(ct_mussel_event)[2:8] <- tolower(names(ct_mussel_event)[2:8])
+colSums(is.na(ct_mussel_event))
+
+
+#tidy occurrence and count columns
+names(CToccurr)[2:9] <- tolower(names(CToccurr)[2:9])
+CToccurr$common_name <- tolower(CToccurr$common_name)
+CToccurr$scientific_name <- tolower(CToccurr$scientific_name)
+
+#add zeros to the count columns if the occurrence column was 0
+CToccurr$live_count[CToccurr$live_occurrence == 0] <- 0
+CToccurr$shell_count[CToccurr$shell_occurrence == 0] <- 0
+
+#fix the common names
+CToccurr$common_name[CToccurr$common_name == "easatern elliptio"] <- "eastern elliptio"
+CToccurr$common_name[CToccurr$common_name == "eastern lampussel"] <- "eastern lampmussel"
+CToccurr$common_name[CToccurr$common_name == "eastern pearshell"] <- "eastern pearlshell"
+CToccurr$common_name[CToccurr$common_name == "tidewater muckets"] <- "tidewater mucket"
+CToccurr$common_name[CToccurr$common_name == "traingle floater"] <- "triangle floater"
+
+#tidy the scientific names
+CToccurr$scientific_name[CToccurr$scientific_name == "alamidonta heterodon"] <- "alasmidonta heterodon"
+CToccurr$scientific_name[CToccurr$scientific_name == "alasmidont varicosa"] <- "alasmidonta varicosa"
+CToccurr$scientific_name[CToccurr$scientific_name == "elliptio complanta"] <- "elliptio complanata"
+CToccurr$scientific_name[CToccurr$scientific_name == "ellipto complanata"] <- "elliptio complanata"
+CToccurr$scientific_name[CToccurr$scientific_name == "lampsilis radiata radiata"] <- "lampsilis radiata"
+CToccurr$scientific_name[CToccurr$scientific_name == "lampsilis radiatea radiata"] <- "lampsilis radiata"
+CToccurr$scientific_name[CToccurr$scientific_name == "lamsilis radiata"] <- "lampsilis radiata"
+CToccurr$scientific_name[CToccurr$scientific_name == "leptodea orchracea"] <- "leptodea ochracea"
+CToccurr$scientific_name[CToccurr$scientific_name == "ligunia nasuta"] <- "ligumia nasuta"
+CToccurr$scientific_name[CToccurr$scientific_name == "margatifera margatifera"] <- "margaritifera margaritifera"
+CToccurr$scientific_name[CToccurr$scientific_name == "strophhitus undulatus"] <- "strophitus undulatus"
+CToccurr$scientific_name[CToccurr$scientific_name == "strophilus undulatus"] <- "strophitus undulatus"
+
+#occurrence
+ct_mussel_occurrence <- CToccurr %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence)
+#add in eastern elliptio in the rows where 0 live and shell were found as a placeholder. In the final version well add in zeros for all spp where they werent recorded
+temp <- ct_mussel_occurrence %>% 
+  filter(is.na(common_name)) %>% 
+  mutate(common_name = "eastern elliptio",
+         scientific_name = "elliptio complanata")
+
+ct_mussel_occurrence <- ct_mussel_occurrence %>%  #remove the rows with no names in the original spreadsheed 
+  filter(!is.na(common_name))
+
+#rbind the assumed zeros back
+ct_mussel_occurrence <- rbind(ct_mussel_occurrence, temp)
+
+
+
+#count
+ct_mussel_count <- CToccurr %>% 
+  select(UID, common_name, scientific_name, live_count, shell_count) %>% 
+  filter(!is.na(live_count) | !is.na(shell_count))
+#add in eastern elliptio in the rows where 0 live and shell were found as a placeholder. In the final version well add in zeros for all spp where they werent recorded
+temp <- ct_mussel_count %>% 
+  filter(is.na(common_name)) %>% 
+  mutate(common_name = "eastern elliptio",
+         scientific_name = "elliptio complanata")
+
+ct_mussel_count <- ct_mussel_count %>%  #remove the rows with no names in the original spreadsheed 
+  filter(!is.na(common_name))
+
+#rbind the assumed zeros back
+ct_mussel_count <- rbind(ct_mussel_count, temp)
+
+#fix the counts that aren't numberic
+ct_mussel_count$live_count[ct_mussel_count$live_count == "100+"] <- 100
+ct_mussel_count$live_count[ct_mussel_count$live_count == "500+"] <- 500
+ct_mussel_count$live_count[ct_mussel_count$live_count == "several hundred"] <- 200
+ct_mussel_count$live_count[ct_mussel_count$live_count == "thousands"] <- 1000
+
+ct_mussel_count$live_count <- as.numeric(ct_mussel_count$live_count)
+
+
+#mussel lengths
+ct_mussel_length <- CTdem %>% 
+  filter(LIVE_MUSSEL == TRUE) %>% 
+  select(UID, COMMON_NAME, SCIENTIFIC_NAME, LENGTH_mm)
+
+names(ct_mussel_length)[2:4] <- tolower(names(ct_mussel_length)[2:4])
+ct_mussel_length$common_name <- tolower(ct_mussel_length$common_name)
+ct_mussel_length$scientific_name <- tolower(ct_mussel_length$scientific_name)
+
+ct_mussel_length$scientific_name[ct_mussel_length$scientific_name == "margatifera margatifera"] <- "margaritifera margaritifera"
+ct_mussel_length$scientific_name[ct_mussel_length$scientific_name == "alamidonta heterodon"] <- "alasmidonta heterodon"
+
+#add in data on average length
+temp <- CToccurr %>% 
+  select(UID, common_name, scientific_name, avg_length) %>% 
+  filter(!is.na(avg_length)) %>% 
+  rename(mean_length_mm = avg_length)
+temp$common_name <- tolower(temp$common_name)
+
+#in some cases the average length will be repeated if individal measurements were also taken
+ct_mussel_length <- full_join(ct_mussel_length, temp, by = c("UID", "scientific_name", "common_name"))
+rm(temp)
+
+
+#method
+ct_mussel_method <- CTevent %>% 
+  select(UID, SURVEY_METHOD, NUMBER_SEARCHERS, SURVEY_DURATION, REACH_LENGTH_SURVEYED, WET_WIDTH_AVG, SURVEY_GOAL) %>% 
+  filter(!is.na(UID))
+
+ct_mussel_method$SURVEY_METHOD <- tolower(ct_mussel_method$SURVEY_METHOD)
+
+ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "bucket & snorkel"] <- "snorkel & bucket"
+ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "scuba & snorkel"] <- "snorkel & scuba"
+ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "quadrat by scuba"] <- "scuba"
+ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "visual of banks"] <- "bank survey"
+
+ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "250ft"] <- "76m"
+ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "50ft"] <- "15m"
+ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "60ft"] <- "18m"
+ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "200ft"] <- "61m"
+ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "1mile"] <- "1609m"
+
+ct_mussel_method$REACH_LENGTH_SURVEYED <- gsub("m", "", ct_mussel_method$REACH_LENGTH_SURVEYED)
+
+
+ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "30ft from one shore-side"] <- "9m"
+ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "40ft from shoreline"] <- "12m"
+ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "4-5m"] <- "4.5m"
+ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "800ft"] <- "244m"
+ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "10m buffer survey width"] <- "10m"
+ct_mussel_method$WET_WIDTH_AVG <- gsub("m", "", ct_mussel_method$WET_WIDTH_AVG)
+
+ct_mussel_method <- ct_mussel_method %>% 
+  rename(wet_width_avg_m = WET_WIDTH_AVG,
+         reach_length_m = REACH_LENGTH_SURVEYED) %>% 
+  mutate(goal = ifelse(SURVEY_GOAL %in% c("all species", "mussels", "macros", "mussels & macros" ,
+                                          "macrso", "mussles & macros", "all mussel species"), "total pick-up", 
+                       ifelse(is.na(SURVEY_GOAL), NA, "targeted"))) %>% 
+  rename(target = SURVEY_GOAL) 
+
+ct_mussel_method$target[ct_mussel_method$target == "all species"] <- "all mussel species"
+ct_mussel_method$target[ct_mussel_method$target == "mussels"] <- "all mussel species"
+ct_mussel_method$target[ct_mussel_method$target == "macros"] <- "macroinvertebrates"
+ct_mussel_method$target[ct_mussel_method$target == "macrso"] <- "macroinvertebrates"
+ct_mussel_method$target[ct_mussel_method$target == "mussles & macros"] <- "macroinvertebrates"
+ct_mussel_method$target[ct_mussel_method$target == "mussels & macros"] <- "macroinvertebrates"
+
+ct_mussel_method$target <- tolower(ct_mussel_method$target)
+  
+ct_mussel_method$target[ct_mussel_method$target == "state-listed species"] <- "listed species"
+ct_mussel_method$target[ct_mussel_method$target == "state & federally listed species"] <- "listed species"
+ct_mussel_method$target[ct_mussel_method$target == "endangered, threatened, or special concern species"] <- "listed species"
+ct_mussel_method$target[ct_mussel_method$target == "rare mussels"] <- "listed species"
+ct_mussel_method$target[ct_mussel_method$target == "state-listed mussels"] <- "listed species"
+ct_mussel_method$target[ct_mussel_method$target == "translocation follow-up"] <- "relocation"
+ct_mussel_method$target[ct_mussel_method$target == "mussel relocation"] <- "relocation"
+
+names(ct_mussel_method)[2:8] <- tolower(names(ct_mussel_method)[2:8])
+
+
+save(ct_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ct_mussel_event.RData")
+save(ct_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ct_mussel_occurrence.RData")
+save(ct_mussel_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ct_mussel_count.RData")
+save(ct_mussel_length, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ct_mussel_length.RData")
+save(ct_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ct_mussel_method.RData")
+
+
+
+
 
 
 
@@ -986,22 +1409,38 @@ for (i in 1:length(files)){
 #bind event data
 me_mussel_event$project <- as.character(me_mussel_event$project) #shoudl go back to the maine tidying and add in the text for each project integer, for now, just do this
 
-all_mussel_event <- bind_rows(ma_mussel_event, me_mussel_event, ri_mussel_event, vt_mussel_event, nh_mussel_event)
+all_mussel_event <- bind_rows(ma_mussel_event, me_mussel_event, ri_mussel_event, vt_mussel_event, 
+                              nh_mussel_event, vt_mussel_pdf_event, ct_mussel_event)
 
 #bind occurrence data
 
-all_mussel_occurrence <- bind_rows(ma_mussel_occurrence, me_mussel_occurrence, ri_mussel_occurrence, vt_mussel_occurrence, nh_mussel_occurrence) #there are 20 repeated values here.. need to fix
+all_mussel_occurrence <- bind_rows(ma_mussel_occurrence, me_mussel_occurrence, ri_mussel_occurrence, 
+                                   vt_mussel_occurrence, nh_mussel_occurrence, vt_mussel_pdf_occurrence,
+                                   ct_mussel_occurrence) #there are 20 repeated values here.. need to fix
+all_mussel_occurrence$scientific_name <- str_trim(all_mussel_occurrence$scientific_name)
+all_mussel_occurrence$common_name[all_mussel_occurrence$common_name == "brook floater (swollen wedgemussel)"] <- "brook floater"
+all_mussel_occurrence$scientific_name[all_mussel_occurrence$common_name == "eastern floater" &
+                                        all_mussel_occurrence$scientific_name == "alasmidonta undulata"] <- "pyganodon cataracta"
+
+#there is a mismatch between common and sci name alasmidonta undulata is called eastern floater once in CT and MA
 
 #bind count data
 
-all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count, nh_mussel_count)
+all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count, nh_mussel_count, vt_mussel_pdf_count, ct_mussel_count)
+all_mussel_count$scientific_name <- str_trim(all_mussel_count$scientific_name)
+all_mussel_count$common_name[all_mussel_count$common_name == "brook floater (swollen wedgemussel)"] <- "brook floater"
+#there is a mismatch between common and sci name alasmidonta undulata is called eastern floater once in CT and MA
+all_mussel_count$scientific_name[all_mussel_count$common_name == "eastern floater" &
+                                   all_mussel_count$scientific_name == "alasmidonta undulata"] <- "pyganodon cataracta"
+
 
 #bind length data
-all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length, nh_mussel_length)
+all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length, nh_mussel_length, vt_mussel_pdf_length, ct_mussel_length)
 
 #bind method data
 
-all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method, nh_mussel_method) #this needs more cleaning
+all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method, 
+                               nh_mussel_method, vt_mussel_pdf_method, ct_mussel_method) #this needs more cleaning
 
 
 

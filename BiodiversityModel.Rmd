@@ -340,7 +340,7 @@ sp_timing_counts <- sp_timing_counts %>%
   left_join(dat3, by = "UID")
 
 #convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
-sp_timing_counts$timing <- relevel(as.factor(sp_timing_counts$timing), ref = "warm")
+sp_timing_counts$timing <- relevel(as.factor(sp_timing_counts$timing), ref = "sp")
 
 #run the multinomial model
 mdl <- multinom(timing ~ lat + long + logWsAreaSqKm + 
