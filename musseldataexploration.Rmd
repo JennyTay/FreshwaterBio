@@ -5,9 +5,194 @@ date: '2022-06-14'
 output: html_document
 ---
 
+```{r}
+ 
+
+library(sf)
+library(tidyverse)
+
+```
 
 
 
+load datafiles
+
+Load datasets
+```{r}
+#watershed data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowline_join.RData")
+
+
+#mussel data
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_length.RData")
+
+#load new england state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+#watershed data
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+
+
+```
+
+
+
+calcuate the number of repeat surveys at a particular NHD flowline, and each HUC size
+```{r}
+#add the year to each event dataset
+mussel_event_flowline_join <- mussel_event_flowline_join %>% 
+  mutate(year = year(date))
+mussel_event_huc_join <- mussel_event_huc_join %>% 
+  mutate(year = year(date))
+
+dat <- mussel_event_flowline_join %>%
+  data.frame() %>% 
+  group_by(NHDPlusID) %>% 
+  summarise(count = length(unique(year)))
+
+length(unique(mussel_event_flowline_join$NHDPlusID))
+hist(dat$count[dat$count>1])
+
+nrow(dat[dat$count>10,])
+nrow(dat[dat$count>5,])
+nrow(dat[dat$count>1,])
+
+dat <- mussel_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc12_name) %>% 
+  summarise(count = length(unique(year)))
+
+length(unique(mussel_event_huc_join$huc12_tnmid))
+hist(dat$count[dat$count>1])
+
+nrow(dat[dat$count>10,])
+nrow(dat[dat$count>5,])
+nrow(dat[dat$count>1,])
+
+
+
+# plot the number of survyes that have occurred in each HUC 12, 10, 8
+
+#HUC12
+dat <- mussel_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc12_name) %>% 
+  summarise(surveynum = length(unique(UID))) %>% 
+  mutate(count = ifelse(surveynum %in% c(1), "1",
+                        ifelse(surveynum %in% c(2:5), "2-5", 
+                               ifelse(surveynum %in% c(6:15), "6-15", "16-20"))))
+
+dat$count <- factor(dat$count, levels = c("1", "2-5", "6-15", "16-20"))
+
+
+dat <- left_join(huc12, dat, by = c("name" = "huc12_name"))
+
+ ggplot()+
+    geom_sf(data = dat[!is.na(dat$surveynum),], 
+            aes(fill = count), color = "black", lwd = .15)+
+    geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = "HUC12 surveys")+
+    labs(fill = "Survey Count")
+ 
+ 
+ ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/surveynum_mussel_huc12.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+ 
+ 
+ 
+ #HUC10
+dat <- mussel_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc10_name) %>% 
+  summarise(surveynum = length(unique(UID))) %>% 
+  mutate(count = ifelse(surveynum %in% c(1:3), "1-3",
+                        ifelse(surveynum %in% c(4:10), "4-10",
+                               ifelse(surveynum %in% c(11:50), "11-50", ">50"))))
+
+dat$count <- factor(dat$count, levels = c("1-3", "4-10", "11-50", ">50"))
+
+
+dat <- left_join(huc10, dat, by = c("Name" = "huc10_name"))
+
+ ggplot()+
+    geom_sf(data = dat[!is.na(dat$surveynum),], 
+            aes(fill = count), color = "black", lwd = 0.15)+
+    geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = "HUC10 surveys")+
+    labs(fill = "Survey Count")
+ 
+ ggsave(
+    filename = "C:/Users/Jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/surveynum_mussel_huc10.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+ 
+ 
+ 
+ 
+  #HUC8
+dat <- mussel_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(huc8_name) %>% 
+  summarise(surveynum = length(unique(UID))) %>% 
+  mutate(count = ifelse(surveynum %in% c(1:50), "1-50",
+                        ifelse(surveynum %in% c(51:100), "51:100",
+                               ifelse(surveynum %in% c(101:150), "101:150", ">150"))))
+
+dat$count <- factor(dat$count, levels = c("1-50", "51:100", "101:150", ">150"))
+
+
+dat <- left_join(huc8, dat, by = c("name" = "huc8_name"))
+
+ ggplot()+
+    geom_sf(data = dat[!is.na(dat$surveynum),], 
+            aes(fill = count), color = "black", lwd = 0.15)+
+    geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    ggtitle(label = "HUC8 surveys")+
+    labs(fill = "Survey Count")
+ 
+ ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/surveynum_mussel_huc8.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+ 
+```
+
+
+
+Plot the fish distributions 
+These plots include all the surveys, included the lentic surveys and the ones > 500 m
 ```{r}
 
 #load new englad state data
@@ -30,11 +215,14 @@ for( i in 1:length(unique(shp$cmmn_nm))){
   
   ggplot()+
     geom_sf(data = states)+
+    geom_sf(data = huc8, fill = NA, lwd = 0.25)+
     geom_sf(data = shp[shp$cmmn_nm == unique(shp$cmmn_nm)[i], ], color = "red", size = .5)+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          panel.background = element_blank())+
+          panel.background = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank())+
     ggtitle(label = paste(unique(shp$cmmn_nm)[i], (unique(shp$scntfc_)[i]), sep = ", "))
   
   ggsave(
@@ -43,7 +231,7 @@ for( i in 1:length(unique(shp$cmmn_nm))){
     width = 14,
     height = 9,
     units = "cm",
-    dpi = 150
+    dpi = 300
   )
   
   print(i)
@@ -113,6 +301,141 @@ ggsave(
 ```
 
 
+plots of presence and absence
+plots of counts
+These plots only include the surveys of lotic sites that are <500m from a stream
+```{r}
+head(mussel_occurrence)
+
+#load mussel data
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_occurrence.shp")
+#get the UIDs in the mussel_event_huc_join because these have been editted to remove lentic and to remove sites >500m from stream
+
+
+
+#remove NA names
+shp <- shp %>% 
+  filter(UID %in% mussel_event_huc_join$UID) %>% #remove the lentic sites
+  select(UID) %>% 
+  unique()
+
+
+
+####Presence absence:
+
+
+
+pres <- right_join(shp, mussel_occurrence, by = "UID") %>% 
+  filter(!is.na(live_occurrence))
+
+
+table(pres$common_name)
+
+for( i in 1:length(unique(pres$common_name))){
+  
+  ggplot()+
+    geom_sf(data = states)+
+    geom_sf(data = pres[pres$common_name== unique(pres$common_name)[i], ], 
+            aes(color = as.factor(live_occurrence)), size = 1)+
+    geom_sf(data = huc8, fill = NA, color = "black", lwd = 0.15)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())+
+    ggtitle(label = unique(pres$common_name)[i])+
+    labs(color = "Occurrence")
+  
+  ggsave(
+    filename = paste("tmpfigures/mussel_occ_with_zero/", unique(pres$common_name)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+  
+  print(i)
+  
+}
+
+
+#### proportional abundance
+
+#mussels with counts:
+temp <- mussel_count_with_zeros   %>% 
+  filter(!is.na(live_count),
+         live_count>0) %>%  
+  group_by(UID) %>% 
+  mutate(total_count = sum(live_count),
+         prop_abun = live_count/total_count) 
+
+temp2 <- mussel_count_with_zeros %>% 
+  filter(live_count == 0) %>% 
+  mutate(prop_abun = 0)
+#need to add the total counts to temp2
+temp3 <- temp %>% 
+  select(UID, total_count) %>% 
+  unique()
+
+temp2 <- left_join(temp2, temp3, by = "UID") %>% 
+  arrange(UID)
+
+counts <- rbind(temp, temp2) %>% 
+  arrange(UID)
+counts$total_count <- ifelse(is.na(counts$total_count), 0, counts$total_count)
+  
+
+counts <- right_join(shp, counts, by = "UID") 
+
+counts$occurrence <- as.factor(ifelse(counts$live_count>0, 1, 0))
+
+
+table(counts$common_name)
+
+for( i in 1:length(unique(counts$common_name))){
+  
+  ggplot()+
+    geom_sf(data = states)+
+    geom_sf(data = counts[counts$common_name== unique(counts$common_name)[i], ],
+            pch = 21,
+            aes(size = prop_abun, fill = occurrence))+
+    geom_sf(data = huc8, fill = NA, color = "black", lwd = 0.15)+
+  scale_size(limits = c(0,1))+
+    scale_fill_manual(values =c("1" = "aquamarine", "0" = "black"))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())+
+    ggtitle(label = unique(counts$common_name)[i])+
+    labs(size = "prop abun", fill = "occurrence")
+  
+  ggsave(
+    filename = paste("tmpfigures/mussel_count_with_zero/", unique(counts$common_name)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+  
+  print(i)
+  
+}
+
+
+```
+
+
+
+
+
+Species richness by HUC plots
 ```{r}
 
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
@@ -123,21 +446,21 @@ shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/spp
 
 
 huc8 <- huc8 %>% 
-  select(tnmid, areasqkm, name) %>% 
+  select(tnmid, areasqkm, name, states) %>% 
   rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
 huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
 
 
 
 huc10 <- huc10 %>% 
-  select(TNMID, AreaSqKm , Name)%>% 
+  select(TNMID, AreaSqKm , Name, States)%>% 
   rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
 huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
 
 
 
 huc12 <- huc12 %>% 
-  select(tnmid, areasqkm , name) %>% 
+  select(tnmid, areasqkm , name, states) %>% 
   rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
 huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
 
@@ -165,7 +488,7 @@ hist(richness_huc12$richess_huc12)
 huc12 <- huc12 %>% 
   filter(states != "CN")
 
-dat <- left_join(huc12, richness_huc12, by = c("name" = "huc12_name"))
+dat <- left_join(huc12, richness_huc12, by = "huc12_name")
 
 hist(dat$richess_huc12)
 
@@ -184,7 +507,7 @@ ggplot()+
           panel.background = element_blank())+
     labs(title = "species richness, huc12 scale",
     fill = "richness")+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = 0.5, color = "black")
+  geom_sf(data = states, fill = NA, lwd = 0.5, color = "black")
 
  ggsave(
     filename = "tmpfigures/musselspprichness_huc12_scale.png",
@@ -202,7 +525,7 @@ ggplot()+
 richness_huc10 <- mussel_event_huc_join %>% 
   filter(lv_ccrr == 1) %>%  
   data.frame() %>% 
-  group_by(huc10_name.x) %>%
+  group_by(huc10_name) %>%
   summarise(richness_huc10 = length(unique(cmmn_nm)))
   
   
@@ -212,7 +535,7 @@ hist(as.numeric(richness_huc10$richness_huc10))
 huc10 <- huc10 %>% 
   filter(States != "CN")
 
-dat <- left_join(huc10, richness_huc10, by = c("Name" = "huc10_name.x"))
+dat <- left_join(huc10, richness_huc10, by = "huc10_name")
 
 hist(dat$richness_huc10)
 
@@ -231,7 +554,7 @@ ggplot()+
           panel.background = element_blank())+
     labs(title = "species richness, huc10 scale",
     fill = "richness")+
-  geom_sf(data = states[states$NAME != "MAINE",], fill = NA, lwd = .5, color = "black")
+  geom_sf(data = states, fill = NA, lwd = .5, color = "black")
 
  ggsave(
     filename = "tmpfigures/musselspprichness_huc10_scale.png",
@@ -241,5 +564,357 @@ ggplot()+
     units = "cm",
     dpi = 250
   )
+ 
+ 
+ 
+ 
+ 
+ #spp richness: huc8
+
+richness_huc8 <- mussel_event_huc_join %>% 
+  filter(lv_ccrr == 1) %>%  
+  data.frame() %>% 
+  group_by(huc8_name) %>%
+  summarise(richness_huc8 = length(unique(cmmn_nm)))
+  
+  
+hist(as.numeric(richness_huc8$richness_huc8))
+
+
+huc8 <- huc8 %>% 
+  filter(states != "CN")
+
+dat <- left_join(huc8, richness_huc8, by = "huc8_name")
+
+hist(dat$richness_huc8)
+
+dat$richness_huc8 <- as.numeric(dat$richness_huc8)
+
+ggplot()+
+  geom_sf(data = dat, 
+          aes(fill = richness_huc8))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = median(dat$richness_huc8, na.rm = T))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "species richness, huc8 scale",
+    fill = "richness")+
+  geom_sf(data = states, fill = NA, lwd = .5, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/musselspprichness_huc8_scale.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 250
+  )
+ 
+ ## spp richness, beta - alpha / gamma
+ 
+ #want to divide the huc 12 richness by the huc 8 richness
+ dat <- left_join(mussel_event_huc_join, richness_huc12, by = "huc12_name")
+ dat <- left_join(dat, richness_huc8, by = "huc8_name")
+ dat <- dat %>% 
+   data.frame() %>% 
+   select(richess_huc12, richness_huc8, huc12_name) %>% 
+   unique()
+ dat$beta <- dat$richess_huc12/ dat$richness_huc8
+
+ huc12 <- huc12 %>% 
+  filter(states != "CN")
+ 
+ dat <- left_join(huc12, dat, by = "huc12_name")
+
+hist(dat$beta)
+
+dat$beta <- as.numeric(dat$beta)
+#need to figure out why a handful of HUC12s have a greater spp richness than the huc8.. not possible
+ggplot()+
+  geom_sf(data = dat[dat$beta<=1,], lwd = 0.2,
+          aes(fill = beta))+
+  scale_fill_gradient2(low = "red",
+  mid = "yellow",
+  high = "green",
+  midpoint = 0.5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+    labs(title = "beta diversity = alpha/gamma",
+    fill = "diversity")+
+  geom_sf(data = states, fill = NA, lwd = 0.25, color = "black")+
+  geom_sf(data = huc8, fill = NA, lwd = 0.25, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/mussel_spprichness_beta.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+ 
+ 
+
+```
+
+
+
+Shannon Wiener and Simpsons Index
+```{r}
+
+
+#need to get the number of surveys in each HUC so we can divide abundance by the number of surveys
+surveycounts <- left_join(mussel_count_with_zeros, 
+                          mussel_event_huc_join, 
+                          by = "UID") %>% 
+   select(UID, huc10_name) %>% 
+   unique() %>% 
+   group_by(huc10_name) %>% 
+   summarise(suveynum = n())
+
+
+
+#### Shannon Wiener
+
+
+
+shannon1 <- mussel_count_with_zeros %>% 
+  filter(live_count>0,
+         !is.na(live_count),
+         !is.na(common_name))
+
+#count of each spp by huc
+shannon <- left_join(mussel_event_huc_join, shannon1, by = "UID") %>%
+  filter(!is.na(live_count),
+         !is.na(common_name)) %>% 
+  group_by(huc10_name, common_name) %>% 
+  summarise(n = sum(live_count)) %>% 
+  data.frame()
+
+shannon <- left_join(shannon, surveycounts, by = "huc10_name") %>% 
+  mutate(n1 = n/suveynum)
+
+#Total sum of all counts of all spp
+shannon2 <- left_join(mussel_event_huc_join, shannon1, by = "UID") %>%
+  filter(!is.na(live_count),
+         !is.na(common_name)) %>% 
+  group_by(huc10_name)%>% 
+  summarise(N = sum(live_count)) %>% 
+  data.frame()
+
+shannon2 <- left_join(shannon2, surveycounts, by = "huc10_name") %>% 
+  mutate(N1 = N/suveynum)
+
+shannon3 <- left_join(shannon, shannon2, by = "huc10_name") %>% 
+  mutate(tmp = n1/N1,
+         tmp2 = log(tmp),
+         tmp3 = tmp * tmp2) %>% 
+  group_by(huc10_name) %>% 
+  summarise(shannonwiener = -(sum(tmp3)))
+
+
+
+
+huc10 <- huc10 %>% 
+  filter(States != "CN")
+
+dat <- left_join(huc10, shannon3, by = "huc10_name")
+
+hist(dat$shannonwiener)
+
+dat$shannonwiener <- as.numeric(dat$shannonwiener)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = shannonwiener))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = mean(dat$shannonwiener, na.rm = T))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())+
+    labs(title = "Shannon Wiener (H`), huc10 scale",
+    fill = "H`")+
+  geom_sf(data = states, fill = NA, lwd = 0.25, color = "black")+
+  geom_sf(data = huc8, fill = NA, lwd = 0.25, color = "black")
+
+
+ ggsave(
+    filename = "tmpfigures/mussel_shannonwiener_huc10.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+ 
+ 
+ #### Simpsons Index
+ 
+ 
+ simpsons <- left_join(shannon, shannon2, by = "huc10_name") %>% 
+  mutate(tmp = n*(n-1),
+         tmp2 = N*(N-1),
+         tmp3 = tmp / tmp2) %>% 
+  group_by(huc10_name) %>% 
+  summarise(simpsons = 1 - (sum(tmp3)))
+
+
+ 
+ huc10 <- huc10 %>% 
+  filter(States != "CN")
+
+dat <- left_join(huc10, simpsons, by = "huc10_name")
+
+hist(dat$simpsons)
+
+ 
+
+
+dat$simpsons <- as.numeric(dat$simpsons)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = simpsons))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = 0.5)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())+
+    labs(title = "Simpsons, huc10 scale",
+    fill = "Probability")+
+  geom_sf(data = states, fill = NA, lwd = 0.25, color = "black")+
+  geom_sf(data = huc8, fill = NA, lwd = 0.25, color = "black")
+
+ ggsave(
+    filename = "tmpfigures/mussel_Simpsons_huc10.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+
+```
+
+
+
+
+
+
+
+Cluster spp based on co - occurrence 
+```{r}
+library(data.table)
+
+
+########################################
+
+#cluster based on the occurrence of other species lumping all basins and stream orders
+
+########################################
+
+
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+
+
+
+dat <- mussel_occurrence %>%
+  select(UID, common_name, live_occurrence) %>%
+  group_by(UID, common_name) %>% 
+  summarise(live_occurrence = sum(live_occurrence)) %>% #in the raw data, there are 21 UIDs that say a certain spp was both 0 and 1, we will keep the 1s
+  pivot_wider(names_from = common_name, values_from = live_occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = "tmpfigures/musselhclust.png", units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg)
+dev.off()
+
+
+
+
+
+
+#####################################
+
+#cluster based on the occurrence of other species for each HUC8, lumping all stream orders within each HUC 8
+
+#####################################
+
+
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+
+
+  
+tmp <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID") 
+
+for (i in unique(mussel_event_huc_join$huc8_name)) {
+
+dat <- tmp %>% 
+  filter(huc8_name == i)
+#remove spp that are never present
+keep <- dat %>% 
+  group_by(common_name) %>% 
+  summarise(occ = sum(live_occurrence)) %>% 
+  filter(occ > 0)
+
+
+dat <- dat %>%
+  filter(common_name %in% keep$common_name ) %>%  
+  select(UID, common_name, live_occurrence) %>%
+  group_by(UID, common_name) %>% 
+  summarise(live_occurrence = sum(live_occurrence)) %>%  
+  pivot_wider(names_from = common_name, values_from = live_occurrence) %>% 
+  column_to_rownames(var = "UID")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = paste("tmpfigures/mussel_clusters/", i, ".png", sep = ""), units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg)
+dev.off()
+
+print(i)
+
+}
+
+
+
 
 ```

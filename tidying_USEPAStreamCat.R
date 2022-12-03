@@ -1,6 +1,7 @@
 
 library(readxl)
 library(caret)
+library(tidyverse)
 
 
 #streamCat data tidying
@@ -20,7 +21,7 @@ streamcat1 <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_d
 
 #first start with the region 1's and join those together based on the COMID
 
-for (i in 2:9) { #start at 2 because we already made the first file above)
+for (i in 2:14) { #start at 2 because we already made the first file above)
   
   
   tmp <- read.csv(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StreamCat/", file.list[i], sep = ""))
@@ -44,7 +45,7 @@ file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_
 streamcat2 <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StreamCat/BFI_Region02.csv")
 
 
-for (i in 2:9) { #start at 2 because we already made the first file above)
+for (i in 2:14) { #start at 2 because we already made the first file above)
   
   
   tmp <- read.csv(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StreamCat/", file.list[i], sep = ""))
@@ -74,40 +75,37 @@ str(streamcat)
 #variables joined only by COMID
 strmcat_byCOMID <- streamcat %>% 
   select(COMID, !contains("20")) %>% 
-  select(!contains("Cat")) %>% 
-  select(-c(OmWs, PermWs, RckDepWs, WsPctFull))# remove these variables mean organic matter content of soil, mean permeablity of soils, mean depth to bedrock
+  select(-c(OmWs, PermWs, RckDepWs, # remove mean organic matter content of soil, mean permeablity of soils, mean depth to bedrock
+            OmCat, PermCat, RckDepCat,
+            WsPctFull, CatPctFull, CatAreaSqKm,
+            ))
 save(strmcat_byCOMID, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID.RData")
 
 
 #variables joined by COMID and timeperiod most likely
 strmcatByyear <- streamcat %>% 
   select(COMID, contains("20")) %>% 
-  pivot_longer(2:69, names_to = "variable") %>% 
+  pivot_longer(2:133, names_to = "variable") %>% 
   separate(variable, into = c("variable", "test2"), sep = "2") %>% 
   separate(test2, into = c("year", "region"), sep = 3) %>% 
   mutate(year = paste("2", year, sep = "")) %>% 
-  filter(!str_detect(region, 'Cat')) %>% 
   unite(col = "variable", variable, region, sep = "_") %>% 
   pivot_wider(names_from = "variable", values_from = "value")
 
 #not every variable has every year, so we will split the data into various groups
 
 strmcatByyr_imp <- strmcatByyear %>% 
-  select(1:4) %>% 
-  filter(!is.na(PctImp_Ws)) %>% 
-  mutate(timeperiod = ifelse(year %in% c("2001", "2004"), "pre", "post")) %>% 
-  group_by(COMID, timeperiod) %>% 
-  summarise(PctImp_Ws = mean(PctImp_Ws),
-            PctImp_WsRp100 = mean(PctImp_WsRp100))
+  select(1:6) %>% 
+  filter(!is.na(PctImp_Ws)) 
 save(strmcatByyr_imp, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_imp.RData")
 
 strmcatByyr_landcov <- strmcatByyear %>% 
-  select(1,2, 5:20) %>% 
+  select(1,2, 7:38) %>% 
   filter(!is.na(PctOw_Ws))
 save(strmcatByyr_landcov, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_landcov.RData")
 
 
 strmcatByyr_census <- strmcatByyear %>% 
-  select(1,2, 21, 22) %>% 
+  select(1,2, 39:42) %>% 
   filter(!is.na(PopDen_Ws))
 save(strmcatByyr_census, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_census.RData")

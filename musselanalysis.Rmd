@@ -1,0 +1,357 @@
+---
+title: "musselanalysis"
+author: "Jenny Rogers"
+date: "2022-11-22"
+output: html_document
+---
+load libraries
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(lwgeom)
+
+
+```
+
+
+load data:
+flowline
+huc12
+huc10
+huc8
+all_mussel_event
+
+
+
+Chunk1: load dataframes
+```{r}
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+flowline_EPA <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
+mussel_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_event.shp")
+
+```
+
+
+Chuck2:
+Spatially join the huc and the flowline data to the all_mussel_event so that every mussel surveying event is aligned with hydrologic data.
+These two datasets have removed the lentic surveys.
+
+```{r}
+#make a lotic vs lentic column so we can include only lotic surveys
+#there are a lot of surveys that do not have a waterbody listed - label these as NA so we don't exclude them
+mussel_event <- mussel_event %>% 
+  mutate(waterbody2 = ifelse(grepl("Pond$", waterbody), "lentic",      #identify lotic or lentic by searching for lakes or ponds at the end of the locatioName
+                            ifelse(grepl("Lake$", waterbody), "lentic", 
+                                   ifelse(grepl("Reservoir$", waterbody), "lentic",
+                                          ifelse(grepl("lentic", waterbody), "lentic", "lotic")))))
+
+
+
+#prepare the huc files - select the attributes we want and remove the duplicated rows
+#21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc12 <- huc12 %>% 
+  select(tnmid, areasqkm , name) %>% 
+  rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
+huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
+#this df needs aditional editting
+#Outlet Missisquoi River - HUc12_name this is the same shape, but it actually has two separate tnmid
+#Outlet Sutton River and Riviere Sutton are the same shape, but have different HUC 12 names and have different tnmid
+#Ruiss Coslett-Riviere Aux Brochets vs Groat Creek are the same shape with different names and tmnid
+
+huc12 <- huc12 %>% 
+  filter(huc12_tnmid != "{7964F492-75EA-4AA7-8E77-A96D99348771}",
+         huc12_name != "Riviere Sutton",
+         huc12_name != "Ruiss Coslett-Riviere Aux Brochets")
+
+
+
+#join the huc files to the mussel_event file using a spatial join
+#each mussel survey event will be associated with a huc8, huc10, and huc12 TNMID
+sf_use_s2(FALSE)
+mussel_event_huc_join <- st_join(mussel_event, huc8, left = FALSE)
+mussel_event_huc_join <- st_join(mussel_event_huc_join, huc10, left = FALSE)
+mussel_event_huc_join <- st_join(mussel_event_huc_join, huc12, left = FALSE)
+
+mussel_event_huc_join <- mussel_event_huc_join %>% 
+  filter(waterbody2 == 'lotic')
+
+#Join the mussel event data to the NHDplusHR data set
+flowline <- flowline %>% st_zm() %>% 
+  filter(FType != 566 & FType != 428 & FType !=420) %>% #remove coastline, pipelines, and underground conduits
+  select(-c(VPUID, FDate, Resolution, FType, FCode, MainPath, InNetwork, Visibility, SlopeLenKm, PathLength))
+
+
+#for the flowline, we want to join the point to the nearest flowline, so we need a different approach.
+nearest <- st_nearest_feature(mussel_event, flowline) #returns a vector of the index of the flowline that is nearest to each point
+dist <- st_distance(mussel_event, flowline[nearest,], by_element = TRUE) #get dist from each point to the flowline
+dist <- as.numeric(dist)
+hist(dist)
+mussel_event_flowline_join <- cbind(mussel_event, st_drop_geometry(flowline)[nearest,]) #join flowline to the mussel event based on the index value of the 
+mussel_event_flowline_join$dist <- dist #add the distence in meters
+mussel_event_flowline_join <- mussel_event_flowline_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
+  filter(waterbody2 == "lotic" & dist <500) %>% 
+  select(UID, state, date, waterbody, waterbody2, project, source, NHDPlusID, StreamOrde, StreamLeve, AreaSqKm, TotDASqKm, Slope, MinElevSmo, dist) %>% 
+  rename(event_to_flowln_dist_m = dist)
+#we will use "MinElevSmo" as the elevation measuremtn of the NHD reach.  It is very similar to the MinElevRaw.
+
+
+
+rm(flowline, huc8, huc10, huc12, dist, nearest)
+
+#note that there will be more rows in the HUC dataset because some of the events too far from flowlines were removed.
+
+
+
+#join the event data to the NHDplusV2 data set - this is the product that has the COMID, so we will make the same mussel event flowline join file, but with this version so that we can use streamcat data and the USFS flow metrics
+#we probably want to use the HUC join here becuase the NHDPlusV2 lines are too far from the mussel surveys and we lose a lot due to a distance >500 
+
+
+
+
+flowline_EPA <- flowline_EPA %>% st_zm() %>% 
+  filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
+  select(COMID, GNIS_ID, GNIS_NAME, LENGTHKM, REACHCODE)
+
+
+#for the flowline, we want to join the point to the nearest flowline, so we need a different approach.
+nearest <- st_nearest_feature(mussel_event, flowline_EPA) #returns a vector of the index of the flowline that is nearest to each point
+dist <- st_distance(mussel_event, flowline_EPA[nearest,], by_element = TRUE) #get dist from each point to the flowline
+dist <- as.numeric(dist)
+hist(dist)
+mussel_event_flowlineV2_join <- cbind(mussel_event, st_drop_geometry(flowline_EPA)[nearest,]) #join flowline to the mussel event based on the index value of the 
+mussel_event_flowlineV2_join$dist <- dist #add the distence in meters
+mussel_event_flowlineV2_join <- mussel_event_flowlineV2_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
+  filter(waterbody == "lotic" & dist <500) %>%  
+  rename(event_to_flowln_dist_m = dist)
+
+
+
+save(mussel_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+
+save(mussel_event_flowline_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowline_join.RData")
+
+save(mussel_event_flowlineV2_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowlineV2_join.RData")
+
+```
+
+
+
+
+
+Preparing the biological data frames:
+
+
+presence /absence file.  Only mussel presence is currently reported. We want to assign a zero to all mussels not observed in each survey. To clarify, all surveys will have a row for every mussel and an associated 0 (negative observation) for the mussels that were not observed during this survey.
+
+```{r}
+
+#load the mussel presence absence data
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_occurrence.RData')
+
+mussel <- sort(unique(all_mussel_occurrence$common_name))
+
+#do we want to remove mussels that are have only been observed in 5 or fewer lotic location like we did for the fish?
+remove <- c("asian clam", "black sandshell")
+
+
+mussel_presence <- all_mussel_occurrence %>%
+  filter(!common_name %in% remove,
+         !is.na(common_name))
+
+
+uid <- unique(mussel_presence$UID)
+mussel <- unique(mussel_presence$common_name)
+
+#make a dataframe that has each UID repeated for each fish spp
+absence <- data.frame('UID' = rep(uid, each = 20))
+absence$common_name <- rep(mussel, times = 3789)
+#keep only rows in the absence list that are not in the mussel_presence list
+keep <- anti_join(absence, mussel_presence, by = c("UID", "common_name"))
+#add additional scientific names to the new absence data frame
+scientific_name <- mussel_presence %>% 
+  select(common_name, scientific_name) %>% 
+  unique()
+keep <- left_join(keep, scientific_name, by = "common_name")
+
+#add presence absence information
+keep$live_occurrence <- 0
+keep$shell_occurrence <- 0
+
+#bind the presence and absence columns together
+mussel_occurrence <- rbind(mussel_presence, keep)
+mussel_occurrence <- mussel_occurrence %>% 
+  arrange(UID)
+
+rm(absence, mussel_presence, keep, scientific_name)
+rm(mussel, uid, remove)
+
+
+#is there anything types of methods we would want to exclude?
+# load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_method.RData')
+# table(method$goal)
+# method <- method %>% 
+#   filter(goal == "total pick-up",
+#          gear %in% c("efish_backpack", "efish_barge", "efish_boat", "efish_misc"))
+# 
+# uid <- unique(method$UID)
+# 
+# #filter mussel_occurrence data to only include UIDs in the filtered method
+# mussel_occurrence <- mussel_occurrence %>% 
+#   filter(UID %in% uid)
+
+#mussel_occurrence df is the file to use for the presence absence analysis.
+save(mussel_occurrence, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+
+```
+
+
+
+
+
+
+
+prepare the mussel count data (like we did for the presence absence data) and add in the zero data from the presence absence data
+then rbind to the 'keep' absence dataset abve, which is the absence data for each survey event.  
+
+```{r}
+
+#load the mussel count data
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_count.RData')
+
+
+#do we want to remove mussels that are have only been observed in 5 or fewer lotic location like we did for the fish?
+remove <- c("asian clam", "black sandshell")
+
+
+
+#filter the common names
+all_mussel_count <- all_mussel_count %>% 
+  filter(!common_name %in% remove,
+         !is.na(common_name))
+
+
+
+#add zero data
+#well used the same method we used for the mussel_occurrence data
+
+mussel <- unique(all_mussel_count$common_name)
+uid <- unique(all_mussel_count$UID)
+#make a dataframe that has each UID repeated for each mussel spp
+absence <- data.frame('UID' = rep(uid, each = length(mussel)))
+absence$common_name <- rep(mussel, times = length(uid))
+#keep only rows in the absence list that are not in the all_mussel_count list
+keep <- anti_join(absence, all_mussel_count, by = c("UID", "common_name"))
+#add additional scientific names to the new absence data frame
+scientific_name <- all_mussel_count %>% 
+  select(common_name, scientific_name) %>% 
+  unique()
+keep <- left_join(keep, scientific_name, by = "common_name")
+
+#add absence information
+keep$live_count <- 0
+keep$shell_count <- 0
+
+
+#bind the presence and absence columns together
+mussel_count_with_zeros <- rbind(all_mussel_count, keep)
+mussel_count_with_zeros <- mussel_count_with_zeros %>% 
+  arrange(UID)
+
+
+
+
+
+#join the method data because we will include reach length as a predictor variable
+# load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_method.RData')
+# colSums(is.na(all_mussel_method))
+# mussel_count_with_zeros <- left_join(mussel_count_with_zeros, method, by = "UID")
+
+
+#mussel_count_with_zeros df is the file to use for the zero inflated poisson regression analysis and for the clustering sites based on abundance.
+save(mussel_count_with_zeros, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData") 
+
+
+
+```
+
+
+
+Prepare mussel length data 
+ 
+
+```{r}
+
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_length.RData')
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowline_join.RData")
+
+
+mussel <- unique(all_mussel_length$common_name)
+
+#do we want to remove mussels that are have only been observed in 5 or fewer lotic location like we did for the fish?
+remove <- c("asian clam", "black sandshell")
+
+
+all_mussel_length <- all_mussel_length %>% 
+  filter(!common_name %in% remove) %>% 
+  filter(!is.na(common_name))
+
+
+ggplot(data = all_mussel_length, aes(x = length_mm))+
+  geom_histogram()
+
+
+
+#filter for the UIDs in the 'mussel_event_flowline_join$UID')' to remove the UIDs that were removed during the flowline join because they were Lentic or had a dist >500m survey event
+all_mussel_length <- left_join(all_mussel_length, mussel_event_flowline_join, by = "UID")
+colSums(is.na(all_mussel_length))
+all_mussel_length <- all_mussel_length %>% 
+  filter(!is.na(NHDPlusID))
+
+
+#plot the lengths of each fish as a histogram.
+for( i in 1:length(unique(all_mussel_length$common_name))){
+  
+  ggplot()+
+    geom_histogram(data = all_mussel_length[all_mussel_length$common_name == unique(all_mussel_length$common_name)[i], ], aes(x = length_mm))+
+    ggtitle(label = paste(unique(all_mussel_length$common_name)[i], (unique(all_mussel_length$scientific_name)[i]), sep = ", "))
+  
+  ggsave(
+    filename = paste("tmpfigures/mussel_length_plots/", unique(all_mussel_length$common_name)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 150
+  )
+  
+  print(i)
+} 
+
+ 
+
+
+
+```
+
+
