@@ -38,6 +38,12 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatBy
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID.RData")
 
 
+#dams
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc12dams.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc10dams.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc8dams.RData")
+
+
 
 
 
@@ -45,7 +51,7 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_b
 
 event <- fish_event_huc_join %>% 
   data.frame() %>% 
-  select(UID, state, year, month, huc8_name, huc12_name, huc8_areasqkm, huc12_areasqkm)
+  dplyr::select(UID, state, year, month, huc8_name, huc10_name, huc12_name, huc8_tnmid, huc10_tnmid, huc12_tnmid, huc8_areasqkm, huc10_areasqkm, huc12_areasqkm)
 
 ##these are the USGS gauges at the HUC8 pour points. were not going to include these
 #flow <- sites %>% 
@@ -68,7 +74,7 @@ dat$year2 <- ifelse(dat$year == 2021, 2020, dat$year)
 metrics_annual <- metrics_annual %>% 
   rename(year2 = year)
 dat <- left_join(dat, metrics_annual, by = c("huc12_name", "year2")) %>% 
-  select(-year2)
+  dplyr::select(-year2)
 
 
 #join the flowlineV2 with the COMID
@@ -76,10 +82,10 @@ fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>%
   mutate(long = unlist(map(fish_event_flowlineV2_join$geometry, 1)),
          lat = unlist(map(fish_event_flowlineV2_join$geometry, 2))) %>% 
   data.frame() %>% 
-  select(-geometry)
+  dplyr::select(-geometry)
 
 dat <- dat %>% 
-  select(-c(state, year, month)) %>% 
+  dplyr::select(-c(state, year, month)) %>% 
   left_join(fish_event_flowlineV2_join, by = "UID")
 
 
@@ -87,7 +93,7 @@ dat <- dat %>%
 #join to the USFS flow metrics
 flowmet_historical_crop <- flowmet_historical_crop %>% 
   data.frame() %>% 
-  select(COMID, TOTDASQKM, WBAREATYPE, 9:34) %>% 
+  dplyr::select(COMID, TOTDASQKM, WBAREATYPE, 9:34) %>% 
   mutate(COMID = as.integer(COMID))
 dat <- dat %>% 
   left_join(flowmet_historical_crop, by = "COMID")
@@ -95,7 +101,7 @@ dat <- dat %>%
 
 #join to the streamcat data that is not varied by year
 strmcatByyr_census <- strmcatByyr_census %>% 
-  select(-year)
+  dplyr::select(-year)
 dat <- dat %>% 
   left_join(strmcat_byCOMID, by = "COMID")
 dat <- dat %>% 
@@ -109,11 +115,11 @@ dat <- dat %>%
                 ifelse(year >= 2005 & year <= 2014, 2011, 2019)))
 strmcatByyr_landcov <- strmcatByyr_landcov %>% 
   mutate(year2 = as.numeric(year)) %>% 
-  select(-year)
+  dplyr::select(-year)
 
 dat <- dat %>% 
   left_join(strmcatByyr_landcov, by = c("COMID", "year2")) %>% 
-  select(-year2)
+  dplyr::select(-year2)
 
 #now we want to join to the imperviousness that does vary by year.  This layer has 2001" "2004" "2006" "2008" "2011" "2013" "2016" "2019"  
 #we can assign any fish survey 
@@ -129,11 +135,11 @@ dat <- dat %>%
 
 strmcatByyr_imp <- strmcatByyr_imp %>% 
   mutate(year2 = as.numeric(year)) %>% 
-  select(-year)
+  dplyr::select(-year)
 
 dat <- dat %>% 
   left_join(strmcatByyr_imp, by = c("COMID", "year2")) %>% 
-  select(-year2)
+  dplyr::select(-year2)
 
 
 #combine forest, urban, ag, and wetland
@@ -147,7 +153,7 @@ dat <- dat %>%
          pctAg_Cat = PctHay_Cat + PctCrop_Cat,
          pctWetland_Ws = PctWdWet_Ws + PctHbWet_Ws,
          pctWetland_Cat = PctWdWet_Cat + PctHbWet_Cat) %>% 
-  select(-c(PctDecid_Ws, PctConif_Ws, PctMxFst_Ws,
+  dplyr::select(-c(PctDecid_Ws, PctConif_Ws, PctMxFst_Ws,
             PctDecid_Cat, PctConif_Cat, PctMxFst_Cat,
             PctUrbOp_Ws, PctUrbLo_Ws, PctUrbMd_Ws, PctUrbHi_Ws,
             PctUrbOp_Cat, PctUrbLo_Cat, PctUrbMd_Cat, PctUrbHi_Cat,
@@ -156,18 +162,24 @@ dat <- dat %>%
             PctWdWet_Ws, PctHbWet_Ws,
             PctWdWet_Cat, PctHbWet_Cat))
 
+#join state dam data
+dat <- left_join(dat, huc12dams, by = c("huc12_tnmid", "huc12_name"))
+dat <- left_join(dat, huc10dams, by = c("huc10_tnmid", "huc10_name"))
+dat <- left_join(dat, huc8dams, by = c("huc8_tnmid", "huc8_name"))
 
 #organize dataframe
 dat <- dat %>% 
-  select("UID", "COMID", "lat", "long",
+  dplyr::select("UID", "COMID", "lat", "long",
          "GNIS_ID", "GNIS_NAME", "state", 
          "date", "year", "month", "timeperiod",   
-         "waterbody", "WBAREATYPE", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc12_name", 
-         "LENGTHKM", "huc8_areasqkm",  "huc12_areasqkm", "WsAreaSqKm", 
-         7:16, 34:112)
+         "waterbody", "WBAREATYPE", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc10_name", "huc12_name",
+         "huc8_tnmid", "huc10_tnmid", "huc12_tnmid",
+         "LENGTHKM", "huc8_area_new", "huc10_area_new", "huc12_area_new", "WsAreaSqKm", 
+         12:21, 39:120, 122:123, 125:126)
 
 #we did not include 'TOTDASQKM' from the USGS flow metrics because it was identical and sourced from 'WsAreaSqKm' in StreamCat
-
+#huc10_area_new --> these are new areas caluated in R using the huc12,10,8 spatial datafiles after realzieing that some of the 
+#calulations inherent in these files were wrong. They are in m2, which is confusing and best to convert to sqkm!
 
 
 
@@ -179,7 +191,7 @@ str(dat)
 
 #variance across study area
 
-nzv <- nearZeroVar(dat[,23:111], saveMetrics = T)
+nzv <- nearZeroVar(dat[,28:122], saveMetrics = T)
 
 nzv$metric <- row.names(nzv)
 remove <- nzv$metric[nzv$zeroVar == TRUE | nzv$nzv == TRUE]
@@ -187,12 +199,12 @@ remove <- nzv$metric[nzv$zeroVar == TRUE | nzv$nzv == TRUE]
 # "NABD_NIDStorCat"  "NABD_NrmStorCat"  "NABD_DensWs"      "NABD_NIDStorWs"   "NABD_NrmStorWs"   "PctIce_Cat"       "PctBl_Cat"        "PctIce_Ws"       
 
 dat2 <- dat %>% 
-  select(-remove)
+  dplyr::select(-remove)
 
 #look for correlation between variables from the same dataset (SHEDs, huc8 streamflow, USGS flow metrics, Streamcat, metadata (lat,long, watershed size, elev, length) )
 
 sheds <- dat2 %>% 
-  select(24:32)
+  dplyr::select(29:37)
 sheds <- sheds[complete.cases(sheds),]
 cor <- cor(sheds, method = c("spearman"))
 corrplot(cor, type = "lower")
@@ -204,7 +216,7 @@ keep2 <- "annual_mean_summer_temp"
 
 
 usfs <- dat2 %>% 
-  select(33:58)
+  dplyr::select(38:63)
 usfs <- usfs[complete.cases(usfs),] #remove rows with NA
 cor <- cor(usfs, method = c("spearman")) #make correlation matrix
 
@@ -222,7 +234,7 @@ keep3 <- c("MJJA_HIST","BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST")
 #             "LO7Q1_HIST", "LO7Q10_HIST"
 
 strmct <- dat2 %>% 
-  select(59:95)
+  dplyr::select(64:100)
 strmct <- strmct[complete.cases(strmct),] #remove rows with NA
 cor <- cor(strmct, method = c("spearman")) #make correlation matrix
 
@@ -237,12 +249,26 @@ keep4 <-  c("BFIWs", "ElevCat", "RdDensCatRp100", "RdDensWsRp100", "RdCrsCat", "
             "pctAg_Ws", "pctWetland_Cat", "pctWetland_Ws")
 
 
+
+statedams <- dat2 %>% 
+  dplyr::select(101:106)
+statedams <- statedams[complete.cases(statedams),] #remove rows with NA
+cor <- cor(statedams, method = c("spearman")) #make correlation matrix
+
+corrplot(cor, type = "lower") #plot
+
+
+keep5 <-  c("huc12_damden_sqkm", "huc8_damcount")
+
+
+
+
 dat3 <- dat2 %>% 
-  select(UID, lat, long, state, year, month, source, huc8_name,WsAreaSqKm, all_of(keep2), all_of(keep3), all_of(keep4)) 
+  dplyr::select(UID, lat, long, state, year, month, source, huc8_name,WsAreaSqKm, all_of(keep2), all_of(keep3), all_of(keep4), all_of(keep5)) 
 
 #now check for correlation among the retained predictors
 final <- dat3 %>% 
-  select(2,3, 9:36)
+  dplyr::select(2,3, 9:38)
 final <- final[complete.cases(final),] #remove rows with NA
 cor <- cor(final, method = c("spearman")) #make correlation matrix
 
@@ -254,7 +280,7 @@ dev.off()
 
 #first make histograms of covariates to see whats normally distributed
 dat4 <- dat3 %>% 
-  select(2,3, 9:36)
+  select(2,3, 9:38)
 
 for (i in 1:30) {
   
