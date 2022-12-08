@@ -13,7 +13,7 @@ head(ne)
 head(ma)
 
 
-NE <- rbind(ne, ma)
+NE <- rbind(ne, ma) 
 
 
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp") #get the polygon to crop with
@@ -21,7 +21,7 @@ huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NH
 st_crs(huc8) == st_crs(NE) #check to see if they are the same projection - they are not
 
 states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
-states <- st_transform(states, st_crs(huc8)) #transform the states to match the nhd data files
+states <- st_transform(states, st_crs(huc8))  #transform the states to match the nhd data files
 NE_crop <- NE[states, ] # crop by state
 NE_crop <- NE_crop %>% 
   st_zm()
@@ -64,6 +64,12 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatBy
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_landcov.RData") 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcatByyr_imp.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID.RData")
+
+#dams
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc12dams.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc10dams.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc8dams.RData")
+
 
 #watersheds
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
@@ -148,39 +154,75 @@ NHDv2_huc_join <- st_join(NHDv2_huc_join, huc12, left = FALSE)
 #join to the covariates by COMID
 
 NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcat_byCOMID, by = "COMID")
+
+#remove year and join by COMID
+strmcatByyr_census <- strmcatByyr_census %>% 
+  select(-year)
 NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_census, by = "COMID")
+
+#because this is for the baseline prediction, we will use the year 2019 for both impervious surfaces and all the landcover. 
+strmcatByyr_imp <- strmcatByyr_imp %>% 
+  filter(year == 2019) %>% 
+  select(-year)
+
 NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_imp, by = "COMID")
+
+strmcatByyr_landcov <- strmcatByyr_landcov %>% 
+  filter(year == 2019) %>% 
+  select(-year)
 NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_landcov, by = "COMID")
 
 
+#join the usfs flow metrics using the historical values for the baseline predictions
 flowmet_historical_crop <- as.data.frame(flowmet_historical_crop)
 flowmet_historical_crop$COMID <- as.integer(flowmet_historical_crop$COMID)
 NHDv2_huc_join <- left_join(NHDv2_huc_join, flowmet_historical_crop, by = "COMID")
 
 #join to the sheds data by HUC12 name.  the model is built using the modeled temperature at the year of the survey, but in the prediction data
-#set, we will jsut use the average baseline temperature
+#set, we will jsut use the average baseline temperature from the 'post' time period (2000+)
+#Probably want to go back to the sheds data and make the join by TNMID because some of the huc12 watersheds have the same name!
 
 metrics12 <- metrics12 %>% 
-  group_by(huc12_name) %>% 
-  summarise(max_temp = mean(max_temp),
-            mean_jul_temp = mean(mean_jul_temp),
-            mean_summer_temp = mean(mean_summer_temp),
-            mean_max_temp_30d = mean(mean_max_temp_30d),
-            mean_n_day_gt_22 = mean(mean_n_day_gt_22))
+  filter(timeperiod == "post") %>% 
+  select(-timeperiod)
 
 NHDv2_huc_join <- left_join(NHDv2_huc_join, metrics12, by = "huc12_name")
 
 
+#join to the dam data used the tnmid
+NHDv2_huc_join <- left_join(NHDv2_huc_join, huc8dams, by = c("huc8_tnmid", "huc8_name"))
+NHDv2_huc_join <- left_join(NHDv2_huc_join, huc12dams, by = c("huc12_tnmid", "huc12_name"))
 
 
 
-#edit the variables that we editted in the covariate dataset
+#combine forest, urban, ag, and wetland
+
 NHDv2_huc_join <- NHDv2_huc_join %>% 
-  mutate(pctforest_Ws = PctDecid_Ws + PctConif_Ws + PctMxFst_Ws, 
-         logWsAreaSqKm = log(WsAreaSqKm),
-         logMJJA_HIST = log(MJJA_HIST)) %>% 
-  select(-WsAreaSqKm, -MJJA_HIST, -PctDecid_Ws, -PctConif_Ws, -PctMxFst_Ws ) %>% 
-  rename(annual_mean_max_temp_30d = mean_max_temp_30d) #put annual in front so that it matches the covariates
+  mutate(pctForest_ws = PctDecid_Ws + PctConif_Ws + PctMxFst_Ws,
+         pctForest_Cat = PctDecid_Cat + PctConif_Cat + PctMxFst_Cat,
+         pctUrban_ws = PctUrbOp_Ws + PctUrbLo_Ws + PctUrbMd_Ws + PctUrbHi_Ws,
+         pctUrban_Cat = PctUrbOp_Cat + PctUrbLo_Cat + PctUrbMd_Cat + PctUrbHi_Cat,
+         pctAg_Ws = PctHay_Ws + PctCrop_Ws,
+         pctAg_Cat = PctHay_Cat + PctCrop_Cat,
+         pctWetland_Ws = PctWdWet_Ws + PctHbWet_Ws,
+         pctWetland_Cat = PctWdWet_Cat + PctHbWet_Cat) %>% 
+  select(-c(PctDecid_Ws, PctConif_Ws, PctMxFst_Ws,
+                   PctDecid_Cat, PctConif_Cat, PctMxFst_Cat,
+                   PctUrbOp_Ws, PctUrbLo_Ws, PctUrbMd_Ws, PctUrbHi_Ws,
+                   PctUrbOp_Cat, PctUrbLo_Cat, PctUrbMd_Cat, PctUrbHi_Cat,
+                   PctHay_Ws, PctCrop_Ws,
+                   PctHay_Cat, PctCrop_Cat,
+                   PctWdWet_Ws, PctHbWet_Ws,
+                   PctWdWet_Cat, PctHbWet_Cat))
+
+
+NHDv2_huc_join <- NHDv2_huc_join %>% 
+  mutate(logWsAreaSqKm = log(WsAreaSqKm+1),
+         logMJJA_HIST = log(MJJA_HIST+1),
+         logRdCrsCat = log(RdCrsCat+1),
+         logPctOw_Cat = log(PctOw_Cat+1)) %>% 
+  select(-WsAreaSqKm, -MJJA_HIST, -RdCrsCat, -PctOw_Cat ) %>% 
+  rename(annual_mean_summer_temp = mean_summer_temp) #put annual in front so that it matches the covariates
 
 
 #select just the variables we keep in the covariate dataset
@@ -188,7 +230,7 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_cov
 
 
 NHDv2_huc_join <- NHDv2_huc_join %>% 
-  select(COMID, names(dat3)[2:3], names(dat3)[14:34]) %>% 
+  select(COMID, names(fishcovariates)[2:3], names(fishcovariates)[8:38]) %>% 
   data.frame() %>% 
   select(-geometry)
 
@@ -212,7 +254,7 @@ save(NHDplusV2_NewEngCrop, file = "C:/Users/jenrogers/Documents/necascFreshwater
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 
-ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = ElevWs))+
+ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = huc8_damcount))+
   geom_sf() +
   scale_color_gradientn(colors = terrain.colors(10), na.value = NA)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
@@ -222,7 +264,7 @@ ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = ElevWs))+
         axis.text.x = element_blank(),
         axis.text.y = element_blank(),
         axis.ticks = element_blank())+
-  labs(title = "Elevation (m)",
+  labs(title = "huc8 dam count",
        color = "m")
 
 

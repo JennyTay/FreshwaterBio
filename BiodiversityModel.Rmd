@@ -6,7 +6,7 @@ output: html_document
 ---
 
 
-In the 
+
 
 ```{r}
 library(tidyverse)
@@ -37,7 +37,7 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_even
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 
 
-#tidied covariates (this is called dat3)
+#tidied covariates 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
 
 #fish traits
@@ -65,77 +65,174 @@ counts <- fish_count_with_zeros %>%
   mutate(propabun = (count / totalcount)) %>% 
   select(UID, count, totalcount, propabun, common_name, gear, reach_length_m, avg_reach_width_m, efish_duration_s) %>% 
   mutate(abund_km = count / (reach_length_m) *1000) %>% 
-  filter(common_name == "brook trout")
+  filter(common_name == "chain pickerel")
+
+hist(counts$propabun)
 
 #plot the observed proportional abundance
-shp <- left_join(fish_shp, counts, by = "UID") %>%
-  filter(!is.na(propabun)) %>%
-  mutate(occurrence = ifelse(count>0, 1, 0))
-ggplot(data = shp)+
-  geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, col = "black")
+# shp <- left_join(fish_shp, counts, by = "UID") %>%
+#   filter(!is.na(propabun)) %>%
+#   mutate(occurrence = ifelse(count>0, 1, 0))
+# ggplot(data = shp)+
+#   geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, col = "black")
+
+fishcovariates <- fishcovariates[complete.cases(fishcovariates),]
+test <- fishcovariates[,c(2:3, 9:38)]
+test <- data.frame(scale(test))
+
+fishcovariates <- cbind((fishcovariates)[,c(1, 4:8)], test)
 
 
-
-
-#join the counts to the tidying covariates, dat3
-dat <- left_join(counts, dat3, by = "UID")
+#join the counts to the tidying covariates, fishcovariates
+dat <- left_join(counts, fishcovariates, by = "UID")
 
 
 dat <- dat %>% 
   mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
-  select(UID, occurrence, count, abund_km, propabun, year, month, state, source, huc8_name, lat, long, 18:43)
+  select(UID, common_name, occurrence, propabun, state, huc8_name, lat, long, 18:47)
 
 
 #plot of variables vs proportional abundance
-dat$occurrence <- as.factor(dat$occurrence)
-ggplot(data = dat, mapping = aes(x = occurrence, y = pctforest_Ws))+
-  geom_violin()+
-  geom_boxplot(width = 0.1)+
-  geom_smooth(method = "lm")+
-    theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank())+
-  labs(title = "brook trout")
+# dat$occurrence <- as.factor(dat$occurrence)
+# ggplot(data = dat, mapping = aes(x = occurrence, y = pctForest_ws))+
+#   geom_violin()+
+#   geom_boxplot(width = 0.1)+
+#   geom_smooth(method = "lm")+
+#     theme(panel.border = element_rect(colour = "black", fill = NA),
+#           panel.grid.major = element_blank(),
+#           panel.grid.minor = element_blank(),
+#           panel.background = element_blank())+
+#   labs(title = "brook trout")
 
 
 #histogram of relative abundance
-ggplot(data = dat, mapping = aes(x = propabun))+
-  geom_histogram()
-#histogram of relative abundance without the zeros so we can see the other data
-ggplot(data = dat[dat$occurrence ==1,], mapping = aes(x = propabun))+
-  geom_histogram()
-
-#map of observed relative abundance - need to join to the shapefile with UID
-rel_abundance <- left_join(fish_shp, dat, by ="UID") 
-ggplot(data = rel_abundance)+
-  geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
-
-#use PCA to combine all the variables used in the conditional model (or both models?) need to do this
+# ggplot(data = dat, mapping = aes(x = propabun))+
+#   geom_histogram()
+# #histogram of relative abundance without the zeros so we can see the other data
+# ggplot(data = dat[dat$occurrence ==1,], mapping = aes(x = propabun))+
+#   geom_histogram()
+# 
+# #map of observed relative abundance - need to join to the shapefile with UID
+# rel_abundance <- left_join(fish_shp, dat, by ="UID") 
+# ggplot(data = rel_abundance)+
+#   geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
 
 
+#two options to further reduce the variable list:
+
+# PCA to combine all the variables used in the conditional model (or both models?) need to do this
+
+#simple binomial models to identify which variables are not related to the outcome
+# mdl <- glmmTMB(propabun ~ huc8_damcount,
+#                data = dat,
+#                family = "binomial")
+# summary(mdl)
+
+
+#global model
 mdl <- glmmTMB(propabun ~ 
-                 lat + long + logWsAreaSqKm + 
-                 annual_mean_max_temp_30d + 
-                 logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 
-                 BFIWs + ElevWs + WtDepWs + PctOw_Ws + PctUrbOp_Ws +
-                 PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
-                 PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100 ,
+                 annual_mean_summer_temp +
+                 W95_HIST +
+                 BFI_HIST +
+                 logMJJA_HIST +
+                 RdCrsWs +  
+                 pctAg_Ws +
+                 PctOw_Ws +
+                 PctImp_Ws +
+                 pctWetland_Ws +  
+                 huc12_damden_sqkm,
                data = dat,
-               ziformula = ~lat + long + logWsAreaSqKm + ElevWs,
+               ziformula = ~lat + long +ElevCat,
                family = "binomial")
 
-summary(mdl)
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/propabun_", unique(dat$common_name), ".rds", sep = ""))
 
 #make a table of the model resuls
 
-# results <- fixef(mdl)
-# results2 <- as.data.frame(results$cond)
-# results2$variable <- row.names(results2)
-# results3 <- results$zi
+results <- fixef(mdl)
+results2 <- as.data.frame(results$cond)
+results2$variable <- row.names(results2)
+names(results2)[1] <- "estimate"
+rownames(results2) <- NULL
+results2$mdl <- "conditional"
+results3 <- as.data.frame(results$zi)
+results3$variable <- row.names(results3)
+names(results3)[1] <- "estimate"
+rownames(results3) <- NULL
+results3$mdl <- "zeroinfla"
+
+results <- rbind(results2, results3)
+results$common_name <- unique(dat$common_name)
+
+
+
+
+#Start the for loop here
+
+for (i in 2:length(unique(fish_count_with_zeros$common_name))) { #start with 2 bc we used white sucker as the started spp above
+  
+
+
+counts <- fish_count_with_zeros %>%
+  filter(gear == "efish_backpack") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = (count / totalcount)) %>% 
+  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m, avg_reach_width_m, efish_duration_s) %>% 
+  mutate(abund_km = count / (reach_length_m) *1000) %>% 
+  filter(common_name == unique(fish_count_with_zeros$common_name)[i])
+
+
+#join the counts to the tidying covariates, fishcovariates
+dat <- left_join(counts, fishcovariates, by = "UID")
+dat <- dat[complete.cases(dat),]
+
+
+#global model
+mdl <- glmmTMB(propabun ~ 
+                 annual_mean_summer_temp +
+                 W95_HIST +
+                 BFI_HIST +
+                 logMJJA_HIST +
+                 RdCrsWs +  
+                 pctAg_Ws +
+                 PctOw_Ws +
+                 PctImp_Ws +
+                 pctWetland_Ws +  
+                 huc12_damden_sqkm,
+               data = dat,
+               ziformula = ~lat + long +ElevCat,
+               family = "binomial")
+
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/propabun_", unique(fish_count_with_zeros$common_name)[i], ".rds", sep = ""))
+
+#make a table of the model resuls
+
+tmp <- fixef(mdl)
+results2 <- as.data.frame(tmp$cond)
+results2$variable <- row.names(results2)
+names(results2)[1] <- "estimate"
+rownames(results2) <- NULL
+results2$mdl <- "conditional"
+results3 <- as.data.frame(tmp$zi)
+results3$variable <- row.names(results3)
+names(results3)[1] <- "estimate"
+rownames(results3) <- NULL
+results3$mdl <- "zeroinfla"
+
+tmp <- rbind(results2, results3)
+tmp$common_name <- unique(fish_count_with_zeros$common_name)[i]
+
+
+results <- rbind(results, tmp)
+
+print(unique(fish_count_with_zeros$common_name)[i])
+
+}
 
 #predict the model on the historical data
-pred_data <- dat[,11:38]
+pred_data <- dat[,11:42]
 predict <- predict(mdl, newdata = pred_data, type = "response")
 compare <- data.frame("propabun" = dat$propabun, "prediction" = predict)
 
@@ -162,11 +259,6 @@ Model proportional abundances of each traits using a multinomial logistic regres
 2. spawning strategy - two categories
 3. spawning season - nine categories
 
-
-Model species richness using a mutivariate linear mode at the HUC12 scale
-
-
-
 ```{r}
 
 library(foreign)
@@ -179,10 +271,11 @@ counts <- fish_count_with_zeros %>%
 
 #set up the temperature dataframe.  Want to count the number of cold, cool, warm, and eurythermal 
 temp_counts <- counts %>% 
+  filter(!is.na(tmp),
+         tmp != "eurythermal") %>% 
   group_by(UID) %>% 
   mutate(totalcount = sum(count)) %>% 
-  ungroup() %>% 
-  filter(!is.na(tmp)) %>% 
+  ungroup()  %>% 
   group_by(UID, tmp) %>% 
   mutate(temp_count = sum(count)) %>%
   ungroup() %>% 
@@ -208,18 +301,29 @@ n <-  temp_counts$temp_count
 temp_counts <- temp_counts[rep(seq_len(nrow(temp_counts)), n),]
 temp_counts <- temp_counts %>% 
   select(tmp, UID) %>% 
-  left_join(dat3, by = "UID")
+  left_join(fishcovariates, by = "UID")
 
 #convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
 temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "warm")
 
 #run the multinomial model
-mdl <- multinom(tmp2 ~ lat + long + logWsAreaSqKm + 
-                 annual_mean_max_temp_30d + 
-                 logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 
-                 BFIWs + ElevWs + WtDepWs + PctOw_Ws + PctUrbOp_Ws +
-                 PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
-                 PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100,
+mdl <- multinom(tmp2 ~ lat + 
+                 long + 
+                 annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST + 
+                 W95_HIST + 
+                 BFIWs + 
+                 ElevCat + 
+                 WtDepWs +  
+                 PctOw_Ws +  
+                 PctImp_Ws +  
+                 pctAg_Ws +  
+                 pctWetland_Ws + 
+                 huc12_damden_sqkm + 
+                 huc8_damcount + + 
+                 logMJJA_HIST + 
+                 logRdCrsCat ,
                  data = temp_counts)
 results <- summary(mdl)
 
@@ -229,13 +333,13 @@ coef <- coef %>%  # keep only the cold coefficients
   mutate(temperature = rownames(coef)) %>% 
   filter(temperature == "cold") %>% 
   select(-temperature, -X.Intercept.) %>% 
-  pivot_longer(1:23, names_to = "variable", values_to = "coef")
+  pivot_longer(1:27, names_to = "variable", values_to = "coef")
 se <- data.frame(results$standard.errors) #make a standard error table
 se <- se %>%  #keep only the cold water standard errors
   mutate(temperature = rownames(se)) %>% 
   filter(temperature == "cold") %>% 
   select(-temperature, -X.Intercept.) %>% 
-  pivot_longer(1:23, names_to = "variable", values_to = "se")
+  pivot_longer(1:27, names_to = "variable", values_to = "se")
 
 #create a dataframe with the variables, coef and se in one dataframe
 results2 <- data.frame( 
@@ -337,18 +441,44 @@ n <-  sp_timing_counts$timing_count
 sp_timing_counts <- sp_timing_counts[rep(seq_len(nrow(sp_timing_counts)), n),]
 sp_timing_counts <- sp_timing_counts %>% 
   select(timing, UID) %>% 
-  left_join(dat3, by = "UID")
+  left_join(fishcovariates, by = "UID")
 
 #convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
 sp_timing_counts$timing <- relevel(as.factor(sp_timing_counts$timing), ref = "sp")
 
 #run the multinomial model
-mdl <- multinom(timing ~ lat + long + logWsAreaSqKm + 
-                 annual_mean_max_temp_30d + 
-                 logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST + CFM_HIST + W95_HIST + 
-                 BFIWs + ElevWs + WtDepWs + PctOw_Ws + PctUrbOp_Ws +
-                 PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + 
-                 PctWdWet_Ws + PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100,
+mdl <- multinom(timing ~ lat + 
+                 long + 
+                 annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST + 
+                 CFM_HIST + 
+                 W95_HIST + 
+                 BFIWs + 
+                 ElevCat + 
+                 RdDensCatRp100 + 
+                 RdDensWsRp100 + 
+                 RdCrsWs + 
+                 WtDepWs + 
+                 PopDen_Ws + 
+                 PctOw_Ws + 
+                 PctImp_Cat + 
+                 PctImp_Ws + 
+                 PctImp_CatRp100 + 
+                 PctImp_WsRp100 + 
+                 pctForest_Cat + 
+                 pctForest_ws + 
+                 pctUrban_Cat + 
+                 pctUrban_ws + 
+                 pctAg_Ws + 
+                 pctWetland_Cat + 
+                 pctWetland_Ws + 
+                 huc12_damden_sqkm + 
+                 huc8_damcount + 
+                 logWsAreaSqKm + 
+                 logMJJA_HIST + 
+                 logRdCrsCat + 
+                 logPctOw_Cat,
                  data = sp_timing_counts)
 results <- summary(mdl)
 
@@ -428,7 +558,7 @@ library(pscl) #to run a zero inflated model
 library(lme4) #to run a linear mixed effect model
 
 
-ggplot(data = dat3, mapping = aes(x = log(abund_km)))+
+ggplot(data = fishcovariates, mapping = aes(x = log(abund_km)))+
   geom_histogram()
 
 
@@ -444,14 +574,14 @@ logreg_pumpk <- glm(occurrence ~ lat + long + logWsAreaSqKm + annual_mean_max_te
                            PctBl_Ws + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
                            PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100 ,
                          family = "binomial",
-                         data = dat3)
+                         data = fishcovariates)
 
 summary(logreg_pumpk)
 
 #test prediction on the data
-pred <- dat3[,c(9:40)]
+pred <- fishcovariates[,c(9:40)]
 predict_logreg <- predict(logreg_pumpk, newdata = pred, type = "response")
-compare_logreg <- data.frame("occurrence" = dat3$occurrence, "prob" = predict_logreg)
+compare_logreg <- data.frame("occurrence" = fishcovariates$occurrence, "prob" = predict_logreg)
 
 
 #plot
@@ -463,19 +593,19 @@ ggplot(data = log_reg_results[!is.na(log_reg_results$prediction),])+
 
 #model the log abundance
 
-dat3$logabund <- log(dat3$abund_km + 1)
+fishcovariates$logabund <- log(fishcovariates$abund_km + 1)
 lm_pumpk <- glm(logabund ~ lat + long + logWsAreaSqKm + annual_mean_max_temp_30d + logMJJA_HIST + BFI_HIST + LO7Q1DT_HIST +
                            CFM_HIST + W95_HIST + BFIWs + ElevWs + WtDepWs + HUDen_Ws + PopDen_Ws + PctOw_Ws + PctUrbOp_Ws +
                            PctBl_Ws  + pctforest_Ws + PctShrb_Ws + PctGrs_Ws + PctHay_Ws + PctWdWet_Ws +
                            PctHbWet_Ws + PctImp_Ws + PctImp_WsRp100 ,
                          family = "gaussian",
-                         data = dat3)
+                         data = fishcovariates)
 summary(lm_pumpk)
 
 #test prediction on the data
-pred <- dat3[,c(9:40)]
+pred <- fishcovariates[,c(9:40)]
 predict_lm <- predict(lm_pumpk, newdata = pred, type = "response")
-compare_lm <- data.frame("abund" = dat3$logabund, "mdl_abund" = predict_lm)
+compare_lm <- data.frame("abund" = fishcovariates$logabund, "mdl_abund" = predict_lm)
 
 #plot
 dat2$prediction <- compare_lm$mdl_abund

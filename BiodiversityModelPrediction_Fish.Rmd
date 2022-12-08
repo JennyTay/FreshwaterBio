@@ -1,0 +1,15 @@
+---
+title: "Biodiversity Model Prediction"
+author: "Jenny Rogers"
+date: "2022-12-07"
+output: html_document
+---
+
+```{r}
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+
+
+
+```

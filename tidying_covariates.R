@@ -1,4 +1,6 @@
 
+###NOTE - will need to rerun this once we have MEs dam data
+
 library(corrplot)
 library(sf)
 library(tidyverse)
@@ -280,9 +282,9 @@ dev.off()
 
 #first make histograms of covariates to see whats normally distributed
 dat4 <- dat3 %>% 
-  select(2,3, 9:38)
+  dplyr::select(2,3, 9:38)
 
-for (i in 1:30) {
+for (i in 1:32) {
   
   ggplot(data = dat4, mapping = aes(x = dat4[[i]]))+
     geom_histogram(binwidth = )+
@@ -295,11 +297,13 @@ for (i in 1:30) {
 
 
 #log transform certain variables
-dat3 <- dat3 %>% 
-  mutate(logWsAreaSqKm = log(WsAreaSqKm),
-         logMJJA_HIST = log(MJJA_HIST)) %>% 
-  select(-WsAreaSqKm, -MJJA_HIST )
+fishcovariates <- dat3 %>% 
+  mutate(logWsAreaSqKm = log(WsAreaSqKm+1),
+         logMJJA_HIST = log(MJJA_HIST+1),
+         logRdCrsCat = log(RdCrsCat+1),
+         logPctOw_Cat = log(PctOw_Cat+1)) %>% 
+  dplyr::select(-WsAreaSqKm, -MJJA_HIST, -RdCrsCat, -PctOw_Cat )
 
-save(dat3, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+save(fishcovariates, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
