@@ -1,5 +1,4 @@
 
-###NOTE - will need to rerun this once we have MEs dam data
 
 library(corrplot)
 library(sf)
@@ -201,7 +200,7 @@ remove <- nzv$metric[nzv$zeroVar == TRUE | nzv$nzv == TRUE]
 # "NABD_NIDStorCat"  "NABD_NrmStorCat"  "NABD_DensWs"      "NABD_NIDStorWs"   "NABD_NrmStorWs"   "PctIce_Cat"       "PctBl_Cat"        "PctIce_Ws"       
 
 dat2 <- dat %>% 
-  dplyr::select(-remove)
+  dplyr::select(-all_of(remove))
 
 #look for correlation between variables from the same dataset (SHEDs, huc8 streamflow, USGS flow metrics, Streamcat, metadata (lat,long, watershed size, elev, length) )
 
@@ -307,3 +306,43 @@ fishcovariates <- dat3 %>%
 save(fishcovariates, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+
+
+
+#make this df by huc12
+fishcovariates_byhuc12 <- left_join(fishcovariates, fish_event_huc_join, by = c("UID", "state", "year", "month", "source", "huc8_name")) %>% 
+  group_by(huc12_tnmid, huc12_name) %>% 
+  summarise(lat = mean(lat, na.rm = T),
+            long = mean(long, na.rm = T),
+            annual_mean_summer_temp = mean(annual_mean_summer_temp, na.rm = T),
+            BFI_HIST = mean(BFI_HIST, na.rm = T),
+            LO7Q1DT_HIST = mean(LO7Q1DT_HIST, na.rm = T),
+            CFM_HIST = mean(CFM_HIST, na.rm = T),
+            W95_HIST = mean(W95_HIST, na.rm = T),
+            BFIWs = mean(BFIWs, na.rm = T),
+            ElevCat = mean(ElevCat, na.rm = T),
+            RdDensCatRp100 = mean(RdDensCatRp100, na.rm = T),
+            RdDensWsRp100 = mean(RdDensWsRp100, na.rm = T),
+            RdCrsWs = mean(RdCrsWs, na.rm = T),
+            WtDepWs = mean(WtDepWs, na.rm = T),
+            PopDen_Ws = mean(PopDen_Ws, na.rm = T),
+            PctOw_Ws = mean(PctOw_Ws, na.rm = T),
+            PctImp_Cat = mean(PctImp_Cat, na.rm = T),
+            PctImp_Ws = mean(PctImp_Ws, na.rm = T),
+            PctImp_CatRp100 = mean(PctImp_CatRp100, na.rm = T),
+            PctImp_WsRp100 = mean(PctImp_WsRp100, na.rm = T),
+            pctForest_Cat = mean(pctForest_Cat, na.rm = T),
+            pctForest_ws = mean(pctForest_ws, na.rm = T),
+            pctUrban_Cat = mean(pctUrban_Cat, na.rm = T),
+            pctUrban_ws = mean(pctUrban_ws, na.rm = T),
+            pctAg_Ws = mean(pctAg_Ws, na.rm = T),
+            pctWetland_Cat = mean(pctWetland_Cat, na.rm = T),
+            pctWetland_Ws = mean(pctWetland_Ws, na.rm = T),
+            huc12_damden_sqkm = mean(huc12_damden_sqkm, na.rm = T),
+            huc8_damcount = mean(huc8_damcount, na.rm = T),
+            logWsAreaSqKm = mean(logWsAreaSqKm, na.rm = T),
+            logMJJA_HIST = mean(logMJJA_HIST, na.rm = T),
+            logRdCrsCat = mean(logRdCrsCat, na.rm = T),
+            logPctOw_Cat = mean(logPctOw_Cat, na.rm = T))
+
+save(fishcovariates_byhuc12, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates_byhuc12.RData")

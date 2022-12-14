@@ -1,6 +1,7 @@
 #tidying the dam layer
 #want to combine the state dams into a single dataframe and then calcuate dam density at the HUC8, 10, 12.
 library(sf)
+library(tidyverse)
 
 ri <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StateDams/RI_dams.csv")
 vt <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StateDams/VT_dams.csv")
@@ -8,6 +9,7 @@ nh <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles
 ct <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StateDams/CT_dams.csv")
 
 ma <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StateDams/MA/DAMS_PT.shp")
+me <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/StateDams/Viewer_Dams_Export_120922.gdb")
 
 ri <- ri %>%
   dplyr::select(X, Y, NAME) %>% 
@@ -55,9 +57,17 @@ nh <- nh %>%
   mutate(source = "NH Dam Inventory; Jim Weber, NH Dept of Env Services") %>% 
   filter(latitude>30)
 
+me <- me %>% 
+  data.frame() %>% 
+  select(Latitude, Longitude, Dam_Name) %>% 
+  rename(latitude = Latitude,
+         longitude = Longitude,
+         name = Dam_Name) %>% 
+  mutate(souce = "Alex Abbott")
+
 #bind the datasets into one
 
-dams <- bind_rows(ri, ct, ma, nh, vt)
+dams <- bind_rows(ri, ct, ma, nh, vt, me)
 
 #assign a datum
 #read in the huc8 for our datum
@@ -78,6 +88,9 @@ plot(dams['geometry'])
 # first need to prepare the huc files - select the attributes we want and remove the duplicated rows
 #21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
 #also, reclatuate the areas of each hucc bc there appear to be some errors
+
+sf_use_s2(FALSE)
+
 
 huc8 <- huc8 %>% 
   dplyr::select(tnmid, areasqkm, name) %>% 

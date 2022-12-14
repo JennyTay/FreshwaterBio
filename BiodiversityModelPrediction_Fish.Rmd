@@ -5,10 +5,410 @@ date: "2022-12-07"
 output: html_document
 ---
 
+
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(glmmTMB)
+
+
+
+```
+
+
 ```{r}
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects")
+
+
+for (i in 1:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  NHDplusV2_NewEngCrop$baseline_predict <- predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response")
+  
+ggplot(data = NHDplusV2_NewEngCrop)+
+  geom_sf(aes(color = baseline_predict))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+  
+}
+
+
+#stream reach scale spp proportional abuncnae
+
+#predict the model on the historical data
+pred_data <- dat[,11:42]
+predict <- predict(mdl, newdata = pred_data, type = "response")
+compare <- data.frame("propabun" = dat$propabun, "prediction" = predict)
+
+
+
+#plot
+dat$prediction <- compare$prediction
+tmp <- left_join(fish_shp, dat, by ="UID") %>% 
+  mutate(pres = as.factor(ifelse(prediction > 0.1, 1, 0)))
+ggplot(data = tmp[!is.na(tmp$prediction),])+
+  geom_sf(aes(fill=pres, size = prediction), pch = 21, col = "black")
+
+ggplot(data = tmp[!is.na(tmp$prediction),])+
+  geom_sf(aes(fill= prediction, size = prediction), pch = 21, col = "black")
+
+#predict the model on all of the flows lines, not just the training data 
+
+
+
+```
+Predict presence absence of each fish in baseline years
+
+```{r}
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+#need to scal the variavles
+NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop[complete.cases(NHDplusV2_NewEngCrop),]
+test <- NHDplusV2_NewEngCrop %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+test <- test[,c(2:3, 5:34)]
+
+test <- data.frame(scale(test))
+
+NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1, 4)], test)
+
+
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+
+#join the predictions to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_baseline)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.5 for the baseline conditions
+head(NHDplusV2_NewEngCrop_baseline)
+tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count = n(),
+            avg_prob = mean(mean_prob))
+
+
+
+
+
+
+#run the model for presence and absence with the mgmt scenario 
+
+NHDplusV2_NewEngCrop_mgmt <- NHDplusV2_NewEngCrop %>% 
+  mutate(PctImp_Ws = PctImp_Ws/4,
+         pctAg_Ws = pctAg_Ws/4,
+         logRdCrsCat = logRdCrsCat/4,
+         huc12_damden_sqkm = huc12_damden_sqkm/4,
+         huc8_damcount = huc8_damcount/4
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_mgmt <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_mgmt, type = "response"))
+names(predictions_mgmt)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_mgmt, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_mgmt <- cbind(predictions_mgmt, tmp)
+  
+  
+}
+
+
+#join the predictions_mgmt to the list of comids
+NHDplusV2_NewEngCrop_mgmt <- cbind(NHDplusV2_NewEngCrop_mgmt, predictions_mgmt)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_mgmt)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.5 for the mgmt conditions
+head(NHDplusV2_NewEngCrop_mgmt)
+tmp_mgmt <- NHDplusV2_NewEngCrop_mgmt %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_mgmt = n(),
+            avg_prob_mgmt = mean(mean_prob))
+
+
+
+
+
+
+
+#run the model for presence and absence, but this time multiple all the anthropogenic variables by 4: lots of development)
+
+NHDplusV2_NewEngCrop_dvlp <- NHDplusV2_NewEngCrop %>% 
+  mutate(PctImp_Ws = PctImp_Ws*4,
+         pctAg_Ws = pctAg_Ws*4,
+         logRdCrsCat = logRdCrsCat*4,
+         huc12_damden_sqkm = huc12_damden_sqkm*4,
+         huc8_damcount = huc8_damcount*4
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_dvlp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_dvlp, type = "response"))
+names(predictions_dvlp)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_dvlp, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_dvlp <- cbind(predictions_dvlp, tmp)
+  
+  
+}
+
+
+#join the predictions_dvlp to the list of comids
+NHDplusV2_NewEngCrop_dvlp <- cbind(NHDplusV2_NewEngCrop_dvlp, predictions_dvlp)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_dvlp)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.5 for the mgmt conditions
+head(NHDplusV2_NewEngCrop_dvlp)
+tmp_dvlp <- NHDplusV2_NewEngCrop_dvlp %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_dvlp = n(),
+            avg_prob_dvlp = mean(mean_prob))
+
+
+
+
+
+
+
+#run the model for presence and absence: lots of climate change)
+
+NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 4
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_cc <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc, type = "response"))
+names(predictions_cc)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_cc <- cbind(predictions_cc, tmp)
+  
+  
+}
+
+
+#join the predictions_cc to the list of comids
+NHDplusV2_NewEngCrop_cc <- cbind(NHDplusV2_NewEngCrop_cc, predictions_cc)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_cc)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
+head(NHDplusV2_NewEngCrop_cc)
+tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_cc = n(),
+            avg_prob_cc = mean(mean_prob))
+
+
+
+
+
+compare <- full_join(tmp_baseline, tmp_mgmt, by  = "common_name")
+
+compare <- full_join(compare, tmp_dvlp, by  = "common_name")
+
+compare <- full_join(compare, tmp_cc, by  = "common_name")
+
+
+names(compare)
+
+compare <- compare %>% 
+  mutate(base_mgmt = (count_mgmt - count)/count*100,
+         base_dvlp = (count_dvlp - count )/count*100,
+         base_cc = (count_cc - count)/count*100,
+         basep_mgmtp = (avg_prob_mgmt - avg_prob)/avg_prob*100,
+         basep_dvlpp = (avg_prob_dvlp - avg_prob)/avg_prob*100,
+         basep_ccp = (avg_prob_cc - avg_prob)/avg_prob*100)
+
+```
+
+
+
+
+multinomla logisrc regression predictions
+
+```{r}
+
+
+#baseline:
+
+#calcuate predicted probablies of each outcome.
+
+predict <- temp_counts %>% 
+  select(-c(1,5, 6,7,8,9, 36)) %>% 
+  unique()
+
+pp <- predict(mdl, newdata = predict, "probs")
+
+predict2 <- data.frame("UID" = predict$UID,
+                       "cool" = pp[,1],
+                       "cold" = pp[,2],
+                       "eury" = pp[,3],
+                       "warm" = pp[,4])
+
+predict3 <- left_join(fish_shp, predict2, by = "UID") %>%
+  select(cool, cold, eury, warm) %>% 
+  pivot_longer(1:4, names_to = "temperature", values_to = "proportion")
+  
+ggplot(data = predict3[predict3$proportion>0 & !is.na(predict3$proportion),])+
+  geom_sf(aes(col = proportion))+
+  facet_wrap(~temperature, nrow = 2)
+
+
+
+#odds = exp(logodds)
+#probability = odds/(1+odds)
 
 
 

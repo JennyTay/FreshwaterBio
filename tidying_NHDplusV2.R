@@ -81,6 +81,7 @@ NHDplusV2_NewEngCrop <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBi
 #prepare the huc files - select the attributes we want and remove the duplicated rows
 #21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
 
+sf_use_s2(FALSE)
 
 huc8 <- huc8 %>% 
   select(tnmid, areasqkm, name) %>% 
@@ -256,7 +257,11 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NH
 
 ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = huc8_damcount))+
   geom_sf() +
-  scale_color_gradientn(colors = terrain.colors(10), na.value = NA)+
+  scale_color_gradient2(
+    low = "blue",
+    mid = "white",
+    high = "red",
+    midpoint = 750)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
