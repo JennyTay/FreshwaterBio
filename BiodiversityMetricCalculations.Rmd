@@ -34,23 +34,23 @@ load datafiles
 Load datasets
 ```{r}
 #watershed data
-load("C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
 
 
 #fish data
-load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
-load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
-load(file =  "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 
 #load new england state data
-states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 #watershed data
-huc8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
-huc10 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
-huc12 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
-flowline <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+flowline <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/NHDflowline/NHDflowline_NE.shp")
 
 
 ```
@@ -203,7 +203,7 @@ plots of counts
 head(fish_occurrence)
 
 #load fish data
-shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
 #remove NA names
 shp <- shp %>% 
   filter(watrbdy == "lotic") %>% #remove the lentic sites
@@ -225,15 +225,18 @@ table(pres$common_name)
 for( i in 1:length(unique(pres$common_name))){
   
   ggplot()+
-    geom_sf(data = states)+
     geom_sf(data = pres[pres$common_name== unique(pres$common_name)[i], ], 
             aes(color = as.factor(occurrence)))+
+    geom_sf(data = states, fill = NA, lwd = 0.25)+
+    geom_sf(data = huc8, fill = NA, lwd = 0.25)+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
-          panel.background = element_blank())+
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank())+
     ggtitle(label = unique(pres$common_name)[i])+
-    labs(color = "Occurrence")
+    labs(color = "Detection")
   
   ggsave(
     filename = paste("tmpfigures/fish_occ_with_zero/", unique(pres$common_name)[i], ".png", sep = ""),
@@ -241,7 +244,7 @@ for( i in 1:length(unique(pres$common_name))){
     width = 14,
     height = 9,
     units = "cm",
-    dpi = 100
+    dpi = 300
   )
   
   print(i)

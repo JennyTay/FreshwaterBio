@@ -146,3 +146,11 @@ save(ma_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 save(ma_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_fish.RData")
 save(ma_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_species.RData")
 
+
+#added in stocking information Dec 23,2022
+#atlantic salmon are all stocked and only naturally reproduce in tribs of the quabbin and wachusetts reservoirs
+#for brown trout and brook trout, mark any larger than 200mm as stocked
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/ma_fish_fish.RData")
+ma_fish$stock <- ifelse(ma_fish$scientific_name %in% c("Salmo trutta", "Salvelinus fontinalis", "Oncorhynchus mykiss") & 
+                          ma_fish$length_mm >200, "stock", "natural")
+

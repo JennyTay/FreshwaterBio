@@ -119,7 +119,7 @@ tmp2 <- tmp2 %>% #keep and rename the final latitude and longitude columns
          longitude = ifelse(longitude > 0, -longitude, longitude))
 
 ri_event <- rbind(tmp, tmp2, tmp3) #rbind the converted coordinate df to the df that was orignally in dec degrees
-rm(tmp, tmp2, tm3, code)
+rm(tmp, tmp2, tmp3, code)
 
 #fix longitude
 ri_event$longitude[ri_event$UID == "RI_2_1_14_930723"] <- -71.79167 #this was a typo and was originally -41.79167
@@ -190,6 +190,10 @@ ri_fish <- left_join(ri_fish, tmp5, by = c("UID", "scientific_name")) %>%
   rename(count = countnew) #rename the new count to the be count
 
 ri_fish$run_num <- 1
+
+#added in stocking information Dec 23,2022
+#brown trout, atlantic salmon, northern pike, and rainbow trout are all known to be stocked, no know reproducing populations
+ri_fish$stock <- ifelse(ri_fish$scientific_name %in% c("salmo trutta", "salmo salar", "esox lucius", "oncorhynchus mykiss"), "stock", "natural")
 
 
 #ri_method

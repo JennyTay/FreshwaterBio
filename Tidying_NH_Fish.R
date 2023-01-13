@@ -52,20 +52,40 @@ des_event <- des %>%
 des_event$waterbody[des_event$waterbody == "lentic"] <- "lotic"
 
 #want to make a column for total count, which equals individals + DEADnum - NumStocked
+#added in stocking information Dec 23,2022. They mark the count of stocked fish, so we annotated those.
 
 des$NumStocked[is.na(des$NumStocked)] <- 0
 
 des_fish <- des %>% 
   select(ActivityID, FinalID , Individuals, run_num, NumStocked) %>% 
   mutate(UID = paste("des", ActivityID, sep = "_"),
-         totalcount = Individuals - NumStocked) %>% #new count column that subtracts the stocked number. The DEADnum is already included in the individuals column and we want to include these, because they died fromthe eshock
+         totalcount = Individuals - NumStocked,
+         stock = "natural") %>% #new count column that subtracts the stocked number. The DEADnum is already included in the individuals column and we want to include these, because they died fromthe eshock
   rename(scientific_name = FinalID , count = totalcount) %>% 
-  select(UID, scientific_name, count, run_num)
+  select(UID, scientific_name, count, run_num, stock)
 
 #to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
 
 n <-  des_fish$count
 des_fish <- des_fish[rep(seq_len(nrow(des_fish)), n),]
+
+
+des_fish_stock <- des %>% 
+  select(ActivityID, FinalID , Individuals, run_num, NumStocked) %>% 
+  mutate(UID = paste("des", ActivityID, sep = "_"),
+         totalcount = NumStocked,
+         stock = "stock") %>% #new count column that equals the count of stocked fish
+  rename(scientific_name = FinalID , count = totalcount) %>% 
+  select(UID, scientific_name, count, run_num, stock) %>% 
+  filter(count>0)
+
+#to make comprable to other datasets, repeat rows with lengths the number of times based on the count value. 
+
+n <-  des_fish_stock$count
+des_fish_stock <- des_fish_stock[rep(seq_len(nrow(des_fish_stock)), n),]
+
+
+des_fish <- rbind(des_fish, des_fish_stock)
 
 
 
@@ -166,9 +186,17 @@ fg_fish <- fish %>%
   select(UID, scientific_name, count, length_mm, weight_g, Run_Num) %>% 
   mutate(length_mm = as.numeric(length_mm),
          weight_g = as.numeric(weight_g),
-         Run_Num =as.numeric(Run_Num)) %>% 
-  filter(!grepl('_hatchery', scientific_name)) #remove the hatchery fish
+         Run_Num =as.numeric(Run_Num),
+         stock = ifelse(scientific_name %in% c("Salvelinus fontinalis_hatchery", "Salmo trutta_hatchery", "Oncorhynchus mykiss_hatchery"),
+                        "stock", "natural")) 
 names(fg_fish)[2:6] <- tolower(names(fg_fish)[2:6])
+
+#if brown, rainbow, or brook trout are >200 mark it as stocked
+fg_fish$scientific_name[fg_fish$scientific_name == "Salvelinus fontinalis_hatchery"] <- "Salvelinus fontinalis"
+fg_fish$scientific_name[fg_fish$scientific_name == "Salmo trutta_hatchery"] <- "Salmo trutta"
+fg_fish$scientific_name[fg_fish$scientific_name == "Oncorhynchus mykiss_hatchery"] <- "Oncorhynchus mykiss"
+fg_fish$stock <- ifelse(fg_fish$scientific_name %in% c("Salvelinus fontinalis", "Salmo trutta", "Oncorhynchus mykiss") & fg_fish$length_mm >200,
+                        "stock", fg_fish$stock)
 
 
 
@@ -186,14 +214,14 @@ tmp4 <- rbind(tmp, tmp2)# dont want to add in the NA counts yet because these do
 #total counts for the fish that were measured and the fish that were counted
 tmp5 <- tmp4 %>% 
   select(-count) %>% 
-  group_by(UID, scientific_name, run_num) %>% 
+  group_by(UID, scientific_name, run_num, stock) %>% 
   summarise(count = n())
 
 #join to the tmp4 df, which is the list of all observations.
 fg_fish <- tmp4 %>% 
   select(-count) %>% 
-  left_join(tmp5, by = c("UID", "scientific_name", "run_num")) %>% 
-  select(UID, scientific_name, count, length_mm, weight_g, run_num)
+  left_join(tmp5, by = c("UID", "scientific_name", "run_num", "stock")) %>% 
+  select(UID, scientific_name, count, length_mm, weight_g, run_num, stock)
 
 fg_fish <- rbind(fg_fish, tmp3) #add in fish with NA counts
 

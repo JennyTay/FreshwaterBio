@@ -14,10 +14,10 @@ library(readxl)
 #########################################################
 
 
-vt <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
+vt <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
                  col_names = TRUE, sheet = "All VDEC Fish Data w TE Species")
 
-fish <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
+fish <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DEC Fish Data/VT DEC Fish Data 01-28-2022 (with TE).xlsx",
                  col_names = TRUE, sheet = "Fish Library", range = cell_cols("A:I"))
 fish <- fish %>% 
   select(FishID, Species)
@@ -123,7 +123,7 @@ save(dec_species, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_d
 
 
 
-dfw <- read_excel("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT DFG Fish Data/Vermont electrofishing data 1954-2020.xlsx",
+dfw <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT DFG Fish Data/Vermont electrofishing data 1954-2020.xlsx",
                  col_names = TRUE)
 
 
@@ -218,6 +218,12 @@ dfw_fish <- dfw_fish %>%
   select(UID, common_name, count, weight_g, length_mm)
 
 
+#added in stocking information Dec 23,2022
+#for brown trout,  brook trout, and rainbow trout, mark any larger than 200mm as stocked
+dfw_fish$stock <- ifelse(dfw_fish$common_name %in% c("Rainbow Trout", "Brown Trout", "Brook Trout") & 
+                           dfw_fish$length_mm >200, "stock", "natural")
+
+
 
 #to make comparable to other data sets, repeat rows with lengths the number of times based on the count value. 
 
@@ -270,9 +276,9 @@ dfw_method <- dfw_method %>%  #average the lengths and widths of the UIDs that h
 
 ####################################
 #save dataframe
-save(dfw_method, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_method.RData")
-save(dfw_event, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_event.RData")
-save(dfw_fish, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_fish.RData")
+save(dfw_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_method.RData")
+save(dfw_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_event.RData")
+save(dfw_fish, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/vtdfw_fish_fish.RData")
 
 
 

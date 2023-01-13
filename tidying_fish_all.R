@@ -11,8 +11,8 @@ library(readxl)
 
 
 #load in datasets
-path <-  "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata"
-files <- list.files(path = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata")
+path <-  "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata"
+files <- list.files(path = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata")
 
 for (i in 1:length(files)){
   
@@ -51,7 +51,7 @@ str(event)
 table(event$state)
 table(event$year)
 
-save(event, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+save(event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 
 
 
@@ -344,7 +344,7 @@ fish <- fish %>%
 
 fish_count <- fish %>% 
   filter(!is.na(count)) %>% 
-  select(UID, run_num, count, common_name, scientific_name, genus) %>% 
+  select(UID, run_num, count, common_name, scientific_name, genus, stock) %>% 
   unique()  #this should just be unique
 #remember that the fish count will be longer than the fish presence because there are different counts in different run numbers, all for the same UID
 
@@ -365,13 +365,13 @@ fish_size$length_mm[fish_size$length_mm == 378 & fish_size$common_name == "redbr
 
   
 fish_presence <- fish %>% 
-  select(UID, common_name, scientific_name, genus) %>% 
+  select(UID, common_name, scientific_name, genus, stock) %>% 
   unique()
 
 #save
-save(fish_count, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-save(fish_size, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
-save(fish_presence, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
+save(fish_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+save(fish_size, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
+save(fish_presence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 
 
 
@@ -494,13 +494,13 @@ save(method, file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tid
 
 
 #load the merged HUC boundary files
-dat8 <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp") #this is the crs that we want
+dat8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NDH/mergedfiles/huc8.shp") #this is the crs that we want
 
 
 #load fish data
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
 
 dat <- left_join(fish_count, event, by = "UID")
 
@@ -515,7 +515,7 @@ shp <- st_as_sf(x = dat,
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
 
-st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_count.shp")
 
 
 
@@ -533,7 +533,7 @@ shp <- st_as_sf(x = dat,
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
 
-st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
 
 
 
@@ -546,4 +546,4 @@ shp <- st_as_sf(x = event,
                 coords = c("longitude", "latitude"),
                 crs = st_crs(dat8))
 
-st_write(shp, dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+st_write(shp, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")

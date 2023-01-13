@@ -447,7 +447,7 @@ here, we want to attribute each spp code with a HUC 8, 10, 12, flow line ID
 
 
 #load fish data
-shp <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_presence.shp")
 #remove NA names
 shp <- shp %>% 
   filter(!is.na(cmmn_nm),
@@ -457,7 +457,7 @@ shp <- shp %>%
 
 
 #load new englad state data
-states <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 
 

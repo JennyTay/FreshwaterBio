@@ -17,7 +17,7 @@ library(glmmTMB)
 
 ```
 
-
+proportional abundance predictions
 ```{r}
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
@@ -74,7 +74,6 @@ Predict presence absence of each fish in baseline years
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 
 #need to scal the variavles
-NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop[complete.cases(NHDplusV2_NewEngCrop),]
 test <- NHDplusV2_NewEngCrop %>% 
   data.frame() %>% 
   select(-geometry)
@@ -147,152 +146,13 @@ tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>%
 
 
 
-#run the model for presence and absence with the mgmt scenario 
-
-NHDplusV2_NewEngCrop_mgmt <- NHDplusV2_NewEngCrop %>% 
-  mutate(PctImp_Ws = PctImp_Ws/4,
-         pctAg_Ws = pctAg_Ws/4,
-         logRdCrsCat = logRdCrsCat/4,
-         huc12_damden_sqkm = huc12_damden_sqkm/4,
-         huc8_damcount = huc8_damcount/4
-         )
 
 
 
-file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
-
-i <- 1
-
-mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
-  
-predictions_mgmt <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_mgmt, type = "response"))
-names(predictions_mgmt)[1] <- file.list[i]
-
-
-
-
-for (i in 2:57) { 
-  
-  
-   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
-  
-  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_mgmt, type = "response"))
-  names(tmp)[1] <- file.list[i]
-  
-  predictions_mgmt <- cbind(predictions_mgmt, tmp)
-  
-  
-}
-
-
-#join the predictions_mgmt to the list of comids
-NHDplusV2_NewEngCrop_mgmt <- cbind(NHDplusV2_NewEngCrop_mgmt, predictions_mgmt)
-
-#sample plot
-ggplot(data = NHDplusV2_NewEngCrop_mgmt)+
-  geom_sf(aes(color = pres_brook.trout.rds))+
-  scale_color_gradient2(low = "blue",
-                        mid = "yellow",
-                        high = "red",
-                        midpoint = 0.5)
-
-
-
-#this calcuated the total number of HUC8s that have an average P(occurrece)>0.5 for the mgmt conditions
-head(NHDplusV2_NewEngCrop_mgmt)
-tmp_mgmt <- NHDplusV2_NewEngCrop_mgmt %>% 
-  data.frame() %>% 
-  select(huc8_name, 35:91) %>% 
-  pivot_longer(2:58, names_to = "common_name") %>% 
-  group_by(huc8_name, common_name) %>% 
-  summarise(mean_prob = mean(value, na.rm = T)) %>% 
-  filter(mean_prob >0.05) %>%
-  ungroup() %>% 
-  group_by(common_name) %>% 
-  summarise(count_mgmt = n(),
-            avg_prob_mgmt = mean(mean_prob))
-
-
-
-
-
-
-
-#run the model for presence and absence, but this time multiple all the anthropogenic variables by 4: lots of development)
-
-NHDplusV2_NewEngCrop_dvlp <- NHDplusV2_NewEngCrop %>% 
-  mutate(PctImp_Ws = PctImp_Ws*4,
-         pctAg_Ws = pctAg_Ws*4,
-         logRdCrsCat = logRdCrsCat*4,
-         huc12_damden_sqkm = huc12_damden_sqkm*4,
-         huc8_damcount = huc8_damcount*4
-         )
-
-
-
-file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
-
-i <- 1
-
-mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
-  
-predictions_dvlp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_dvlp, type = "response"))
-names(predictions_dvlp)[1] <- file.list[i]
-
-
-
-
-for (i in 2:57) { 
-  
-  
-   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
-  
-  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_dvlp, type = "response"))
-  names(tmp)[1] <- file.list[i]
-  
-  predictions_dvlp <- cbind(predictions_dvlp, tmp)
-  
-  
-}
-
-
-#join the predictions_dvlp to the list of comids
-NHDplusV2_NewEngCrop_dvlp <- cbind(NHDplusV2_NewEngCrop_dvlp, predictions_dvlp)
-
-#sample plot
-ggplot(data = NHDplusV2_NewEngCrop_dvlp)+
-  geom_sf(aes(color = pres_brook.trout.rds))+
-  scale_color_gradient2(low = "blue",
-                        mid = "yellow",
-                        high = "red",
-                        midpoint = 0.5)
-
-
-
-#this calcuated the total number of HUC8s that have an average P(occurrece)>0.5 for the mgmt conditions
-head(NHDplusV2_NewEngCrop_dvlp)
-tmp_dvlp <- NHDplusV2_NewEngCrop_dvlp %>% 
-  data.frame() %>% 
-  select(huc8_name, 35:91) %>% 
-  pivot_longer(2:58, names_to = "common_name") %>% 
-  group_by(huc8_name, common_name) %>% 
-  summarise(mean_prob = mean(value, na.rm = T)) %>% 
-  filter(mean_prob >0.05) %>%
-  ungroup() %>% 
-  group_by(common_name) %>% 
-  summarise(count_dvlp = n(),
-            avg_prob_dvlp = mean(mean_prob))
-
-
-
-
-
-
-
-#run the model for presence and absence: lots of climate change)
+#climate change
 
 NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 4
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
          )
 
 
@@ -354,62 +214,786 @@ tmp_cc <- NHDplusV2_NewEngCrop_cc %>%
 
 
 
-compare <- full_join(tmp_baseline, tmp_mgmt, by  = "common_name")
 
-compare <- full_join(compare, tmp_dvlp, by  = "common_name")
+#climate change and Development
 
-compare <- full_join(compare, tmp_cc, by  = "common_name")
+NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+         PctImp_Ws = PctImp_Ws+2,
+         pctAg_Ws = pctAg_Ws+2,
+         logRdCrsCat = logRdCrsCat+2,
+         huc12_damden_sqkm = huc12_damden_sqkm+2,
+         huc8_damcount = huc8_damcount+2
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_ccdvlp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccdvlp, type = "response"))
+names(predictions_ccdvlp)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccdvlp, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_ccdvlp <- cbind(predictions_ccdvlp, tmp)
+  
+  
+}
+
+
+#join the predictions_ccdvlp to the list of comids
+NHDplusV2_NewEngCrop_ccdvlp <- cbind(NHDplusV2_NewEngCrop_ccdvlp, predictions_ccdvlp)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_ccdvlp)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
+head(NHDplusV2_NewEngCrop_ccdvlp)
+tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_ccdvlp = n(),
+            avg_prob_ccdvlp = mean(mean_prob))
+
+
+
+
+
+
+
+#climate change and management
+
+NHDplusV2_NewEngCrop_ccmgmt <- NHDplusV2_NewEngCrop %>% 
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+         PctImp_Ws = PctImp_Ws-2,
+         pctAg_Ws = pctAg_Ws-2,
+         logRdCrsCat = logRdCrsCat-2,
+         huc12_damden_sqkm = huc12_damden_sqkm-2,
+         huc8_damcount = huc8_damcount-2
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_ccmgmt <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccmgmt, type = "response"))
+names(predictions_ccmgmt)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccmgmt, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_ccmgmt <- cbind(predictions_ccmgmt, tmp)
+  
+  
+}
+
+
+#join the predictions_ccmgmt to the list of comids
+NHDplusV2_NewEngCrop_ccmgmt <- cbind(NHDplusV2_NewEngCrop_ccmgmt, predictions_ccmgmt)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_ccmgmt)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
+head(NHDplusV2_NewEngCrop_ccmgmt)
+tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_ccmgmt = n(),
+            avg_prob_ccmgmt = mean(mean_prob))
+
+
+
+
+
+
+
+
+
+
+compare <- full_join(tmp_baseline, tmp_cc, by  = "common_name")
+
+compare <- full_join(compare, tmp_ccdvlp, by  = "common_name")
+
+compare <- full_join(compare, tmp_ccmgmt, by  = "common_name")
 
 
 names(compare)
 
 compare <- compare %>% 
-  mutate(base_mgmt = (count_mgmt - count)/count*100,
-         base_dvlp = (count_dvlp - count )/count*100,
-         base_cc = (count_cc - count)/count*100,
-         basep_mgmtp = (avg_prob_mgmt - avg_prob)/avg_prob*100,
-         basep_dvlpp = (avg_prob_dvlp - avg_prob)/avg_prob*100,
-         basep_ccp = (avg_prob_cc - avg_prob)/avg_prob*100)
+  mutate(base_ccmgmt = round(((count_ccmgmt - count)/count*100),0),
+         base_ccdvlp = round(((count_ccdvlp - count )/count*100),0),
+         base_cc = round(((count_cc - count)/count*100),0),
+         basep_ccmgmtp = round(((avg_prob_ccmgmt - avg_prob)/avg_prob*100),0),
+         basep_ccdvlpp = round(((avg_prob_ccdvlp - avg_prob)/avg_prob*100),0),
+         basep_ccp = round(((avg_prob_cc - avg_prob)/avg_prob*100),0))
+
+compare$common_name <- gsub(".rds", "", compare$common_name)
+
+compare$common_name <- gsub("pres_", "", compare$common_name)
+
+compare$common_name <- gsub("\\.", " ", compare$common_name)
+
+#remove spp that didnt have model convergence
+compare <- compare %>% 
+  filter(! common_name %in% c("bowfin", "white catfish", "rosyside dace", 
+                              "mimic shiner", "walleye", "round whitefish", 
+                              "roseface shiner",  "spotfin shiner"))
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+names <- fish_occurrence %>% 
+  select(common_name, scientific_name) %>% 
+  unique()
+
+compare <- left_join(compare, names, by = "common_name") %>% 
+  select(scientific_name, 1:15) %>% 
+  arrange(desc(count))
+
+write.csv(compare, file = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/presabs_predictions.csv")
+
+
+
+#calcuate spp richness by huc for each basin
+
+tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc8_name) %>% 
+  summarise(rich_cc = n())
+
+tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc8_name) %>% 
+  summarise(rich_ccdvlp = n())
+
+tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc8_name) %>% 
+  summarise(rich_ccmgmt = n())
+
+tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>% 
+  data.frame() %>% 
+  select(huc8_name, 35:91) %>% 
+  pivot_longer(2:58, names_to = "common_name") %>% 
+  group_by(huc8_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc8_name) %>% 
+  summarise(rich_baseline = n())
+
+
+
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+sf_use_s2(FALSE)
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
+
+
+huc8 <- left_join(huc8, tmp_baseline, by = "huc8_name")
+huc8 <- left_join(huc8, tmp_cc, by = "huc8_name")
+huc8 <- left_join(huc8, tmp_ccdvlp, by = "huc8_name")
+huc8 <- left_join(huc8, tmp_ccmgmt, by = "huc8_name")
+
+huc8 <- huc8 %>% 
+  select(3:7) %>% 
+  pivot_longer(2:5, names_to = "scenario", values_to = "richness") %>% 
+  filter(!is.na(richness),
+         huc8_name != "Long Island Sound")
+huc8$scenario[huc8$scenario == "rich_baseline"] <- "Baseline"
+huc8$scenario[huc8$scenario == "rich_cc"] <- "Clim Change"
+huc8$scenario[huc8$scenario == "rich_ccdvlp"] <- "Clim Chng + Develop"
+huc8$scenario[huc8$scenario == "rich_ccmgmt"] <- "Clim Chng + Manage"
+
+
+ggplot(data = huc8)+
+  geom_sf(aes(fill = richness), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c()+
+  facet_wrap(~scenario, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    ggtitle(label = "Species Richness")
+
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/predictedrichness.png",
+    plot = last_plot(),
+    width = 18,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
 
 ```
 
 
 
 
-multinomla logisrc regression predictions
+multinomial logistic regression predictions
 
 ```{r}
+library(foreign)
+library(nnet)
+
+#load prediction dataset
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 
 
-#baseline:
+#load and prep huc8
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+sf_use_s2(FALSE)
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
 
-#calcuate predicted probablies of each outcome.
 
-predict <- temp_counts %>% 
-  select(-c(1,5, 6,7,8,9, 36)) %>% 
-  unique()
+#load states
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
-pp <- predict(mdl, newdata = predict, "probs")
+#need to scale the variables in NHDplusV2_NewEngCrop
 
-predict2 <- data.frame("UID" = predict$UID,
-                       "cool" = pp[,1],
-                       "cold" = pp[,2],
-                       "eury" = pp[,3],
-                       "warm" = pp[,4])
+test <- NHDplusV2_NewEngCrop %>% 
+  data.frame() %>% 
+  select(-geometry)
+test <- test[,c(2:3, 5:34)]
+test <- data.frame(scale(test))
+NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1, 4)], test)
 
-predict3 <- left_join(fish_shp, predict2, by = "UID") %>%
-  select(cool, cold, eury, warm) %>% 
-  pivot_longer(1:4, names_to = "temperature", values_to = "proportion")
+#load model
+mdl <- readRDS(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_temp.rds")
+
+
+
+
+
+
+
+#prediction using baseline values:
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop, "probs")
+
+#join the predictions_ccmgmt to the list of comids
+tmp <- cbind(NHDplusV2_NewEngCrop, tmp)
+
+tmp <- tmp %>%
+  data.frame() %>% 
+  select(huc8_name, warm, cold, cool) %>% 
+  pivot_longer(2:4, names_to = "temperature", values_to = "prop") %>% 
+  group_by(huc8_name, temperature) %>% 
+  summarise(mean = round(mean(prop, na.rm = T), 2),
+            min = round(quantile(prop, probs = 0.05, na.rm = T), 2),
+            max = round(quantile(prop, probs = 0.95, na.rm = T), 2))
   
-ggplot(data = predict3[predict3$proportion>0 & !is.na(predict3$proportion),])+
-  geom_sf(aes(col = proportion))+
-  facet_wrap(~temperature, nrow = 2)
 
 
 
-#odds = exp(logodds)
-#probability = odds/(1+odds)
+temptraits_baseline <- left_join(huc8, tmp, by = "huc8_name")
 
+
+temptraits_baseline <- temptraits_baseline %>%  
+  filter(!is.na(temperature),
+         huc8_name != "Long Island Sound")
+
+ggplot(data = temptraits_baseline)+
+  geom_sf(aes(fill = mean), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Avg Prop.")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_baseline.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+ggplot(data = temptraits_baseline, aes(x = huc8_name, y = mean))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = "Temperature Trait Proportion")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_baseline_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+
+
+
+
+#prediction using climate change values values:
+NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
+         )
+
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_cc, "probs")
+
+#join the predictions_ccmgmt to the list of comids
+tmp <- cbind(NHDplusV2_NewEngCrop_cc, tmp)
+
+tmp <- tmp %>%
+  data.frame() %>% 
+  select(huc8_name, warm, cold, cool) %>% 
+  pivot_longer(2:4, names_to = "temperature", values_to = "prop") %>% 
+  group_by(huc8_name, temperature) %>% 
+  summarise(mean = round(mean(prop, na.rm = T), 2),
+            min = round(quantile(prop, probs = 0.05, na.rm = T), 2),
+            max = round(quantile(prop, probs = 0.95, na.rm = T), 2))
+  
+
+
+
+temptraits_cc <- left_join(huc8, tmp, by = "huc8_name")
+
+
+temptraits_cc <- temptraits_cc %>%  
+  filter(!is.na(temperature),
+         huc8_name != "Long Island Sound")
+
+ggplot(data = temptraits_cc)+
+  geom_sf(aes(fill = mean), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Avg Prop.")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_cc.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = temptraits_cc, aes(x = huc8_name, y = mean))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = "Temperature Trait Proportion")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_cc_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+
+
+
+
+
+#prediction using climate change and development  values:
+
+NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+         PctImp_Ws = PctImp_Ws + 2,
+         pctAg_Ws = pctAg_Ws + 2,
+         logRdCrsCat = logRdCrsCat + 2,
+         huc12_damden_sqkm = huc12_damden_sqkm + 2,
+         huc8_damcount = huc8_damcount + 2
+         )
+
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_ccdvlp, "probs")
+
+#join the predictions_ccmgmt to the list of comids
+tmp <- cbind(NHDplusV2_NewEngCrop_ccdvlp, tmp)
+
+tmp <- tmp %>%
+  data.frame() %>% 
+  select(huc8_name, warm, cold, cool) %>% 
+  pivot_longer(2:4, names_to = "temperature", values_to = "prop") %>% 
+  group_by(huc8_name, temperature) %>% 
+  summarise(mean = round(mean(prop, na.rm = T), 2),
+            min = round(quantile(prop, probs = 0.05, na.rm = T), 2),
+            max = round(quantile(prop, probs = 0.95, na.rm = T), 2))
+  
+
+
+
+temptraits_ccdvlp <- left_join(huc8, tmp, by = "huc8_name")
+
+
+temptraits_ccdvlp <- temptraits_ccdvlp %>%  
+  filter(!is.na(temperature),
+         huc8_name != "Long Island Sound")
+
+ggplot(data = temptraits_ccdvlp)+
+  geom_sf(aes(fill = mean), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Avg Prop.")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = temptraits_ccdvlp, aes(x = huc8_name, y = mean))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = "Temperature Trait Proportion")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+
+
+#prediction using climate change and management values:
+
+NHDplusV2_NewEngCrop_ccmgmt <- NHDplusV2_NewEngCrop %>% 
+  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+         PctImp_Ws = PctImp_Ws - 2,
+         pctAg_Ws = pctAg_Ws - 2,
+         logRdCrsCat = logRdCrsCat - 2,
+         huc12_damden_sqkm = huc12_damden_sqkm - 2,
+         huc8_damcount = huc8_damcount - 2,
+         
+         )
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_ccmgmt, "probs")
+
+#join the predictions_ccmgmt to the list of comids
+tmp <- cbind(NHDplusV2_NewEngCrop_ccmgmt, tmp)
+
+tmp <- tmp %>%
+  data.frame() %>% 
+  select(huc8_name, warm, cold, cool) %>% 
+  pivot_longer(2:4, names_to = "temperature", values_to = "prop") %>% 
+  group_by(huc8_name, temperature) %>% 
+  summarise(mean = round(mean(prop, na.rm = T), 2),
+            min = round(quantile(prop, probs = 0.05, na.rm = T), 2),
+            max = round(quantile(prop, probs = 0.95, na.rm = T), 2))
+  
+
+
+
+temptraits_ccmgmt <- left_join(huc8, tmp, by = "huc8_name")
+
+
+temptraits_ccmgmt <- temptraits_ccmgmt %>%  
+  filter(!is.na(temperature),
+         huc8_name != "Long Island Sound")
+
+ggplot(data = temptraits_ccmgmt)+
+  geom_sf(aes(fill = mean), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Avg Prop.")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = temptraits_ccmgmt, aes(x = huc8_name, y = mean))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = "Temperature Trait Proportion")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+temptraits_baseline$scenario <- "Baseline"
+temptraits_cc$scenario <- "CC"
+temptraits_ccdvlp$scenario <- "CC + Develop"
+temptraits_ccmgmt$scenario <- "CC + Manage"
+
+
+tmp <- bind_rows(temptraits_baseline, temptraits_cc, temptraits_ccdvlp, temptraits_ccmgmt)
+tmp <- tmp %>% 
+  filter(huc8_name %in% c("Narragansett", "Merrimack River", "Dead"))
+tmp$huc8_name <- factor(tmp$huc8_name, levels = c("Dead", "Merrimack River", "Narragansett"))
+tmp$scenario <- factor(tmp$scenario, levels = c("Baseline", "CC", "CC + Develop", "CC + Manage"))
+
+ggplot(data = tmp, aes(x = huc8_name, y = mean, color = scenario))+
+  scale_color_manual(values = c("mediumpurple1", "darkgoldenrod1", "red3", "green4"))+
+  geom_point(size = 2, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .5, position=position_dodge(width=0.5))+
+  geom_hline(yintercept = 0.5, color = "grey80", linetype = "dashed")+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"))+
+  labs(y = "Avg Proportional Abundance")+
+  scale_y_continuous(limits = c(0, 1), breaks = 0.5)
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_compare_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+
+
+
+
+diff <- temptraits_baseline %>% 
+  rename(baseline_mean = mean) %>% 
+  mutate(cc_mean = temptraits_cc$mean,
+         ccdvlp_mean = temptraits_ccdvlp$mean,
+         ccmgmt_mean = temptraits_ccmgmt$mean,
+         change_dvlp = ccdvlp_mean - cc_mean,
+         change_mgmt = ccmgmt_mean - cc_mean)
+
+
+ggplot(data = diff)+
+  geom_sf(aes(fill = change_dvlp), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c(option = "magma", limits = c(-.25, 0.25))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Change")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_cc_dvlp_change.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = diff)+
+  geom_sf(aes(fill = change_mgmt), color = "black", lwd = 0.05)+
+  scale_fill_viridis_c(option = "magma", limits = c(-.25, 0.25))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Change")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_cc_mmgt_change.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
 
 
 ```

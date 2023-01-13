@@ -78,6 +78,13 @@ ct_fish <- ct_fish %>%
   rename(count = countnew) %>% 
   mutate(scientific_name = tolower(scientific_name))
 
+#added in stocking information Dec 23,2022
+#for brown trout,  brook trout, and rainbow trout, mark any larger than 200mm as stocked
+ct_fish$stock <- ifelse(ct_fish$scientific_name %in% c("salmo trutta", "salvelinus fontinalis", "oncorhynchus mykiss") & 
+                          ct_fish$length_mm >200, "stock", "natural")
+
+
+
 #need to get the common names. Chris didnt give a look up file, so I will use the MA one
 unique(ct_fish$scientific_name)
 
