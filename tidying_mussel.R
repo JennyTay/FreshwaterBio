@@ -766,9 +766,10 @@ name_conversion <- read.csv("musselsppnames.csv")
 
 #read in VT DEC data
 
+
 vtdat <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/VTDEC-Mussel-Records-20220228.csv")
 vtdat <- vtdat %>% 
-  mutate(UID = paste("VT", Location, Date, sep = "_"),
+  mutate(UID = paste("VT", Location, Latitude, Longitude, Date, sep = "_"),
          state = "VT",
          project = "VTDEC",
          source = "MichelleGraziosi-VTDEC",
@@ -800,9 +801,49 @@ vt_mussel_occurrence <- vtdat %>%
   filter(!is.na(common_name))
 
 vt_mussel_method <- vtdat %>% 
-  select(UID, survey_method)
+  select(UID, survey_method) %>% 
+  unique()
 
 #no method or count information here
+
+
+#added in the recent 2022 data that Michelle sent
+vtdat2022 <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/2022-Mussel-Survey-Records-VTDEC.xlsx")
+
+vtdat2022 <- vtdat2022  %>% 
+  rename(latitude= "Latitude (DD)", longitude = "Longitude (DD)") %>%  
+  mutate(UID = paste("VT", Location, latitude,  longitude, Date, sep = "_"),
+         state = "VT",
+         project = "VTDEC",
+         source = "MichelleGraziosi-VTDEC",
+         scientific_name = tolower(paste(Genus, Species, sep = " ")),
+         live_occurrence = 1,
+         date = ymd(Date),
+         survey_method = "incidental observation")
+
+
+vtdat2022 <- left_join(vtdat2022, name_conversion, by = "scientific_name")
+vtdat2022$common_name[vtdat2022$scientific_name == "lampsilis ovata"] <- "pocketbook mussel"
+vtdat2022$common_name[vtdat2022$scientific_name == "potamilus alatus"] <-  "pink heelsplitter" 
+vtdat2022$common_name[vtdat2022$scientific_name == "lasmigona costata"] <-  "flutedshell" 
+
+vt_mussel_event2022 <- vtdat2022 %>% 
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  unique()
+
+vt_mussel_occurrence2022 <- vtdat2022 %>% 
+  select(UID, common_name, scientific_name, live_occurrence) %>% 
+  unique() 
+
+vt_mussel_method2022 <- vtdat2022 %>% 
+  select(UID, survey_method) %>% 
+  unique()
+
+#bind the two datasets together
+vt_mussel_event <- rbind(vt_mussel_event, vt_mussel_event2022)
+vt_mussel_occurrence <- rbind(vt_mussel_occurrence, vt_mussel_occurrence2022)
+vt_mussel_method <- rbind(vt_mussel_method, vt_mussel_method2022)
+
 
 save(vt_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_event.RData")
 save(vt_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_occurrence.RData")
@@ -1185,24 +1226,25 @@ save(nh_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 
 
-CTevent <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction.xlsx",
-                      sheet = 4, 
-                      range = cell_cols("A:w"),
+CTevent <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction_v2.xlsx",
+                      sheet = 5, 
+                      range = cell_cols("A:AB"),
                       col_types = c("text", "text", "text", "text", "text", 
                                                "numeric", "numeric", "text",
-                                               "date", "date", "text", "text", "text", "text", 
-                                               "text", "text", "text", "text","numeric", 
-                                               "text", "text", "text", "text"))
+                                               "date", "date", "date", "date", "date", "date", 
+                                    "text", "text", "text", "text", 
+                                               "numeric", "numeric", "text", "numeric","numeric", 
+                                               "text", "text", "text", "text", "text"))
 
 
-CToccurr <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction.xlsx",
-                       sheet = 5, 
+CToccurr <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction_v2.xlsx",
+                       sheet = 6, 
                        range = cell_cols("A:I"),
                        col_types = c("text", "text", "text", "numeric", "numeric", 
                                                 "numeric", "text", "numeric","text"))
 
-CTdem <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction.xlsx",
-                    sheet = 6, 
+CTdem <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/SpeciesDataExtraction/PDF Digitizing/CT/CT_PDF_Data_Extraction_v2.xlsx",
+                    sheet = 7, 
                     range = cell_cols("A:G"),
                     col_types = c("text", "text", "text", "numeric", 
                                   "text", "text", "text"))
@@ -1214,12 +1256,12 @@ CTdem <- read_excel("C:/Users/jenrogers/OneDrive - University of Massachusetts/S
 
 #event
 ct_mussel_event <- CTevent %>% 
-  select(UID, STATE, LATITUDE, LONGITUDE, DATE2, WATERBODY, TITLE) %>% 
+  select(UID, STATE, LATITUDE, LONGITUDE, DATE, WATERBODY, TITLE) %>% 
   mutate(source = "LauraSaucierCTDEEP_PDFreports") %>% 
-  rename(project = TITLE,
-         date = DATE2) %>% 
+  rename(project = TITLE) %>% 
   filter(!is.na(LATITUDE),
          !is.na(UID))
+
   
 names(ct_mussel_event)[2:8] <- tolower(names(ct_mussel_event)[2:8])
 colSums(is.na(ct_mussel_event))
@@ -1258,18 +1300,10 @@ CToccurr$scientific_name[CToccurr$scientific_name == "strophilus undulatus"] <- 
 #occurrence
 ct_mussel_occurrence <- CToccurr %>% 
   select(UID, common_name, scientific_name, live_occurrence, shell_occurrence)
-#add in eastern elliptio in the rows where 0 live and shell were found as a placeholder. In the final version well add in zeros for all spp where they werent recorded
-temp <- ct_mussel_occurrence %>% 
-  filter(is.na(common_name)) %>% 
-  mutate(common_name = "eastern elliptio",
-         scientific_name = "elliptio complanata")
 
-ct_mussel_occurrence <- ct_mussel_occurrence %>%  #remove the rows with no names in the original spreadsheed 
-  filter(!is.na(common_name))
-
-#rbind the assumed zeros back
-ct_mussel_occurrence <- rbind(ct_mussel_occurrence, temp)
-
+#in the rows where no mussels were found, make them a 0 occurrence for eliptio. Eventually we will add in zeros for all the spp, but for now we'll just do eliptio as a placeholder
+ct_mussel_occurrence$scientific_name[ct_mussel_occurrence$common_name == "no mussels"] <- "elliptio complanata"
+ct_mussel_occurrence$common_name[ct_mussel_occurrence$common_name == "no mussels"] <- "eastern elliptio"
 
 
 #count
@@ -1277,16 +1311,10 @@ ct_mussel_count <- CToccurr %>%
   select(UID, common_name, scientific_name, live_count, shell_count) %>% 
   filter(!is.na(live_count) | !is.na(shell_count))
 #add in eastern elliptio in the rows where 0 live and shell were found as a placeholder. In the final version well add in zeros for all spp where they werent recorded
-temp <- ct_mussel_count %>% 
-  filter(is.na(common_name)) %>% 
-  mutate(common_name = "eastern elliptio",
-         scientific_name = "elliptio complanata")
+ct_mussel_count$scientific_name[ct_mussel_count$common_name == "no mussels"] <- "elliptio complanata"
+ct_mussel_count$common_name[ct_mussel_count$common_name == "no mussels"] <- "eastern elliptio"
 
-ct_mussel_count <- ct_mussel_count %>%  #remove the rows with no names in the original spreadsheed 
-  filter(!is.na(common_name))
 
-#rbind the assumed zeros back
-ct_mussel_count <- rbind(ct_mussel_count, temp)
 
 #fix the counts that aren't numberic
 ct_mussel_count$live_count[ct_mussel_count$live_count == "100+"] <- 100
@@ -1323,7 +1351,7 @@ rm(temp)
 
 #method
 ct_mussel_method <- CTevent %>% 
-  select(UID, SURVEY_METHOD, NUMBER_SEARCHERS, SURVEY_DURATION, REACH_LENGTH_SURVEYED, WET_WIDTH_AVG, SURVEY_GOAL) %>% 
+  select(UID, SURVEY_METHOD, NUMBER_SEARCHERS, SURVEY_DURATION, REACH_LENGTH, WET_WIDTH, SURVEY_GOAL) %>% 
   filter(!is.na(UID))
 
 ct_mussel_method$SURVEY_METHOD <- tolower(ct_mussel_method$SURVEY_METHOD)
@@ -1333,25 +1361,11 @@ ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "scuba & snorke
 ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "quadrat by scuba"] <- "scuba"
 ct_mussel_method$SURVEY_METHOD[ct_mussel_method$SURVEY_METHOD == "visual of banks"] <- "bank survey"
 
-ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "250ft"] <- "76m"
-ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "50ft"] <- "15m"
-ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "60ft"] <- "18m"
-ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "200ft"] <- "61m"
-ct_mussel_method$REACH_LENGTH_SURVEYED[ct_mussel_method$REACH_LENGTH_SURVEYED == "1mile"] <- "1609m"
 
-ct_mussel_method$REACH_LENGTH_SURVEYED <- gsub("m", "", ct_mussel_method$REACH_LENGTH_SURVEYED)
-
-
-ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "30ft from one shore-side"] <- "9m"
-ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "40ft from shoreline"] <- "12m"
-ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "4-5m"] <- "4.5m"
-ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "800ft"] <- "244m"
-ct_mussel_method$WET_WIDTH_AVG[ct_mussel_method$WET_WIDTH_AVG == "10m buffer survey width"] <- "10m"
-ct_mussel_method$WET_WIDTH_AVG <- gsub("m", "", ct_mussel_method$WET_WIDTH_AVG)
 
 ct_mussel_method <- ct_mussel_method %>% 
-  rename(wet_width_avg_m = WET_WIDTH_AVG,
-         reach_length_m = REACH_LENGTH_SURVEYED) %>% 
+  rename(wet_width_avg_m = WET_WIDTH,
+         reach_length_m = REACH_LENGTH) %>% 
   mutate(goal = ifelse(SURVEY_GOAL %in% c("all species", "mussels", "macros", "mussels & macros" ,
                                           "macrso", "mussles & macros", "all mussel species"), "total pick-up", 
                        ifelse(is.na(SURVEY_GOAL), NA, "targeted"))) %>% 

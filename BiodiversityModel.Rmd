@@ -404,7 +404,7 @@ print(unique(fish_count_with_zeros_filtered$common_name)[i])
 
 #filter to remove spp that did not converge, these include:
 #common carp, northern pike, bowfin, white catfish, channel catfish, eastern silvery minnow, rosyside dace, mimic shiner,
-#walleye, round whitefish, roseface shiner, brook stickleback, spotfin shiner
+#walleye, round whitefish, rosyface shiner, brook stickleback, spotfin shiner
 
 results <- results %>% 
   filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
@@ -472,6 +472,33 @@ ggsave(
 
 }
 
+
+#make a tile plot to show the coef value for each variable by fish
+
+#set outliers to more similar values so the color scale works
+results3 <- results2
+results3$OR[results3$OR>10] <- 10
+results3$OR[results3$OR < 0.00001] <- 0.00001
+results3$estimate[results3$estimate < -5] <- -5
+
+ggplot(results3, aes(x = variable, y = common_name, fill = estimate))+
+  geom_tile()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  scale_fill_gradient2(low = "red",
+                       mid = "white",
+                       high = "blue",
+                       midpoint = 0)
+
+
+#cluster spp based on their coef values
+
+cluster <- results2 %>% 
+  select(variable, common_name, OR) %>% 
+  pivot_wider(names_from = variable, values_from = OR)
+  
+distance <- dist(cluster)
+mydata.hclust = hclust(distance, method = "average")
+plot(mydata.hclust)
 
 ```
 
