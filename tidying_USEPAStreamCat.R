@@ -2,6 +2,7 @@
 library(readxl)
 library(caret)
 library(tidyverse)
+library(sf)
 
 
 #streamCat data tidying
@@ -133,7 +134,7 @@ save(strmcatByyr_census, file = "C:/Users/jenrogers/Documents/necascFreshwaterBi
 
 #####################################################################
 
-############# This second part tidies streamcat data for the fish model
+############# This second part tidies streamcat data for the mussel model
 
 #####################################################################
 
@@ -154,7 +155,7 @@ streamcat1 <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_d
 
 #first start with the region 1's and join those together based on the COMID
 
-for (i in 2:14) { #start at 2 because we already made the first file above)
+for (i in 2:9) { #start at 2 because we already made the first file above)
   
   
   tmp <- read.csv(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/streamCat_musselCov/", file.list[i], sep = ""))
@@ -178,7 +179,7 @@ file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_
 streamcat2 <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/streamCat_musselCov/AgriculturalNitrogen_Region02.csv")
 
 
-for (i in 2:14) { #start at 2 because we already made the first file above)
+for (i in 2:9) { #start at 2 because we already made the first file above)
   
   
   tmp <- read.csv(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/streamCat_musselCov/", file.list[i], sep = ""))
@@ -200,3 +201,7 @@ colSums(is.na(streamcat))
 
 str(streamcat)
 
+#variables joined only by COMID
+strmcat_byCOMID <- streamcat %>% 
+  select(-c(Na2OCat:Al2O3Ws, Fe2O3Cat:K2OWs)) #remove all the lithological compounds except Calcium, which we care about for mussel shells
+save(strmcat_byCOMID, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID_waterquality.RData")

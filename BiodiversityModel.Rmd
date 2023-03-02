@@ -36,6 +36,10 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_even
 #watershed shape files
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 
+#load new england state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+
 
 #tidied covariates 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
@@ -43,7 +47,14 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_cov
 
 #fish traits
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
-
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp")
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin")
 
 ```
 
@@ -441,6 +452,8 @@ results2 <- cond %>%
 results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean summer temp"
 results2$variable[results2$variable == "huc12_damden_sqkm"] <- "dam density"
 
+write.csv(results2, file = "tmpfigures/propabun_results.csv")
+prop_abun_results <- read.csv("tmpfigures/propabun_results.csv")
 
 #dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
 
@@ -476,29 +489,429 @@ ggsave(
 #make a tile plot to show the coef value for each variable by fish
 
 #set outliers to more similar values so the color scale works
-results3 <- results2
+results3 <- prop_abun_results
 results3$OR[results3$OR>10] <- 10
 results3$OR[results3$OR < 0.00001] <- 0.00001
 results3$estimate[results3$estimate < -5] <- -5
+results3$estimate[results3$p_val > 0.05] <- NA
+results3$OR[results3$p_val > 0.05] <- NA
 
-ggplot(results3, aes(x = variable, y = common_name, fill = estimate))+
+ggplot(results3, aes(x = variable, y = common_name, fill = OR))+
   geom_tile()+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  theme(axis.text.x = element_text(angle = 45, hjust=1, size = 18))+
   scale_fill_gradient2(low = "red",
                        mid = "white",
                        high = "blue",
-                       midpoint = 0)
+                       midpoint = 0)+
+  labs(x = NULL, y = NULL)
+
+ggsave(
+    filename = "tmpfigures/prop_abun_tileplot.png",
+    plot = last_plot(),
+    width = 18,
+    height = 18,
+    units = "cm",
+    dpi = 200
+  )
+
+#counts the number of significant variables (ie how many species is each variable significant for?)
+ results4 <- results3 %>% 
+   select(variable, estimate) %>% 
+   filter(!is.na(estimate)) %>% 
+   group_by(variable) %>% 
+   summarize(count = n()) %>% 
+   arrange(desc(count))
+ write.csv(results4, "tmpfigures/propabund_sigvaraibles.csv")
+
 
 
 #cluster spp based on their coef values
 
+library(factoextra)
+
 cluster <- results2 %>% 
   select(variable, common_name, OR) %>% 
-  pivot_wider(names_from = variable, values_from = OR)
+  pivot_wider(names_from = variable, values_from = OR) %>% 
+  data.frame()
+cluster2 <- cluster[,-1]
+rownames(cluster2) <- cluster[,1]
+
+cluster2 <- scale(cluster2)
+
+distance <- get_dist(cluster2)
+ 
+fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+
+
+k2 <- kmeans(distance, centers = 7, nstart = 25)
+str(k2)
+k2
+fviz_cluster(k2, data = distance)
   
-distance <- dist(cluster)
-mydata.hclust = hclust(distance, method = "average")
-plot(mydata.hclust)
+
+
+
+
+
+
+
+
+#####  cluster spp based on the variable values in locations the spp occurrs
+##### in this code we are using weighted means for each species.
+##### for each species, we calucated the weighted mean of each variable (weighted by the proportional abundance at a survey site)
+##### then we are using K-means clusting, following a tutorial from this website https://uc-r.github.io/kmeans_clustering
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+#calculate proportional abundance and then join to the covariate data
+test <- fish_count_with_zeros %>% 
+  filter(count >0) %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = (count / totalcount)) %>% 
+  select(UID, common_name, propabun) %>% 
+  left_join(fishcovariates, by = "UID")
+
+#remove rows with incomplete data
+test <- test[complete.cases(test),]
+
+#select only the variables used in the model, calcuate weighted means of each varaible by species, filter for the species that the proportional abunance model converged for.
+test <- test %>% 
+  select(common_name, 
+         propabun, 
+         annual_mean_summer_temp, 
+                 BFI_HIST, 
+                 LO7Q1DT_HIST,
+                 W95_HIST, 
+                 BFIWs,  
+                 WtDepWs, 
+                 PctOw_Ws,  
+                 PctImp_Ws,  
+                 pctAg_Ws, 
+                 pctWetland_Cat, 
+                 logMJJA_HIST, 
+                 logRdCrsCat, 
+                 logPctOw_Cat,
+                 huc12_damden_sqkm,
+                 huc8_damcount) %>% 
+  mutate(annual_mean_summer_temp_2 = annual_mean_summer_temp*propabun, 
+                 BFI_HIST_2 = BFI_HIST*propabun, 
+                 LO7Q1DT_HIST_2 = LO7Q1DT_HIST*propabun,
+                 W95_HIST_2 = W95_HIST*propabun, 
+                 BFIWs_2 =  BFIWs*propabun,  
+                 WtDepWs_2 = WtDepWs*propabun, 
+                 PctOw_Ws_2 = PctOw_Ws*propabun,  
+                 PctImp_Ws_2 = PctImp_Ws*propabun,  
+                 pctAg_Ws_2 = pctAg_Ws*propabun, 
+                 pctWetland_Cat_2 = pctWetland_Cat*propabun, 
+                 logMJJA_HIST_2 = logMJJA_HIST*propabun, 
+                 logRdCrsCat_2 = logRdCrsCat*propabun, 
+                 logPctOw_Cat_2 = logPctOw_Cat*propabun,
+                 huc12_damden_sqkm_2 = huc12_damden_sqkm*propabun,
+                 huc8_damcount_2 = huc8_damcount*propabun) %>% 
+  group_by(common_name) %>% 
+  summarise(sum_propabun = sum(propabun),
+            sum_annual_mean_summer_temp_2 = sum(annual_mean_summer_temp_2), 
+                 sum_BFI_HIST_2 = sum(BFI_HIST_2), 
+                 sum_LO7Q1DT_HIST_2 = sum(LO7Q1DT_HIST_2),
+                 sum_W95_HIST_2 = sum(W95_HIST_2), 
+                 sum_BFIWs_2 =  sum(BFIWs_2),  
+                 sum_WtDepWs_2 = sum(WtDepWs_2), 
+                 sum_PctOw_Ws_2 = sum(PctOw_Ws_2),  
+                 sum_PctImp_Ws_2 = sum(PctImp_Ws_2),  
+                 sum_pctAg_Ws_2 = sum(pctAg_Ws_2), 
+                 sum_pctWetland_Cat_2 = sum(pctWetland_Cat_2), 
+                 sum_logMJJA_HIST_2 = sum(logMJJA_HIST_2), 
+                 sum_logRdCrsCat_2 = sum(logRdCrsCat_2), 
+                 sum_logPctOw_Cat_2 = sum(logPctOw_Cat_2),
+                 sum_huc12_damden_sqkm_2 = sum(huc12_damden_sqkm_2),
+                 sum_huc8_damcount_2 = sum(huc8_damcount_2)) %>% 
+  ungroup() %>% 
+  mutate(annual_mean_summer_temp_wm = sum_annual_mean_summer_temp_2/sum_propabun, 
+                 BFI_HIST_wm = sum_BFI_HIST_2/sum_propabun, 
+                 LO7Q1DT_HIST_wm = sum_LO7Q1DT_HIST_2/sum_propabun,
+                 W95_HIST_wm = sum_W95_HIST_2/sum_propabun, 
+                 BFIWs_wm =  sum_BFIWs_2/sum_propabun,  
+                 WtDepWs_wm = sum_WtDepWs_2/sum_propabun, 
+                 PctOw_Ws_wm = sum_PctOw_Ws_2/sum_propabun,  
+                 PctImp_Ws_wm = sum_PctImp_Ws_2/sum_propabun,  
+                 pctAg_Ws_wm = sum_pctAg_Ws_2/sum_propabun, 
+                 pctWetland_Cat_wm = sum_pctWetland_Cat_2/sum_propabun, 
+                 logMJJA_HIST_wm = sum_logMJJA_HIST_2/sum_propabun, 
+                 logRdCrsCat_wm = sum_logRdCrsCat_2/sum_propabun, 
+                 logPctOw_Cat_wm = sum_logPctOw_Cat_2/sum_propabun,
+                 huc12_damden_sqkm_wm = sum_huc12_damden_sqkm_2/sum_propabun,
+                 huc8_damcount_wm = sum_huc8_damcount_2/sum_propabun) %>% 
+  filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
+                            "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
+  data.frame()
+
+#make the common names column into row names so we can cluster and keep only the final weighted mean values
+test2 <- test[,-1]
+rownames(test2) <- test[,1]
+test2 <- test2[,17:31]
+
+#scale the variables
+cluster2 <- scale(test2)
+
+#make distance matrix using the factoexta package
+#default distance computed is the Euclidean
+distance <- get_dist(cluster2)
+ 
+# visualize distance matrix
+fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+
+#compute k-means into 2-5 clusters
+k2 <- kmeans(distance, centers = 2, nstart = 25)
+k3 <- kmeans(distance, centers = 3, nstart = 25)
+k4 <- kmeans(distance, centers = 4, nstart = 25)
+k5 <- kmeans(distance, centers = 5, nstart = 25)
+str(k2)
+k2
+
+#view clusters. Plotted along the two most influential compoents according to PCA
+fviz_cluster(k4, data = distance)
+
+#make plots of the clusters using 2-5 centroids
+p1 <- fviz_cluster(k2, geom = "point", data = distance) + ggtitle("k = 2")
+p2 <- fviz_cluster(k3, geom = "point",  data = distance) + ggtitle("k = 3")
+p3 <- fviz_cluster(k4, geom = "point",  data = distance) + ggtitle("k = 4")
+p4 <- fviz_cluster(k5, geom = "point",  data = distance) + ggtitle("k = 5")
+
+library(gridExtra)
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+
+
+#determine optimal number of clusters
+# function to compute total within-cluster sum of square 
+# elbow method
+# plot the within cluster variation, when it stops dropping much (the elbow) after adding an adidtional cluster than you can use that numbmer
+set.seed(123)
+
+wss <- function(k) {
+  kmeans(distance, k, nstart = 10 )$tot.withinss
+}
+
+# Compute and plot wss for k = 1 to k = 15
+k.values <- 1:15
+
+# extract wss for 2-15 clusters
+wss_values <- map_dbl(k.values, wss)
+
+plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+
+
+
+# Another method to determine best number of clusters (the highest point is the best)
+# function to compute average silhouette for k clusters
+library(cluster)
+avg_sil <- function(k) {
+  km.res <- kmeans(distance, centers = k, nstart = 25)
+  ss <- silhouette(km.res$cluster, dist(distance))
+  mean(ss[, 3])
+}
+
+# Compute and plot wss for k = 2 to k = 15
+k.values <- 2:15
+
+# extract avg silhouette for 2-15 clusters
+avg_sil_values <- map_dbl(k.values, avg_sil)
+
+plot(k.values, avg_sil_values,
+       type = "b", pch = 19, frame = FALSE, 
+       xlab = "Number of clusters K",
+       ylab = "Average Silhouettes")
+
+
+#well use 5 as our final cluster number
+
+set.seed(123)
+final <- kmeans(distance, 5, nstart = 25)
+print(final)
+finalclust <- data.frame(final$cluster)
+finalclust$common_name <- rownames(finalclust)
+rownames(finalclust) <- NULL
+finalclust <- finalclust %>% 
+  arrange(final.cluster)
+write.csv(finalclust, "tmpfigures/fishclusters.csv")
+
+png(height = 15, width = 15, file = "tmpfigures/kmeanscluster.png", units = "in", res = 150, type = "cairo")
+
+fviz_cluster(final, data = distance,
+             pointsize = 3,
+             labelsize = 15,
+             main = NULL)+
+  theme(legend.key.height= unit(2, 'cm'),
+        legend.key.width= unit(2, 'cm'),
+        legend.text = element_text(size=30),
+        legend.title = element_text(size=30),
+        axis.text = element_text(size = 30),
+        axis.title = element_text(size = 30),
+        panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())
+
+dev.off()
+
+stats <- test2 %>% 
+  mutate(cluster = final$cluster) %>% 
+  group_by(cluster) %>% 
+  summarise_all("mean") %>% 
+  pivot_longer(cols = 2:16, names_to = "variable") %>% 
+  mutate(mean = round(value, 2)) %>% 
+  select(cluster, variable, mean) %>% 
+  pivot_wider(names_from = variable, values_from = mean)
+write.csv(stats, "tmpfigures/fishclusters_stats_mean.csv")
+stats2 <- test2 %>% 
+  mutate(cluster = final$cluster) %>% 
+  group_by(cluster) %>% 
+  summarise_all("sd") %>% 
+  pivot_longer(cols = 2:16, names_to = "variable") %>% 
+  mutate(sd = round(value, 2)) %>% 
+  select(cluster, variable, sd)%>% 
+  pivot_wider(names_from = variable, values_from = sd)
+write.csv(stats2, "tmpfigures/fishclusters_stats_sd.csv")
+
+stats <- test2 %>% 
+  mutate(cluster = final$cluster)
+names(stats) <- gsub(pattern = "_wm", replacement = "", x = names(stats))
+
+for (i in 1:15) {
+ggplot(data = stats, aes(x = cluster, y = stats[,i], group = cluster))+
+  geom_boxplot()+
+    labs(y = names(stats)[i],
+         x = "cluster")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())
+    
+
+ggsave(
+    filename = paste("tmpfigures/fish_cluster_stats/", names(stats)[i], ".png", sep = ""),
+    plot = last_plot(),
+    width = 11,
+    height = 9,
+    units = "cm",
+    dpi = 150)
+}
+
+
+#NMDS
+library(vegan)
+library(tidyverse)
+
+#fish data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+#tidied covariates (this is called fishcovariates)
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+
+
+
+
+counts <- fish_count_with_zeros %>%
+  filter(gear == "efish_backpack",
+         run_num ==1,
+         stock == "natural") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  filter(totalcount>0) %>% 
+  mutate(propabun = (count / totalcount))
+
+
+#join the counts to the tidying covariates, fishcovariates
+
+#There are some duplicated UIDs so we want to remove them
+test <- left_join(counts, fishcovariates, by = "UID") %>% 
+  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+  select(1, 4,  15,16, 17, 23:52) %>% 
+  group_by(UID, lat, long, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, BFIWs, ElevCat, RdDensCatRp100, RdDensWsRp100, RdCrsWs, WtDepWs, PopDen_Ws, PctOw_Ws, PctImp_Cat, PctImp_Ws, PctImp_CatRp100, PctImp_WsRp100, pctForest_Cat, pctForest_ws, pctUrban_Cat, pctUrban_ws, pctAg_Ws, pctWetland_Cat, pctWetland_Ws, huc12_damden_sqkm, huc8_damcount, logWsAreaSqKm, logMJJA_HIST, logRdCrsCat, logPctOw_Cat, common_name) %>%
+  summarise(n = n()) %>%
+  filter(n > 1)
+unique(test$UID)
+#[1] "RI_3_1_16_1170509"  "RI_4_1_4_1170810"   "RI_9_NA_60_1100709"
+
+counts <- counts %>% 
+  filter(!UID == "RI_3_1_16_1170509" & !UID == "RI_4_1_4_1170810" & !UID == "RI_9_NA_60_1100709")
+
+test <- left_join(counts, fishcovariates, by = "UID") %>% 
+  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+  select(1, 4,  15,16, 17, annual_mean_summer_temp, 
+                 BFI_HIST, 
+                 LO7Q1DT_HIST,
+                 W95_HIST, 
+                 BFIWs,  
+                 WtDepWs, 
+                 PctOw_Ws,  
+                 PctImp_Ws,  
+                 pctAg_Ws, 
+                 pctWetland_Cat, 
+                 logMJJA_HIST, 
+                 logRdCrsCat, 
+                 logPctOw_Cat,
+                 huc12_damden_sqkm,
+                 huc8_damcount) %>%  
+  filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
+                            "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
+  pivot_wider(names_from = "common_name", values_from = "propabun")
+
+sapply(test, function(x) sum(is.na(x)))
+
+test <- test[complete.cases(test),]
+
+#com <-  test[,25:102] #Takes a really long time.. maybe do a few at a time
+com <-  test[,19:62]
+env <-  test[,2:18]
+
+#count NAs in each spreadsheed
+sapply(com, function(x) sum(is.na(x)))
+sapply(env, function(x) sum(is.na(x)))
+
+
+
+
+m_com <-  as.matrix(com)
+
+#nmds code
+set.seed(4352)
+nmds <-   metaMDS(m_com, distance = "gower")
+nmds
+save(nmds, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/fishNMDS.rda")
+
+en <- envfit(nmds, env, permutations = 999, na.rm = TRUE)
+plot(nmds, type='t', display=c('species'))
+
+
+
+png(height = 15, width = 15, file = "tmpfigures/nmds.png", units = "in", res = 150, type = "cairo")
+
+
+plot(nmds, type='t', display=c('species'), cex = 1.5)
+plot(en)
+
+dev.off()
 
 ```
 
@@ -525,7 +938,8 @@ fish_occurrence_filtererd <- fish_occurrence %>%
                             "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
                             "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
                             "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
-                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
+  select(-stock)
 
 occurrence <- fish_occurrence_filtererd %>%
   filter(common_name == "white sucker")
@@ -535,8 +949,10 @@ hist(occurrence$occurrence)
 #plot the observed proportional abundance
 shp <- left_join(fish_shp, occurrence, by = "UID") %>%
   filter(!is.na(occurrence))
-ggplot(data = shp)+
+ggplot(data = shp[shp$occurrence ==1,])+
   geom_sf(aes(color = occurrence))
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
 
 fishcovariates <- fishcovariates[complete.cases(fishcovariates),]
 test <- fishcovariates[,c(2:3, 9:38)]
@@ -563,7 +979,7 @@ ggplot(data = dat, mapping = aes(x = occurrence, y = pctForest_ws))+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank())+
-  labs(title = "brook trout")
+  labs(title = "white sucker")
 
 
 
@@ -589,10 +1005,10 @@ mdl <- glmmTMB(occurrence ~
                  PctOw_Ws +  
                  PctImp_Ws +  
                  pctAg_Ws + 
-                 pctWetland_Cat + 
+                 pctWetland_Cat +
+                 logPctOw_Cat + 
                  logMJJA_HIST + 
-                 logRdCrsCat + 
-                 logPctOw_Cat +
+                 logRdCrsCat +
                  huc12_damden_sqkm +
                  huc8_damcount,
                data = dat,
@@ -640,7 +1056,7 @@ occurrence <- fish_occurrence_filtererd %>%
 
 #join the occurrence to the tidying covariates, fishcovariates
 dat <- left_join(occurrence, fishcovariates, by = "UID")
-dat <- dat[complete.cases(dat),]
+dat <- dat[complete.cases(dat),]#ahhhh
 
 
 #global model
@@ -653,11 +1069,11 @@ mdl <- glmmTMB(occurrence ~
                  WtDepWs + 
                  PctOw_Ws +  
                  PctImp_Ws +  
-                 pctAg_Ws + 
+                 pctAg_Ws  +
+                 logPctOw_Cat +  
                  pctWetland_Cat + 
                  logMJJA_HIST + 
-                 logRdCrsCat + 
-                 logPctOw_Cat +
+                 logRdCrsCat  +
                  huc12_damden_sqkm +
                  huc8_damcount,
                data = dat,
@@ -697,12 +1113,12 @@ print(unique(fish_occurrence_filtererd$common_name)[i])
 }
 
 #filter to remove spp that did not converge, these include:
-#bowfin, white catfish, rosyside dace, mimic shiner, #walleye, round whitefish, roseface shiner,  spotfin shiner
+#bowfin, white catfish, rosyside dace, mimic shiner, #walleye, round whitefish, rosyface shiner, spotfin shiner
 
 results <- results %>% 
   filter(common_name %in% c("american eel", "common carp", "northern pike", "channel catfish", "eastern silvery minnow", 
-                            "brook stickleback", "white perch", "finescale dace", "american brook lamprey", 
-                            "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
+                            "white perch", "finescale dace", "american brook lamprey", "brook stickleback",
+                            "green sunfish", "central mudminnow", "bridle shiner", "cutlips minnow",
                             "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
                             "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
                             "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
@@ -734,6 +1150,9 @@ results2 <- cond %>%
 #rename variables to make more interpretable
 results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
 results2$variable[results2$variable == "huc12_damden_sqkm"] <- "damdensity_hu12"
+
+pres_abs_fish_mdl_results <- results2
+save(pres_abs_fish_mdl_results, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_results/pres_abs_fish_mdl_results.RData")
 
 
 #dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
@@ -767,6 +1186,44 @@ ggsave(
 }
 
 
+#make a tile plot to show the coef value for each variable by fish
+
+#set outliers to more similar values so the color scale works
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_results/pres_abs_fish_mdl_results.RData")
+
+results3 <- pres_abs_fish_mdl_results
+results3$OR[results3$OR>10] <- 10
+results3$OR[results3$OR < 0.00001] <- 0.00001
+results3$estimate[results3$estimate < -5] <- -5
+results3$estimate[results3$p_val > 0.05] <- NA
+
+ggplot(results3, aes(x = variable, y = common_name, fill = estimate))+
+  geom_tile()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1, size = 18))+
+  scale_fill_gradient2(low = "red",
+                       mid = "white",
+                       high = "blue",
+                       midpoint = 0)+
+  labs(x = NULL, y = NULL)
+
+ggsave(
+    filename = "tmpfigures/pre_abs_tileplot.png",
+    plot = last_plot(),
+    width = 18,
+    height = 18,
+    units = "cm",
+    dpi = 200
+  )
+
+#counts the number of significant variables (ie how many species is each variable significant for?)
+ results4 <- results3 %>% 
+   select(variable, estimate) %>% 
+   filter(!is.na(estimate)) %>% 
+   group_by(variable) %>% 
+   summarize(count = n()) %>% 
+   arrange(desc(count))
+ write.csv(results4, "tmpfigures/presabs_sigvariables.csv")
+
 ```
 
 
@@ -785,11 +1242,22 @@ library(foreign)
 library(nnet)
 
 counts <- fish_count_with_zeros %>%
-  filter(gear == "efish_backpack") %>%
+  filter(gear == "efish_backpack",
+         stock != "stock" | is.na(stock)) %>% #we never attributed ME data as stocked or natural, so well keep it all
+  mutate(UID2 = UID) %>% 
+  separate(UID, into = c("state", "remove"), sep=2) %>% 
   left_join(final_traits, by = "common_name") 
 
+counts$state[counts$state == "de"] <- "NH"
+counts$state[counts$state == "fg"] <- "NH"
+counts <- counts %>% 
+  left_join(temperature, by = c("state", "common_name")) %>% 
+  left_join(origin, by = c("state", "common_name")) %>% 
+  select(-remove) %>% 
+  rename(UID = UID2)
 
-#scale covaraites
+
+#scale covariates
 fishcovariates <- fishcovariates[complete.cases(fishcovariates),]
 test <- fishcovariates[,c(2:3, 9:38)]
 test <- data.frame(scale(test))
@@ -801,8 +1269,7 @@ fishcovariates <- cbind((fishcovariates)[,c(1, 4:8)], test)
 
 
 ############### Temperature preference ######################
-
-
+############### model built using all species ###############
 
 
 
@@ -811,7 +1278,7 @@ fishcovariates <- cbind((fishcovariates)[,c(1, 4:8)], test)
 #set up the temperature dataframe.  Want to count the number of cold, cool, warm, and eurythermal 
 temp_counts <- counts %>% 
   filter(!is.na(tmp),
-         tmp != "eurythermal") %>% 
+         tmp != "eury") %>% 
   group_by(UID) %>% 
   mutate(totalcount = sum(count)) %>% 
   ungroup()  %>% 
@@ -882,7 +1349,7 @@ mdl <- multinom(tmp2 ~
                  logPctOw_Cat,
                  data = temp_counts)
 results <- summary(mdl)
-saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_temp.rds")
+saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_temp_all_natural_spp.rds")
 
 #plot the OR and the 95% confidence interval for Cold fish (vs warm fish)
 coef <- data.frame(results$coefficients) #make a coef table
@@ -1006,6 +1473,247 @@ ggsave(
 
 #odds = exp(logodds)
 #probability = odds/(1+odds)
+
+
+
+
+
+
+
+
+
+
+
+
+############### Temperature preference ######################
+############### model built using only native species ###############
+
+
+
+counts <- fish_count_with_zeros %>%
+  filter(gear == "efish_backpack",
+         stock != "stock" | is.na(stock)) %>% #we never attributed ME data as stocked or natural, so well keep it all
+  mutate(UID2 = UID) %>% 
+  separate(UID, into = c("state", "remove"), sep=2) %>% 
+  left_join(final_traits, by = "common_name") 
+
+counts$state[counts$state == "de"] <- "NH"
+counts$state[counts$state == "fg"] <- "NH"
+counts <- counts %>% 
+  left_join(temperature, by = c("state", "common_name")) %>% 
+  left_join(origin, by = c("state", "common_name")) %>% 
+  select(-remove) %>% 
+  rename(UID = UID2) %>% 
+  filter(origin == "native")
+
+
+
+
+
+#set up the temperature dataframe.  Want to count the number of cold, cool, warm, and eurythermal 
+temp_counts <- counts %>% 
+  filter(!is.na(tmp),
+         tmp != "eury") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup()  %>% 
+  group_by(UID, tmp) %>% 
+  mutate(temp_count = sum(count)) %>%
+  ungroup() %>% 
+  select(UID, tmp, totalcount, temp_count) %>% 
+  unique() %>% 
+  mutate(propabun_tmp = temp_count/totalcount) %>% 
+  filter(temp_count> 0)
+
+#revalue counts of greater than 500 to be 500 -- eventually we want to edit the fish count file to exclude juveniles.. hopefully this will get rid of some of the really large counts..
+temp_counts$temp_count[temp_counts$temp_count>500] <- 500
+
+#plot the observed proportional abundance
+shp <- left_join(fish_shp, temp_counts, by = "UID") %>%
+  filter(!is.na(propabun_tmp)) 
+ggplot(data = shp)+
+  geom_sf(aes(fill = propabun_tmp, color = propabun_tmp), pch = 21, alpha = 0.7)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  labs(fill = "Rel. Abun.")+
+  guides(color = "none")+
+  facet_wrap(~tmp, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.3, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey70",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_propabun_baseline_native_only.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+#for the multinomial analysis, we want the dependent variable to be catagores, rather than a proportion of different categories
+#one way to do this, is to repeat each observation 'n' times
+#for example, is a site had 5 cold spp and 5 cool spp, we would make five rows for cold and five rows for cool.
+n <-  temp_counts$temp_count
+temp_counts <- temp_counts[rep(seq_len(nrow(temp_counts)), n),]
+temp_counts <- temp_counts %>% 
+  select(tmp, UID) %>% 
+  left_join(fishcovariates, by = "UID")
+
+#convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
+temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "warm")
+
+#run the multinomial model
+mdl <- multinom(tmp2 ~ 
+                 annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 WtDepWs + 
+                 PctOw_Ws +  
+                 PctImp_Ws +  
+                 pctAg_Ws + 
+                 pctWetland_Cat + 
+                 logMJJA_HIST + 
+                 logRdCrsCat + 
+                 logPctOw_Cat,
+                 data = temp_counts)
+results <- summary(mdl)
+saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_temp_all_native_spp.rds")
+
+#plot the OR and the 95% confidence interval for Cold fish (vs warm fish)
+coef <- data.frame(results$coefficients) #make a coef table
+coef <- coef %>%  # keep only the cold coefficients 
+  mutate(temperature = rownames(coef)) %>% 
+  filter(temperature == "cold") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "coef")
+se <- data.frame(results$standard.errors) #make a standard error table
+se <- se %>%  #keep only the cold water standard errors
+  mutate(temperature = rownames(se)) %>% 
+  filter(temperature == "cold") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "se")
+
+#create a dataframe with the variables, coef and se in one dataframe
+results2 <- data.frame( 
+  "variable" = coef$variable,
+  "coef" = coef$coef,
+  "se" = se$se)
+
+#calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results2 <- results2 %>% 
+  mutate(z = coef/se,
+         p = (1 - pnorm(abs(z), 0, 1)) * 2,
+         CIlow = coef - (1.96*se),
+         CIhigh = coef + (1.96*se),
+         OR = exp(coef),
+         ORCIlow = exp(CIlow),
+         ORCIhigh = exp(CIhigh)) %>% 
+  arrange(OR)
+#the plot is ordering by the alphbatized letters of the variables, so we will make them factors ordered by the value of of the OR
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
+results2$variable <- factor(results2$variable, levels = results2$variable)
+
+#dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
+  geom_point()+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), width = 0)+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 17),
+          axis.text = element_text(size = 15))+
+  labs(x = NULL,
+       y = "Odds Ratio")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/coldtraitDotPlot_native_spp.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+#plot the OR and the 95% confidence interval for cool fish (vs warm fish)
+coef <- data.frame(results$coefficients) #make a coef table
+coef <- coef %>%  # keep only the cool coefficients 
+  mutate(temperature = rownames(coef)) %>% 
+  filter(temperature == "cool") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "coef")
+se <- data.frame(results$standard.errors) #make a standard error table
+se <- se %>%  #keep only the cool water standard errors
+  mutate(temperature = rownames(se)) %>% 
+  filter(temperature == "cool") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "se")
+
+#create a dataframe with the variables, coef and se in one dataframe
+results2 <- data.frame( 
+  "variable" = coef$variable,
+  "coef" = coef$coef,
+  "se" = se$se)
+
+#calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results2 <- results2 %>% 
+  mutate(z = coef/se,
+         p = (1 - pnorm(abs(z), 0, 1)) * 2,
+         CIlow = coef - (1.96*se),
+         CIhigh = coef + (1.96*se),
+         OR = exp(coef),
+         ORCIlow = exp(CIlow),
+         ORCIhigh = exp(CIhigh)) %>% 
+  arrange(OR)
+#the plot is ordering by the alphbatized letters of the variables, so we will make them factors ordered by the value of of the OR
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
+results2$variable <- factor(results2$variable, levels = results2$variable)
+#dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
+  geom_point()+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), width = 0)+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 17),
+          axis.text = element_text(size = 15))+
+  labs(x = NULL,
+       y = "Odds Ratio")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/cooltraitDotPlot_native_spp.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+#odds = exp(logodds)
+#probability = odds/(1+odds)
+
+
+
+
+
+
 
 
 

@@ -5,6 +5,8 @@ library(sf)
 library(tidyverse)
 library(caret)
 
+
+
 #fish data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
@@ -46,7 +48,8 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc8dams.
 
 
 
-
+#water quality - I added this in later because we'll use it in the mussel model.
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID_waterquality.RData")
 
 
 
@@ -346,3 +349,24 @@ fishcovariates_byhuc12 <- left_join(fishcovariates, fish_event_huc_join, by = c(
             logPctOw_Cat = mean(logPctOw_Cat, na.rm = T))
 
 save(fishcovariates_byhuc12, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates_byhuc12.RData")
+
+
+
+#water quality
+#we want to add the water qualtiy metrics that we think are important for mussels to the 
+
+#join the flowlineV2 with the COMID
+fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>% 
+  mutate(long = unlist(map(fish_event_flowlineV2_join$geometry, 1)),
+         lat = unlist(map(fish_event_flowlineV2_join$geometry, 2))) %>% 
+  data.frame() %>% 
+  dplyr::select(-geometry)
+
+
+
+wq <- strmcat_byCOMID %>% 
+  dplyr::select(6:38, -NRSA_Frame, -NARS_Region)
+wq <- wq[complete.cases(wq),] #remove rows with NA
+cor <- cor(wq, method = c("spearman")) #make correlation matrix
+
+corrplot(cor, type = "lower") #plot

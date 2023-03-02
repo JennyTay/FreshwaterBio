@@ -125,13 +125,13 @@ habtype <- traits %>%
 
 
 
-#left join with the traits assigned in New England
-temp <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/ThermalPreferences.xlsx")
-temp <- temp %>% 
-  select(common_name, `Temperatures Notes`) %>% 
-  rename(tmp = `Temperatures Notes`)
+# left join with the traits assigned in New England
+# Fluvial specialist
+tolerance <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 3)
 
-table(temp$tmp)
+
+table(tolerance$tolerance)
 
 
 
@@ -139,13 +139,16 @@ table(temp$tmp)
 #merge traits into a single dataframe
 names(spawntime)
 names(vel)
-names(temp)
+names(tolerance)
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
 
-final_traits <- left_join(temp, spawntime, by = "common_name") %>% 
+final_traits <- left_join(tolerance, spawntime, by = "common_name") %>% 
   left_join(vel, by = "common_name") %>% 
-  select(common_name, tmp, strategy, timing, velocity) %>% 
+  select(common_name, tolerance, strategy, timing, velocity) %>% 
   filter(common_name %in% fish_count_with_zeros$common_name)
 
 
 save(final_traits, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+
+
+# temperature and origin of species vary by state, so these we will read in separate files and join by both common name and state of obesrvation.

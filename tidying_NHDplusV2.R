@@ -231,7 +231,8 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_cov
 
 
 NHDv2_huc_join <- NHDv2_huc_join %>% 
-  select(COMID, names(fishcovariates)[2:3], names(fishcovariates)[8:38]) %>% 
+  select(COMID, huc8_tnmid, huc10_name, huc10_tnmid, huc12_name, huc12_tnmid, 
+         names(fishcovariates)[2:3], names(fishcovariates)[8:38]) %>% 
   data.frame() %>% 
   select(-geometry)
 

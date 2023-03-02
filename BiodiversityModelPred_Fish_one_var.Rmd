@@ -1,10 +1,9 @@
 ---
-title: "Biodiversity Model Prediction"
+title: "BiodivMdlPred_Fish_One_var_chngs"
 author: "Jenny Rogers"
-date: "2022-12-07"
+date: "2023-03-02"
 output: html_document
 ---
-
 
 
 ```{r}
@@ -150,9 +149,9 @@ tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>%
 
 
 
-#climate change
+#annual mean summer temp
 
-NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
+NHDplusV2_NewEngCrop_sumtmp <- NHDplusV2_NewEngCrop %>% 
   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
          )
 
@@ -164,8 +163,8 @@ i <- 1
 
 mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-predictions_cc <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc, type = "response"))
-names(predictions_cc)[1] <- file.list[i]
+predictions_sumtmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_sumtmp, type = "response"))
+names(predictions_sumtmp)[1] <- file.list[i]
 
 
 
@@ -175,20 +174,20 @@ for (i in 2:57) {
   
    mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc, type = "response"))
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_sumtmp, type = "response"))
   names(tmp)[1] <- file.list[i]
   
-  predictions_cc <- cbind(predictions_cc, tmp)
+  predictions_sumtmp <- cbind(predictions_sumtmp, tmp)
   
   
 }
 
 
-#join the predictions_cc to the list of comids
-NHDplusV2_NewEngCrop_cc <- cbind(NHDplusV2_NewEngCrop_cc, predictions_cc)
+#join the predictions_sumtmp to the list of comids
+NHDplusV2_NewEngCrop_sumtmp <- cbind(NHDplusV2_NewEngCrop_sumtmp, predictions_sumtmp)
 
 #sample plot
-ggplot(data = NHDplusV2_NewEngCrop_cc)+
+ggplot(data = NHDplusV2_NewEngCrop_sumtmp)+
   geom_sf(aes(color = pres_brook.trout.rds))+
   scale_color_gradient2(low = "blue",
                         mid = "yellow",
@@ -198,8 +197,8 @@ ggplot(data = NHDplusV2_NewEngCrop_cc)+
 
 
 #this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
-head(NHDplusV2_NewEngCrop_cc)
-tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
+head(NHDplusV2_NewEngCrop_sumtmp)
+tmp_sumtmp <- NHDplusV2_NewEngCrop_sumtmp %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") %>% 
@@ -208,23 +207,18 @@ tmp_cc <- NHDplusV2_NewEngCrop_cc %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(common_name) %>% 
-  summarise(count_cc = n(),
-            avg_prob_cc = mean(mean_prob))
+  summarise(count_sumtmp = n(),
+            avg_prob_sumtmp = mean(mean_prob))
 
 
 
 
 
 
-#climate change and Development
+#BFI_HIST
 
-NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
-         PctImp_Ws = PctImp_Ws+2,
-         pctAg_Ws = pctAg_Ws+2,
-         logRdCrsCat = logRdCrsCat+2,
-         huc12_damden_sqkm = huc12_damden_sqkm+2,
-         huc8_damcount = huc8_damcount+2
+NHDplusV2_NewEngCrop_BFI_HIST <- NHDplusV2_NewEngCrop %>% 
+  mutate(BFI_HIST = BFI_HIST + 2
          )
 
 
@@ -235,8 +229,8 @@ i <- 1
 
 mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-predictions_ccdvlp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccdvlp, type = "response"))
-names(predictions_ccdvlp)[1] <- file.list[i]
+predictions_BFI_HIST <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_BFI_HIST, type = "response"))
+names(predictions_BFI_HIST)[1] <- file.list[i]
 
 
 
@@ -246,20 +240,20 @@ for (i in 2:57) {
   
    mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccdvlp, type = "response"))
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_BFI_HIST, type = "response"))
   names(tmp)[1] <- file.list[i]
   
-  predictions_ccdvlp <- cbind(predictions_ccdvlp, tmp)
+  predictions_BFI_HIST <- cbind(predictions_BFI_HIST, tmp)
   
   
 }
 
 
 #join the predictions_ccdvlp to the list of comids
-NHDplusV2_NewEngCrop_ccdvlp <- cbind(NHDplusV2_NewEngCrop_ccdvlp, predictions_ccdvlp)
+NHDplusV2_NewEngCrop_BFI_HIST <- cbind(NHDplusV2_NewEngCrop_BFI_HIST, predictions_BFI_HIST)
 
 #sample plot
-ggplot(data = NHDplusV2_NewEngCrop_ccdvlp)+
+ggplot(data = NHDplusV2_NewEngCrop_BFI_HIST)+
   geom_sf(aes(color = pres_brook.trout.rds))+
   scale_color_gradient2(low = "blue",
                         mid = "yellow",
@@ -268,9 +262,9 @@ ggplot(data = NHDplusV2_NewEngCrop_ccdvlp)+
 
 
 
-#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
-head(NHDplusV2_NewEngCrop_ccdvlp)
-tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the BFI_HIST conditions
+head(NHDplusV2_NewEngCrop_BFI_HIST)
+tmp_BFI_HIST <- NHDplusV2_NewEngCrop_BFI_HIST %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") %>% 
@@ -279,8 +273,8 @@ tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(common_name) %>% 
-  summarise(count_ccdvlp = n(),
-            avg_prob_ccdvlp = mean(mean_prob))
+  summarise(count_BFI_HIST = n(),
+            avg_prob_BFI_HIST = mean(mean_prob))
 
 
 
@@ -288,15 +282,10 @@ tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>%
 
 
 
-#climate change and management
+#LO7Q1DT_HIST 
 
-NHDplusV2_NewEngCrop_ccmgmt <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
-         PctImp_Ws = PctImp_Ws-2,
-         pctAg_Ws = pctAg_Ws-2,
-         logRdCrsCat = logRdCrsCat-2,
-         huc12_damden_sqkm = huc12_damden_sqkm-2,
-         huc8_damcount = huc8_damcount-2
+NHDplusV2_NewEngCrop_LO7Q1DT_HIST <- NHDplusV2_NewEngCrop %>% 
+  mutate(LO7Q1DT_HIST = LO7Q1DT_HIST + 2,
          )
 
 
@@ -307,8 +296,8 @@ i <- 1
 
 mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-predictions_ccmgmt <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccmgmt, type = "response"))
-names(predictions_ccmgmt)[1] <- file.list[i]
+predictions_LO7Q1DT_HIST <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_LO7Q1DT_HIST, type = "response"))
+names(predictions_LO7Q1DT_HIST)[1] <- file.list[i]
 
 
 
@@ -318,20 +307,20 @@ for (i in 2:57) {
   
    mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_ccmgmt, type = "response"))
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_LO7Q1DT_HIST, type = "response"))
   names(tmp)[1] <- file.list[i]
   
-  predictions_ccmgmt <- cbind(predictions_ccmgmt, tmp)
+  predictions_LO7Q1DT_HIST <- cbind(predictions_LO7Q1DT_HIST, tmp)
   
   
 }
 
 
-#join the predictions_ccmgmt to the list of comids
-NHDplusV2_NewEngCrop_ccmgmt <- cbind(NHDplusV2_NewEngCrop_ccmgmt, predictions_ccmgmt)
+#join the predictions_LO7Q1DT_HIST to the list of comids
+NHDplusV2_NewEngCrop_LO7Q1DT_HIST <- cbind(NHDplusV2_NewEngCrop_LO7Q1DT_HIST, predictions_LO7Q1DT_HIST)
 
 #sample plot
-ggplot(data = NHDplusV2_NewEngCrop_ccmgmt)+
+ggplot(data = NHDplusV2_NewEngCrop_LO7Q1DT_HIST)+
   geom_sf(aes(color = pres_brook.trout.rds))+
   scale_color_gradient2(low = "blue",
                         mid = "yellow",
@@ -340,9 +329,9 @@ ggplot(data = NHDplusV2_NewEngCrop_ccmgmt)+
 
 
 
-#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
-head(NHDplusV2_NewEngCrop_ccmgmt)
-tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the LO7Q1DT_HIST conditions
+head(NHDplusV2_NewEngCrop_LO7Q1DT_HIST)
+tmp_LO7Q1DT_HIST <- NHDplusV2_NewEngCrop_LO7Q1DT_HIST %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") %>% 
@@ -351,8 +340,67 @@ tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(common_name) %>% 
-  summarise(count_ccmgmt = n(),
-            avg_prob_ccmgmt = mean(mean_prob))
+  summarise(count_LO7Q1DT_HIST = n(),
+            avg_prob_LO7Q1DT_HIST = mean(mean_prob))
+
+
+
+
+
+
+
+#W95_HIST 
+
+NHDplusV2_NewEngCrop_W95_HIST <- NHDplusV2_NewEngCrop %>% 
+  mutate(W95_HIST = W95_HIST + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_W95_HIST <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_W95_HIST, type = "response"))
+names(predictions_W95_HIST)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_W95_HIST, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_W95_HIST <- cbind(predictions_W95_HIST, tmp)
+  
+  
+}
+
+
+#join the predictions_W95_HIST to the list of comids
+NHDplusV2_NewEngCrop_W95_HIST <- cbind(NHDplusV2_NewEngCrop_W95_HIST, predictions_W95_HIST)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the W95_HIST conditions
+head(NHDplusV2_NewEngCrop_W95_HIST)
+tmp_W95_HIST <- NHDplusV2_NewEngCrop_W95_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_W95_HIST = n(),
+            avg_prob_W95_HIST = mean(mean_prob))
 
 
 
@@ -362,23 +410,705 @@ tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>%
 
 
 
+#BFIWs 
 
-compare <- full_join(tmp_baseline, tmp_cc, by  = "common_name")
+NHDplusV2_NewEngCrop_BFIWs <- NHDplusV2_NewEngCrop %>% 
+  mutate(BFIWs = BFIWs + 2,
+         )
 
-compare <- full_join(compare, tmp_ccdvlp, by  = "common_name")
 
-compare <- full_join(compare, tmp_ccmgmt, by  = "common_name")
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_BFIWs <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_BFIWs, type = "response"))
+names(predictions_BFIWs)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_BFIWs, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_BFIWs <- cbind(predictions_BFIWs, tmp)
+  
+  
+}
+
+
+#join the predictions_BFIWs to the list of comids
+NHDplusV2_NewEngCrop_BFIWs <- cbind(NHDplusV2_NewEngCrop_BFIWs, predictions_BFIWs)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the BFIWs conditions
+head(NHDplusV2_NewEngCrop_BFIWs)
+tmp_BFIWs <- NHDplusV2_NewEngCrop_BFIWs %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_BFIWs = n(),
+            avg_prob_BFIWs = mean(mean_prob))
+
+
+
+
+
+
+#WtDepWs 
+
+NHDplusV2_NewEngCrop_WtDepWs <- NHDplusV2_NewEngCrop %>% 
+  mutate(WtDepWs = WtDepWs + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_WtDepWs <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_WtDepWs, type = "response"))
+names(predictions_WtDepWs)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_WtDepWs, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_WtDepWs <- cbind(predictions_WtDepWs, tmp)
+  
+  
+}
+
+
+#join the predictions_WtDepWs to the list of comids
+NHDplusV2_NewEngCrop_WtDepWs <- cbind(NHDplusV2_NewEngCrop_WtDepWs, predictions_WtDepWs)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the WtDepWs conditions
+head(NHDplusV2_NewEngCrop_WtDepWs)
+tmp_WtDepWs <- NHDplusV2_NewEngCrop_WtDepWs %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_WtDepWs = n(),
+            avg_prob_WtDepWs = mean(mean_prob))
+
+
+
+
+
+
+
+#PctOw_Ws 
+
+NHDplusV2_NewEngCrop_PctOw_Ws <- NHDplusV2_NewEngCrop %>% 
+  mutate(PctOw_Ws = PctOw_Ws + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_PctOw_Ws <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_PctOw_Ws, type = "response"))
+names(predictions_PctOw_Ws)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_PctOw_Ws, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_PctOw_Ws <- cbind(predictions_PctOw_Ws, tmp)
+  
+  
+}
+
+
+#join the predictions_WtDepWs to the list of comids
+NHDplusV2_NewEngCrop_PctOw_Ws <- cbind(NHDplusV2_NewEngCrop_PctOw_Ws, predictions_PctOw_Ws)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the PctOw_Ws conditions
+head(NHDplusV2_NewEngCrop_PctOw_Ws)
+tmp_PctOw_Ws <- NHDplusV2_NewEngCrop_PctOw_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_PctOw_Ws = n(),
+            avg_prob_PctOw_Ws = mean(mean_prob))
+
+
+
+
+
+
+
+
+#PctImp_Ws 
+
+NHDplusV2_NewEngCrop_PctImp_Ws <- NHDplusV2_NewEngCrop %>% 
+  mutate(PctImp_Ws = PctImp_Ws + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_PctImp_Ws <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_PctImp_Ws, type = "response"))
+names(predictions_PctImp_Ws)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_PctImp_Ws, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_PctImp_Ws <- cbind(predictions_PctImp_Ws, tmp)
+  
+  
+}
+
+
+#join the predictions_PctImp_Ws to the list of comids
+NHDplusV2_NewEngCrop_PctImp_Ws <- cbind(NHDplusV2_NewEngCrop_PctImp_Ws, predictions_PctImp_Ws)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the PctImp_Ws conditions
+head(NHDplusV2_NewEngCrop_PctImp_Ws)
+tmp_PctImp_Ws <- NHDplusV2_NewEngCrop_PctImp_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_PctImp_Ws = n(),
+            avg_prob_PctImp_Ws = mean(mean_prob))
+
+
+
+
+
+
+#pctAg_Ws 
+
+NHDplusV2_NewEngCrop_pctAg_Ws <- NHDplusV2_NewEngCrop %>% 
+  mutate(pctAg_Ws = pctAg_Ws + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_pctAg_Ws <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_pctAg_Ws, type = "response"))
+names(predictions_pctAg_Ws)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_pctAg_Ws, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_pctAg_Ws <- cbind(predictions_pctAg_Ws, tmp)
+  
+  
+}
+
+
+#join the predictions_pctAg_Ws to the list of comids
+NHDplusV2_NewEngCrop_pctAg_Ws <- cbind(NHDplusV2_NewEngCrop_pctAg_Ws, predictions_pctAg_Ws)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the pctAg_Ws conditions
+head(NHDplusV2_NewEngCrop_pctAg_Ws)
+tmp_pctAg_Ws <- NHDplusV2_NewEngCrop_pctAg_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_pctAg_Ws = n(),
+            avg_prob_pctAg_Ws = mean(mean_prob))
+
+
+
+
+
+
+
+
+#pctWetland_Cat 
+
+NHDplusV2_NewEngCrop_pctWetland_Cat <- NHDplusV2_NewEngCrop %>% 
+  mutate(pctWetland_Cat = pctWetland_Cat + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_pctWetland_Cat <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_pctWetland_Cat, type = "response"))
+names(predictions_pctWetland_Cat)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_pctWetland_Cat, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_pctWetland_Cat <- cbind(predictions_pctWetland_Cat, tmp)
+  
+  
+}
+
+
+#join the predictions_pctWetland_Cat to the list of comids
+NHDplusV2_NewEngCrop_pctWetland_Cat <- cbind(NHDplusV2_NewEngCrop_pctWetland_Cat, predictions_pctWetland_Cat)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the pctWetland_Cat conditions
+head(NHDplusV2_NewEngCrop_pctWetland_Cat)
+tmp_pctWetland_Cat <- NHDplusV2_NewEngCrop_pctWetland_Cat %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_pctWetland_Cat = n(),
+            avg_prob_pctWetland_Cat = mean(mean_prob))
+
+
+
+
+
+
+#logPctOw_Cat 
+
+NHDplusV2_NewEngCrop_logPctOw_Cat <- NHDplusV2_NewEngCrop %>% 
+  mutate(logPctOw_Cat = logPctOw_Cat + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_logPctOw_Cat <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_logPctOw_Cat, type = "response"))
+names(predictions_logPctOw_Cat)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_logPctOw_Cat, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_logPctOw_Cat <- cbind(predictions_logPctOw_Cat, tmp)
+  
+  
+}
+
+
+#join the predictions_logPctOw_Cat to the list of comids
+NHDplusV2_NewEngCrop_logPctOw_Cat <- cbind(NHDplusV2_NewEngCrop_logPctOw_Cat, predictions_logPctOw_Cat)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the logPctOw_Cat conditions
+head(NHDplusV2_NewEngCrop_logPctOw_Cat)
+tmp_logPctOw_Cat <- NHDplusV2_NewEngCrop_logPctOw_Cat %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_logPctOw_Cat = n(),
+            avg_prob_logPctOw_Cat = mean(mean_prob))
+
+
+
+
+
+#logMJJA_HIST 
+
+NHDplusV2_NewEngCrop_logMJJA_HIST <- NHDplusV2_NewEngCrop %>% 
+  mutate(logMJJA_HIST = logMJJA_HIST + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_logMJJA_HIST <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_logMJJA_HIST, type = "response"))
+names(predictions_logMJJA_HIST)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_logMJJA_HIST, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_logMJJA_HIST <- cbind(predictions_logMJJA_HIST, tmp)
+  
+  
+}
+
+
+#join the predictions_logMJJA_HIST to the list of comids
+NHDplusV2_NewEngCrop_logMJJA_HIST <- cbind(NHDplusV2_NewEngCrop_logMJJA_HIST, predictions_logMJJA_HIST)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the logMJJA_HIST conditions
+head(NHDplusV2_NewEngCrop_logMJJA_HIST)
+tmp_logMJJA_HIST <- NHDplusV2_NewEngCrop_logMJJA_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_logMJJA_HIST = n(),
+            avg_prob_logMJJA_HIST = mean(mean_prob))
+
+
+
+
+
+#logRdCrsCat 
+
+NHDplusV2_NewEngCrop_logRdCrsCat <- NHDplusV2_NewEngCrop %>% 
+  mutate(logRdCrsCat = logRdCrsCat + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_logRdCrsCat <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_logRdCrsCat, type = "response"))
+names(predictions_logRdCrsCat)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_logRdCrsCat, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_logRdCrsCat <- cbind(predictions_logRdCrsCat, tmp)
+  
+  
+}
+
+
+#join the predictions_logRdCrsCat to the list of comids
+NHDplusV2_NewEngCrop_logRdCrsCat <- cbind(NHDplusV2_NewEngCrop_logRdCrsCat, predictions_logRdCrsCat)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the logRdCrsCat conditions
+head(NHDplusV2_NewEngCrop_logRdCrsCat)
+tmp_logRdCrsCat <- NHDplusV2_NewEngCrop_logRdCrsCat %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_logRdCrsCat = n(),
+            avg_prob_logRdCrsCat = mean(mean_prob))
+
+
+
+
+
+
+
+#huc12_damden_sqkm 
+
+NHDplusV2_NewEngCrop_huc12_damden_sqkm <- NHDplusV2_NewEngCrop %>% 
+  mutate(huc12_damden_sqkm = huc12_damden_sqkm + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_huc12_damden_sqkm <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_huc12_damden_sqkm, type = "response"))
+names(predictions_huc12_damden_sqkm)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_huc12_damden_sqkm, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_huc12_damden_sqkm <- cbind(predictions_huc12_damden_sqkm, tmp)
+  
+  
+}
+
+
+#join the predictions_logRdCrsCat to the list of comids
+NHDplusV2_NewEngCrop_huc12_damden_sqkm <- cbind(NHDplusV2_NewEngCrop_huc12_damden_sqkm, predictions_huc12_damden_sqkm)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the huc12_damden_sqkm conditions
+head(NHDplusV2_NewEngCrop_huc12_damden_sqkm)
+tmp_huc12_damden_sqkm <- NHDplusV2_NewEngCrop_huc12_damden_sqkm %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_huc12_damden_sqkm = n(),
+            avg_prob_huc12_damden_sqkm = mean(mean_prob))
+
+
+
+
+
+
+
+#huc8_damcount 
+
+NHDplusV2_NewEngCrop_huc8_damcount <- NHDplusV2_NewEngCrop %>% 
+  mutate(huc8_damcount = huc8_damcount + 2,
+         )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_huc8_damcount <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_huc8_damcount, type = "response"))
+names(predictions_huc8_damcount)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_huc8_damcount, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_huc8_damcount <- cbind(predictions_huc8_damcount, tmp)
+  
+  
+}
+
+
+#join the predictions_huc8_damcount to the list of comids
+NHDplusV2_NewEngCrop_huc8_damcount <- cbind(NHDplusV2_NewEngCrop_huc8_damcount, predictions_huc8_damcount)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the huc8_damcount conditions
+head(NHDplusV2_NewEngCrop_huc8_damcount)
+tmp_huc8_damcount <- NHDplusV2_NewEngCrop_huc8_damcount %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_huc8_damcount = n(),
+            avg_prob_huc8_damcount = mean(mean_prob))
+
+
+
+
+
+
+
+
+compare <- full_join(tmp_baseline, tmp_sumtmp, by  = "common_name")
+compare <- full_join(compare, tmp_BFI_HIST , by  = "common_name")
+compare <- full_join(compare, tmp_LO7Q1DT_HIST, by  = "common_name")
+compare <- full_join(compare, tmp_W95_HIST, by  = "common_name")
+compare <- full_join(compare, tmp_BFIWs, by  = "common_name")
+compare <- full_join(compare, tmp_WtDepWs, by  = "common_name")
+compare <- full_join(compare, tmp_PctOw_Ws, by  = "common_name")
+compare <- full_join(compare, tmp_PctImp_Ws, by  = "common_name")
+compare <- full_join(compare, tmp_pctAg_Ws, by  = "common_name")
+compare <- full_join(compare, tmp_pctWetland_Cat, by  = "common_name")
+compare <- full_join(compare, tmp_logPctOw_Cat, by  = "common_name")
+compare <- full_join(compare, tmp_logMJJA_HIST, by  = "common_name")
+compare <- full_join(compare, tmp_logRdCrsCat, by  = "common_name")
+compare <- full_join(compare, tmp_huc12_damden_sqkm, by  = "common_name")
+compare <- full_join(compare, tmp_huc8_damcount, by  = "common_name")
 
 
 names(compare)
 
 compare <- compare %>% 
-  mutate(base_ccmgmt = round(((count_ccmgmt - count)/count*100),0),
-         base_ccdvlp = round(((count_ccdvlp - count )/count*100),0),
-         base_cc = round(((count_cc - count)/count*100),0),
-         basep_ccmgmtp = round(((avg_prob_ccmgmt - avg_prob)/avg_prob*100),0),
-         basep_ccdvlpp = round(((avg_prob_ccdvlp - avg_prob)/avg_prob*100),0),
-         basep_ccp = round(((avg_prob_cc - avg_prob)/avg_prob*100),0))
+  mutate(base_LO7Q1DT_HIST = round(((count_LO7Q1DT_HIST - count)/count*100),0),
+         base_BFI_HIST = round(((count_BFI_HIST - count )/count*100),0),
+         base_sumtmp = round(((count_sumtmp - count)/count*100),0),
+         base_W95_HIST = round(((count_W95_HIST - count)/count*100),0),
+         base_BFIWs = round(((count_BFIWs - count )/count*100),0),
+         base_WtDepWs = round(((count_WtDepWs - count)/count*100),0),
+         base_PctOw_Ws = round(((count_PctOw_Ws - count)/count*100),0),
+         base_PctImp_Ws = round(((count_PctImp_Ws - count )/count*100),0),
+         base_pctAg_Ws = round(((count_pctAg_Ws - count)/count*100),0),
+         base_pctWetland_Cat = round(((count_pctWetland_Cat - count)/count*100),0),
+         base_logPctOw_Cat = round(((count_logPctOw_Cat - count )/count*100),0),
+         base_logMJJA_HIST = round(((count_logMJJA_HIST - count)/count*100),0),
+         base_logRdCrsCat = round(((count_logRdCrsCat - count)/count*100),0),
+         base_huc12_damden_sqkm = round(((count_huc12_damden_sqkm - count )/count*100),0),
+         base_huc8_damcount = round(((count_huc8_damcount - count)/count*100),0),
+         
+         
+         
+         basep_LO7Q1DT_HISTp = round(((avg_prob_LO7Q1DT_HIST - avg_prob)/avg_prob*100),0),
+         basep_BFI_HISTp = round(((avg_prob_BFI_HIST - avg_prob)/avg_prob*100),0),
+         basep_sumtmpp = round(((avg_prob_sumtmp - avg_prob)/avg_prob*100),0),
+         basep_W95_HISTp = round(((avg_prob_W95_HIST - avg_prob)/avg_prob*100),0),
+         basep_BFIWsp = round(((avg_prob_BFIWs - avg_prob)/avg_prob*100),0),
+         basep_WtDepWsp = round(((avg_prob_WtDepWs - avg_prob)/avg_prob*100),0),
+         basep_PctOw_Wsp = round(((avg_prob_PctOw_Ws - avg_prob)/avg_prob*100),0),
+         basep_PctImp_Wsp = round(((avg_prob_PctImp_Ws - avg_prob)/avg_prob*100),0),
+         basep_pctAg_Wsp = round(((avg_prob_pctAg_Ws - avg_prob)/avg_prob*100),0),
+         basep_pctWetland_Catp = round(((avg_prob_pctWetland_Cat - avg_prob)/avg_prob*100),0),
+         basep_logPctOw_Catp = round(((avg_prob_logPctOw_Cat - avg_prob)/avg_prob*100),0),
+         basep_logMJJA_HISTp = round(((avg_prob_logMJJA_HIST - avg_prob)/avg_prob*100),0),
+         basep_logRdCrsCatp = round(((avg_prob_logRdCrsCat - avg_prob)/avg_prob*100),0),
+         basep_huc12_damden_sqkmp = round(((avg_prob_huc12_damden_sqkm - avg_prob)/avg_prob*100),0),
+         basep_huc8_damcountp = round(((avg_prob_huc8_damcount - avg_prob)/avg_prob*100),0)
+         )
 
 compare$common_name <- gsub(".rds", "", compare$common_name)
 
