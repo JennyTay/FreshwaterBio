@@ -24,6 +24,7 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/flowmetri
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_annaul.RData")
 
+
 #watershed shape files
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
 
@@ -46,7 +47,9 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc12dams
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc10dams.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc8dams.RData")
 
-
+#mussel event and hydrography join:
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowlineV2_join.RData")
 
 #water quality - I added this in later because we'll use it in the mussel model.
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID_waterquality.RData")
@@ -306,9 +309,14 @@ fishcovariates <- dat3 %>%
          logPctOw_Cat = log(PctOw_Cat+1)) %>% 
   dplyr::select(-WsAreaSqKm, -MJJA_HIST, -RdCrsCat, -PctOw_Cat )
 
+
+
+#this is the covariates for the fish covariates in the baseline years
 save(fishcovariates, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
 
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+
+
 
 
 
@@ -352,21 +360,108 @@ save(fishcovariates_byhuc12, file = "C:/Users/jenrogers/Documents/necascFreshwat
 
 
 
-#water quality
-#we want to add the water qualtiy metrics that we think are important for mussels to the 
-
-#join the flowlineV2 with the COMID
-fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>% 
-  mutate(long = unlist(map(fish_event_flowlineV2_join$geometry, 1)),
-         lat = unlist(map(fish_event_flowlineV2_join$geometry, 2))) %>% 
-  data.frame() %>% 
-  dplyr::select(-geometry)
 
 
+##########################################################
 
-wq <- strmcat_byCOMID %>% 
-  dplyr::select(6:38, -NRSA_Frame, -NARS_Region)
+##########################################################
+
+##########################################################
+
+
+#prepare the mussel model covariates
+
+#these will be at the HUC10 scale
+
+#assign every COMID in the region a HUC10 name.  
+#We did this in the tidying_NHDplusV2.R script, and also joined all the fish covariates.
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+
+#join to the covariate data by COMID
+#we already did that in the file loaded above, but we want to add in the water quality data specifically for mussels
+#remove highly correlated water quality variables
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID_waterquality.RData")
+
+dat <- left_join(NHDplusV2_NewEngCrop, strmcat_byCOMID, by = "COMID")
+
+wq <- dat %>% 
+  data.frame %>% 
+  dplyr::select(44:76, -NRSA_Frame, -NARS_Region) 
 wq <- wq[complete.cases(wq),] #remove rows with NA
 cor <- cor(wq, method = c("spearman")) #make correlation matrix
 
 corrplot(cor, type = "lower") #plot
+
+dat <- dat %>% 
+  mutate(pollutionWs = SuperfundDensWs + NPDESDensWs + TRIDensWs,
+         nitWs = ManureWs + FertWs) %>% 
+  select(-c(SuperfundDensWs, NPDESDensWs, TRIDensWs, ManureWs, FertWs,
+            AgKffactCat, AgKffactWs, KffactCat,
+            WWTPAllDensCat, WWTPAllDensWs,
+            WWTPMinorDensCat, WWTPMajorDensCat,
+            CaOCat, 
+            CBNFCat, CBNFWs, FertCat,
+            ManureCat, SuperfundDensCat, NPDESDensCat, TRIDensCat, NRSA_Frame,NARS_Region,prG_BMMI,
+            NANICat, NANIWs, Pestic97Cat, Pestic97Ws, RunoffCat))
+
+
+wq <- dat %>% 
+  data.frame %>% 
+  dplyr::select(10:50) 
+wq <- wq[complete.cases(wq),] #remove rows with NA
+cor <- cor(wq, method = c("spearman")) #make correlation matrix
+
+corrplot(cor, type = "lower") #plot
+
+
+#add the superfun, TRI, and NPDES densities
+#add manure and fertelizer used in watershed
+#keep CaO
+#remove AgKffact becuase its highly correlated with nitrogen
+#keep Kffact in watershed overall
+#keep runoff
+#keep major and minor wastewater treatment plants
+
+
+#average each covariate by HUC10 (either take the max or mean value)
+
+dat <- dat %>% 
+  data.frame() %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(lat = mean(lat, na.rm = T),
+            long = mean(long, na.rm = T),
+            annual_mean_summer_temp = mean(annual_mean_summer_temp, na.rm = T),
+            BFI_HIST = mean(BFI_HIST, na.rm = T),
+            LO7Q1DT_HIST = mean(LO7Q1DT_HIST, na.rm = T), 
+            CFM_HIST = mean(CFM_HIST, na.rm = T), 
+            W95_HIST = mean(W95_HIST, na.rm = T),
+            ElevCat = mean(ElevCat, na.rm = T),
+            RdCrsWs = mean(RdCrsWs, na.rm = T),
+            WtDepWs = mean(WtDepWs, na.rm = T),
+            PctOw_Ws = mean(PctOw_Ws, na.rm = T),
+            PctImp_WsRp100 = mean(PctImp_WsRp100, na.rm = T),
+            pctForest_ws = mean(pctForest_ws, na.rm = T),
+            pctAg_Ws = mean(pctAg_Ws, na.rm = T),
+            pctWetland_Ws = mean(pctWetland_Ws, na.rm = T),
+            huc12_damden_sqkm = mean(huc12_damden_sqkm, na.rm = T),
+            huc8_damcount = mean(huc8_damcount, na.rm = T),
+            logWsAreaSqKm = mean(logWsAreaSqKm, na.rm = T),
+            logMJJA_HIST = mean(logMJJA_HIST, na.rm = T),
+            logRdCrsCat = mean(logRdCrsCat, na.rm = T),
+            logPctOw_Cat = mean(logPctOw_Cat, na.rm = T),
+            CaOWs = mean(CaOWs, na.rm = T),
+            KffactWs = mean(KffactWs, na.rm = T),
+            RunoffWs = mean(RunoffWs, na.rm = T),
+            WWTPMajorDensWs = mean(WWTPMajorDensWs, na.rm = T),
+            WWTPMinorDensWs = mean(WWTPMinorDensWs, na.rm = T),
+            pollutionWs = mean(pollutionWs, na.rm = T),
+            nitWs = mean(nitWs, na.rm = T))
+
+#join to the mussel_event_huc_join so we can get the UIDs of each sampling event that occurred in that watershed
+dat <- left_join(mussel_event_huc_join, dat, by = c("huc10_name", "huc10_tnmid"))
+mussel_covariates_huc10 <- dat
+
+#save
+save(mussel_covariates_huc10, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc10.RData")
+

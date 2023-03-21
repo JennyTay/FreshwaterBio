@@ -1128,11 +1128,17 @@ names <- fish_occurrence %>%
   unique()
 
 compare <- left_join(compare, names, by = "common_name") %>% 
-  select(scientific_name, 1:15) %>% 
+  select(scientific_name, 1:63) %>% 
   arrange(desc(count))
 
 write.csv(compare, file = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/presabs_predictions.csv")
 
+
+
+
+
+
+#LEFT OFF HERE 3-2-2023 NEED TO UPDATE BELOW BY DOING THIS FOR ALL 15 SCENARIOS
 
 
 #calcuate spp richness by huc12 for each basin
@@ -1156,15 +1162,15 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
 #### species richness by origin
 
 
-tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
+tmp_sumtmp <- NHDplusV2_NewEngCrop_sumtmp %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_cc$common_name <- gsub(".rds", "", tmp_cc$common_name)
-tmp_cc$common_name <- gsub("pres_", "", tmp_cc$common_name)
-tmp_cc$common_name <- gsub("\\.", " ", tmp_cc$common_name)
+tmp_sumtmp$common_name <- gsub(".rds", "", tmp_sumtmp$common_name)
+tmp_sumtmp$common_name <- gsub("pres_", "", tmp_sumtmp$common_name)
+tmp_sumtmp$common_name <- gsub("\\.", " ", tmp_sumtmp$common_name)
 
-tmp_cc <- tmp_cc %>% 
+tmp_sumtmp <- tmp_sumtmp %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name") %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -1173,23 +1179,23 @@ tmp_cc <- tmp_cc %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, origin) %>% 
-  summarise(rich_cc = n()) %>% 
-  pivot_wider(names_from = origin, values_from = rich_cc) %>% 
+  summarise(rich_sumtmp = n()) %>% 
+  pivot_wider(names_from = origin, values_from = rich_sumtmp) %>% 
   mutate(sum = sum(native, introduced, na.rm = T),
-         prop_native_cc = native/sum) %>% 
+         prop_native_sumtmp = native/sum) %>% 
   select(-introduced, -native, -'NA', -sum)
 
 
 
-tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+tmp_BFI_HIST <- NHDplusV2_NewEngCrop_BFI_HIST %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccdvlp$common_name <- gsub(".rds", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("pres_", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("\\.", " ", tmp_ccdvlp$common_name)
+tmp_BFI_HIST$common_name <- gsub(".rds", "", tmp_BFI_HIST$common_name)
+tmp_BFI_HIST$common_name <- gsub("pres_", "", tmp_BFI_HIST$common_name)
+tmp_BFI_HIST$common_name <- gsub("\\.", " ", tmp_BFI_HIST$common_name)
 
-tmp_ccdvlp <-  tmp_ccdvlp %>% 
+tmp_BFI_HIST <-  tmp_BFI_HIST %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -1198,22 +1204,22 @@ tmp_ccdvlp <-  tmp_ccdvlp %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, origin) %>% 
-  summarise(rich_ccdvlp = n())%>% 
-  pivot_wider(names_from = origin, values_from = rich_ccdvlp) %>% 
+  summarise(rich_BFI_HIST = n())%>% 
+  pivot_wider(names_from = origin, values_from = rich_BFI_HIST) %>% 
   mutate(sum = sum(native, introduced, na.rm = T),
-         prop_native_ccdvlp = native/sum) %>% 
+         prop_native_BFI_HIST = native/sum) %>% 
   select(-introduced, -native, -'NA', -sum)
 
 
-tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+tmp_LO7Q1DT_HIST <- NHDplusV2_NewEngCrop_LO7Q1DT_HIST %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccmgmt$common_name <- gsub(".rds", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("pres_", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("\\.", " ", tmp_ccmgmt$common_name)
+tmp_LO7Q1DT_HIST$common_name <- gsub(".rds", "", tmp_LO7Q1DT_HIST$common_name)
+tmp_LO7Q1DT_HIST$common_name <- gsub("pres_", "", tmp_LO7Q1DT_HIST$common_name)
+tmp_LO7Q1DT_HIST$common_name <- gsub("\\.", " ", tmp_LO7Q1DT_HIST$common_name)
 
-tmp_ccmgmt <- tmp_ccmgmt %>% 
+tmp_LO7Q1DT_HIST <- tmp_LO7Q1DT_HIST %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -1222,10 +1228,10 @@ tmp_ccmgmt <- tmp_ccmgmt %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, origin) %>% 
-  summarise(rich_ccmgmt = n()) %>% 
-  pivot_wider(names_from = origin, values_from = rich_ccmgmt) %>% 
+  summarise(rich_LO7Q1DT_HIST = n()) %>% 
+  pivot_wider(names_from = origin, values_from = rich_LO7Q1DT_HIST) %>% 
   mutate(sum = sum(native, introduced, na.rm = T),
-         prop_native_ccmgmt = native/sum) %>% 
+         prop_native_LO7Q1DT_HIST = native/sum) %>% 
   select(-introduced, -native, -'NA', -sum)
 
 
@@ -1289,14 +1295,14 @@ huc12 <- huc12 %>%
 # huc8 <- left_join(huc8, tmp_ccmgmt, by = "huc8_name")
 
 huc12 <- left_join(huc12, tmp_baseline, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_cc, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccdvlp, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccmgmt, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_sumtmp, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_BFI_HIST, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_LO7Q1DT_HIST, by = c("huc12_tnmid", "huc12_name"))
 
 #calcuate change in climate change from baseline, but change in the other two from climate change
 huc12 <- huc12 %>% 
-  mutate(change_ccdvlp = prop_native_ccdvlp - prop_native_cc,
-         change_ccmgmt = prop_native_ccmgmt - prop_native_cc)
+  mutate(change_BFI_HIST = prop_native_BFI_HIST - prop_native_sumtmp,
+         change_LO7Q1DT_HIST = prop_native_LO7Q1DT_HIST - prop_native_sumtmp)
 
 #plot absolute values of proportaional richness of native spp
 huc12a <- huc12 %>% 
@@ -1304,9 +1310,9 @@ huc12a <- huc12 %>%
   pivot_longer(2:5, names_to = "scenario", values_to = "prop_richness") %>% 
   filter(!is.na(prop_richness))
 huc12a$scenario[huc12a$scenario == "prop_native_baseline"] <- "Baseline"
-huc12a$scenario[huc12a$scenario == "prop_native_cc"] <- "Clim Change"
-huc12a$scenario[huc12a$scenario == "prop_native_ccdvlp"] <- "Clim Chng + Develop"
-huc12a$scenario[huc12a$scenario == "prop_native_ccmgmt"] <- "Clim Chng + Manage"
+huc12a$scenario[huc12a$scenario == "prop_native_sumtmp"] <- "sumtmp"
+huc12a$scenario[huc12a$scenario == "prop_native_BFI_HIST"] <- "BFI"
+huc12a$scenario[huc12a$scenario == "prop_native_LO7Q1DT_HIST"] <- "LowFlowTIme"
 
 
 ggplot(data = huc12a)+
@@ -1341,8 +1347,8 @@ huc12b <- huc12 %>%
   select(3, 9, 10) %>% 
   pivot_longer(2:3, names_to = "scenario", values_to = "change") %>% 
   filter(!is.na(change))
-huc12b$scenario[huc12b$scenario == "change_ccdvlp"] <- "Clim Chng + Develop"
-huc12b$scenario[huc12b$scenario == "change_ccmgmt"] <- "Clim Chng + Manage"
+huc12b$scenario[huc12b$scenario == "change_BFI_HIST"] <- "BFI_HIST"
+huc12b$scenario[huc12b$scenario == "change_LO7Q1DT_HIST"] <- "LO7Q1DT_HIST"
 
 
 ggplot(data = huc12b)+
@@ -1377,15 +1383,15 @@ ggsave(
 #### species richness by temperature
 
 
-tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
+tmp_sumtmp <- NHDplusV2_NewEngCrop_sumtmp %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_cc$common_name <- gsub(".rds", "", tmp_cc$common_name)
-tmp_cc$common_name <- gsub("pres_", "", tmp_cc$common_name)
-tmp_cc$common_name <- gsub("\\.", " ", tmp_cc$common_name)
+tmp_sumtmp$common_name <- gsub(".rds", "", tmp_sumtmp$common_name)
+tmp_sumtmp$common_name <- gsub("pres_", "", tmp_sumtmp$common_name)
+tmp_sumtmp$common_name <- gsub("\\.", " ", tmp_sumtmp$common_name)
 
-tmp_cc <- tmp_cc %>% 
+tmp_sumtmp <- tmp_sumtmp %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name") %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -1394,23 +1400,23 @@ tmp_cc <- tmp_cc %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, tmp) %>% 
-  summarise(rich_cc = n()) %>% 
-  pivot_wider(names_from = tmp, values_from = rich_cc) %>% 
+  summarise(rich_sumtmp = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_sumtmp) %>% 
   mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
-         prop_cold_cc = cold/sum) %>% 
+         prop_cold_sumtmp = cold/sum) %>% 
   select(-warm, -cold, -cool, -eury, -sum)
 
 
 
-tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+tmp_BFI_HIST <- NHDplusV2_NewEngCrop_BFI_HIST %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccdvlp$common_name <- gsub(".rds", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("pres_", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("\\.", " ", tmp_ccdvlp$common_name)
+tmp_BFI_HIST$common_name <- gsub(".rds", "", tmp_BFI_HIST$common_name)
+tmp_BFI_HIST$common_name <- gsub("pres_", "", tmp_BFI_HIST$common_name)
+tmp_BFI_HIST$common_name <- gsub("\\.", " ", tmp_BFI_HIST$common_name)
 
-tmp_ccdvlp <-  tmp_ccdvlp %>% 
+tmp_BFI_HIST <-  tmp_BFI_HIST %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -1419,22 +1425,263 @@ tmp_ccdvlp <-  tmp_ccdvlp %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, tmp) %>% 
-  summarise(rich_ccdvlp = n())%>% 
-  pivot_wider(names_from = tmp, values_from = rich_ccdvlp) %>% 
+  summarise(rich_BFI_HIST = n())%>% 
+  pivot_wider(names_from = tmp, values_from = rich_BFI_HIST) %>% 
   mutate(sum = sum(warm, cold, cool, na.rm = T),
-         prop_cold_ccdvlp = cold/sum) %>% 
+         prop_cold_BFI_HIST = cold/sum) %>% 
+  select(-warm, -cold, -cool, -sum, -eury)
+
+
+tmp_LO7Q1DT_HIST <- NHDplusV2_NewEngCrop_LO7Q1DT_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_LO7Q1DT_HIST$common_name <- gsub(".rds", "", tmp_LO7Q1DT_HIST$common_name)
+tmp_LO7Q1DT_HIST$common_name <- gsub("pres_", "", tmp_LO7Q1DT_HIST$common_name)
+tmp_LO7Q1DT_HIST$common_name <- gsub("\\.", " ", tmp_LO7Q1DT_HIST$common_name)
+
+tmp_LO7Q1DT_HIST <- tmp_LO7Q1DT_HIST %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_LO7Q1DT_HIST = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_LO7Q1DT_HIST) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_LO7Q1DT_HIST = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_W95_HIST <- NHDplusV2_NewEngCrop_W95_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_W95_HIST$common_name <- gsub(".rds", "", tmp_W95_HIST$common_name)
+tmp_W95_HIST$common_name <- gsub("pres_", "", tmp_W95_HIST$common_name)
+tmp_W95_HIST$common_name <- gsub("\\.", " ", tmp_W95_HIST$common_name)
+
+tmp_W95_HIST <- tmp_W95_HIST %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_W95_HIST = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_W95_HIST) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_W95_HIST = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_BFIWs <- NHDplusV2_NewEngCrop_W95_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_BFIWs$common_name <- gsub(".rds", "", tmp_BFIWs$common_name)
+tmp_BFIWs$common_name <- gsub("pres_", "", tmp_BFIWs$common_name)
+tmp_BFIWs$common_name <- gsub("\\.", " ", tmp_BFIWs$common_name)
+
+tmp_BFIWs <- tmp_BFIWs %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_BFIWs = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_BFIWs) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_BFIWs = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_WtDepWs <- NHDplusV2_NewEngCrop_W95_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_WtDepWs$common_name <- gsub(".rds", "", tmp_WtDepWs$common_name)
+tmp_WtDepWs$common_name <- gsub("pres_", "", tmp_WtDepWs$common_name)
+tmp_WtDepWs$common_name <- gsub("\\.", " ", tmp_WtDepWs$common_name)
+
+tmp_WtDepWs <- tmp_WtDepWs %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_WtDepWs = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_WtDepWs) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_WtDepWs = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_PctOw_Ws <- NHDplusV2_NewEngCrop_W95_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_PctOw_Ws$common_name <- gsub(".rds", "", tmp_PctOw_Ws$common_name)
+tmp_PctOw_Ws$common_name <- gsub("pres_", "", tmp_PctOw_Ws$common_name)
+tmp_PctOw_Ws$common_name <- gsub("\\.", " ", tmp_PctOw_Ws$common_name)
+
+tmp_PctOw_Ws <- tmp_PctOw_Ws %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_PctOw_Ws = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_PctOw_Ws) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_PctOw_Ws = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+
+tmp_PctImp_Ws <- NHDplusV2_NewEngCrop_PctImp_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_PctImp_Ws$common_name <- gsub(".rds", "", tmp_PctImp_Ws$common_name)
+tmp_PctImp_Ws$common_name <- gsub("pres_", "", tmp_PctImp_Ws$common_name)
+tmp_PctImp_Ws$common_name <- gsub("\\.", " ", tmp_PctImp_Ws$common_name)
+
+tmp_PctImp_Ws <- tmp_PctImp_Ws %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_PctImp_Ws = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_PctImp_Ws) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_PctImp_Ws = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_pctAg_Ws <- NHDplusV2_NewEngCrop_PctImp_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_pctAg_Ws$common_name <- gsub(".rds", "", tmp_pctAg_Ws$common_name)
+tmp_pctAg_Ws$common_name <- gsub("pres_", "", tmp_pctAg_Ws$common_name)
+tmp_pctAg_Ws$common_name <- gsub("\\.", " ", tmp_pctAg_Ws$common_name)
+
+tmp_pctAg_Ws <- tmp_pctAg_Ws %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_pctAg_Ws = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_pctAg_Ws) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_pctAg_Ws = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_pctWetland_Cat <- NHDplusV2_NewEngCrop_PctImp_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_pctWetland_Cat$common_name <- gsub(".rds", "", tmp_pctWetland_Cat$common_name)
+tmp_pctWetland_Cat$common_name <- gsub("pres_", "", tmp_pctWetland_Cat$common_name)
+tmp_pctWetland_Cat$common_name <- gsub("\\.", " ", tmp_pctWetland_Cat$common_name)
+
+tmp_pctWetland_Cat <- tmp_pctWetland_Cat %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_pctWetland_Cat = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_pctWetland_Cat) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_pctWetland_Cat = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_logPctOw_Cat <- NHDplusV2_NewEngCrop_PctImp_Ws %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_logPctOw_Cat$common_name <- gsub(".rds", "", tmp_logPctOw_Cat$common_name)
+tmp_logPctOw_Cat$common_name <- gsub("pres_", "", tmp_logPctOw_Cat$common_name)
+tmp_logPctOw_Cat$common_name <- gsub("\\.", " ", tmp_logPctOw_Cat$common_name)
+
+tmp_logPctOw_Cat <- tmp_logPctOw_Cat %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_logPctOw_Cat = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_logPctOw_Cat) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_logPctOw_Cat = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_logMJJA_HIST <- NHDplusV2_NewEngCrop_logMJJA_HIST %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_logMJJA_HIST$common_name <- gsub(".rds", "", tmp_logMJJA_HIST$common_name)
+tmp_logMJJA_HIST$common_name <- gsub("pres_", "", tmp_logMJJA_HIST$common_name)
+tmp_logMJJA_HIST$common_name <- gsub("\\.", " ", tmp_logMJJA_HIST$common_name)
+
+tmp_logMJJA_HIST <- tmp_logMJJA_HIST %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_logMJJA_HIST = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_logMJJA_HIST) %>% 
+  mutate(sum = sum(warm, cold, cool, na.rm = T),
+         prop_cold_logMJJA_HIST = cold/sum) %>% 
   select(-warm, -cold, -cool, -sum)
 
 
-tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+tmp_logRdCrsCat <- NHDplusV2_NewEngCrop_logMJJA_HIST %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccmgmt$common_name <- gsub(".rds", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("pres_", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("\\.", " ", tmp_ccmgmt$common_name)
+tmp_logRdCrsCat$common_name <- gsub(".rds", "", tmp_logRdCrsCat$common_name)
+tmp_logRdCrsCat$common_name <- gsub("pres_", "", tmp_logRdCrsCat$common_name)
+tmp_logRdCrsCat$common_name <- gsub("\\.", " ", tmp_logRdCrsCat$common_name)
 
-tmp_ccmgmt <- tmp_ccmgmt %>% 
+tmp_logRdCrsCat <- tmp_logRdCrsCat %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -1443,12 +1690,59 @@ tmp_ccmgmt <- tmp_ccmgmt %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, tmp) %>% 
-  summarise(rich_ccmgmt = n()) %>% 
-  pivot_wider(names_from = tmp, values_from = rich_ccmgmt) %>% 
+  summarise(rich_logRdCrsCat = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_logRdCrsCat) %>% 
+  mutate(sum = sum(warm, cold, cool,  na.rm = T),
+         prop_cold_logRdCrsCat = cold/sum) %>% 
+  select(-warm, -cold, -cool,  -sum)
+
+
+tmp_huc12_damden_sqkm <- NHDplusV2_NewEngCrop_huc12_damden_sqkm %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_huc12_damden_sqkm$common_name <- gsub(".rds", "", tmp_huc12_damden_sqkm$common_name)
+tmp_huc12_damden_sqkm$common_name <- gsub("pres_", "", tmp_huc12_damden_sqkm$common_name)
+tmp_huc12_damden_sqkm$common_name <- gsub("\\.", " ", tmp_huc12_damden_sqkm$common_name)
+
+tmp_huc12_damden_sqkm <- tmp_huc12_damden_sqkm %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_huc12_damden_sqkm = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_huc12_damden_sqkm) %>% 
   mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
-         prop_cold_mgmt = cold/sum) %>% 
+         prop_cold_huc12_damden_sqkm = cold/sum) %>% 
   select(-warm, -cold, -cool, -eury, -sum)
 
+
+tmp_huc8_damcount <- NHDplusV2_NewEngCrop_huc8_damcount %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_huc8_damcount$common_name <- gsub(".rds", "", tmp_huc8_damcount$common_name)
+tmp_huc8_damcount$common_name <- gsub("pres_", "", tmp_huc8_damcount$common_name)
+tmp_huc8_damcount$common_name <- gsub("\\.", " ", tmp_huc8_damcount$common_name)
+
+tmp_huc8_damcount <- tmp_huc8_damcount %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_huc8_damcount = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_huc8_damcount) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_huc8_damcount = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
 
 
 tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>% 
@@ -1510,29 +1804,57 @@ huc12 <- huc12 %>%
 # huc8 <- left_join(huc8, tmp_ccmgmt, by = "huc8_name")
 
 huc12 <- left_join(huc12, tmp_baseline, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_cc, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccdvlp, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccmgmt, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_sumtmp, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_BFI_HIST, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_LO7Q1DT_HIST, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_W95_HIST, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_BFIWs, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_WtDepWs, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_PctOw_Ws, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_PctImp_Ws, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_pctAg_Ws, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_pctWetland_Cat, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_logPctOw_Cat, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_logMJJA_HIST, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_logRdCrsCat, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_huc12_damden_sqkm, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_huc8_damcount, by = c("huc12_tnmid", "huc12_name"))
+
+
 
 huc12 <- huc12 %>% 
-  mutate(change_ccdvlp = prop_cold_ccdvlp - prop_cold_cc,
-         change_ccmgmt = prop_cold_mgmt - prop_cold_cc)
+  mutate(change_sumtmp = prop_cold_sumtmp - prop_cold_baseline,
+         change_BFI_HIST = prop_cold_BFI_HIST - prop_cold_baseline,
+         change_LO7Q1DT_HIST = prop_cold_LO7Q1DT_HIST - prop_cold_baseline,
+         change_W95_HIST = prop_cold_W95_HIST - prop_cold_baseline,
+         change_BFIWs = prop_cold_BFIWs - prop_cold_baseline,
+         change_WtDepWs = prop_cold_WtDepWs - prop_cold_baseline,
+         change_PctOw_Ws = prop_cold_PctOw_Ws - prop_cold_baseline,
+         change_PctImp_Ws = prop_cold_PctImp_Ws - prop_cold_baseline,
+         change_pctAg_Ws = prop_cold_pctAg_Ws - prop_cold_baseline,
+         change_pctWetland_Cat = prop_cold_pctWetland_Cat - prop_cold_baseline,
+         change_logPctOw_Cat = prop_cold_logPctOw_Cat - prop_cold_baseline,
+         change_logMJJA_HIST = prop_cold_logMJJA_HIST - prop_cold_baseline,
+         change_logRdCrsCat = prop_cold_logRdCrsCat - prop_cold_baseline,
+         change_huc12_damden_sqkm = prop_cold_huc12_damden_sqkm - prop_cold_baseline,
+         change_huc8_damcount = prop_cold_huc8_damcount - prop_cold_baseline
+         )
 
 #plot absolute values of proportion of cold spp richness
 huc12a <- huc12 %>% 
-  select(3:7) %>% 
-  pivot_longer(2:5, names_to = "scenario", values_to = "prop_richness") %>% 
+  select(3:19) %>% 
+  pivot_longer(2:17, names_to = "scenario", values_to = "prop_richness") %>% 
   filter(!is.na(prop_richness))
 huc12a$scenario[huc12a$scenario == "prop_cold_baseline"] <- "Baseline"
-huc12a$scenario[huc12a$scenario == "prop_cold_cc"] <- "Clim Change"
-huc12a$scenario[huc12a$scenario == "prop_cold_ccdvlp"] <- "Clim Chng + Develop"
-huc12a$scenario[huc12a$scenario == "prop_cold_ccmgmt"] <- "Clim Chng + Manage"
+huc12a$scenario[huc12a$scenario == "prop_cold_sumtmp"] <- "sumtmp"
+huc12a$scenario[huc12a$scenario == "prop_cold_BFI_HIST"] <- "BFI_HIST"
+huc12a$scenario[huc12a$scenario == "prop_cold_LO7Q1DT_HIST"] <- "LO7Q1DT_HIST"
 
 
 ggplot(data = huc12a)+
   geom_sf(aes(fill = prop_richness), color = NA)+
   scale_fill_viridis_c()+
-  facet_wrap(~scenario, nrow = 1)+
+  facet_wrap(~scenario, nrow = 3)+
     geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
@@ -1556,17 +1878,17 @@ ggsave(
 
 #plot change of proportion of cold spp richness
 huc12a <- huc12 %>% 
-  select(3, 9, 10) %>% 
-  pivot_longer(2:3, names_to = "scenario", values_to = "change") %>% 
+  select(3, 21:35) %>% 
+  pivot_longer(2:16, names_to = "scenario", values_to = "change") %>% 
   filter(!is.na(change))
-huc12a$scenario[huc12a$scenario == "change_ccdvlp"] <- "Clim Chng + Develop"
-huc12a$scenario[huc12a$scenario == "change_ccmgmt"] <- "Clim Chng + Manage"
+huc12a$scenario[huc12a$scenario == "change_BFI_HIST"] <- "BFI_HIST"
+huc12a$scenario[huc12a$scenario == "change_LO7Q1DT_HIST"] <- "LO7Q1DT_HIST"
 
 
 ggplot(data = huc12a)+
   geom_sf(aes(fill = change), color = NA)+
   scale_fill_viridis_c(option = "magma")+
-  facet_wrap(~scenario, nrow = 1)+
+  facet_wrap(~scenario, nrow = 3)+
     geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),

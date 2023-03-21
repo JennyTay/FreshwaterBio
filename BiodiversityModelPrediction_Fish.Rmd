@@ -81,6 +81,14 @@ test <- NHDplusV2_NewEngCrop %>%
 
 test <- test[,c(7:8, 10:39)]
 
+#we need to scale these variables, but first I will calucate the mean and sd of each column, bc we will need to use these values to scale these variables in the predicted scenarios
+
+means <- sapply(test, mean, na.rm = T)
+save(means, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fishcovariates_scaling_mean.RData")
+sd <- sapply(test, sd, na.rm = T)
+save(sd, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fishcovariates_scaling_sd.RData")
+
+#scale data
 test <- data.frame(scale(test))
 
 NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
@@ -152,9 +160,34 @@ tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>%
 
 #climate change
 
-NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
-         )
+#load the 2080 file that has the projected stream temperature and streamflow covariate values
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates_2080.RData")
+
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+#this is what I did for NAB but now we're using the actual climate change scnearios prepared above
+#NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
+#  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
+#         )
 
 
 
@@ -197,19 +230,369 @@ ggplot(data = NHDplusV2_NewEngCrop_cc)+
 
 
 
-#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the mgmt conditions
+#this calcuated the total number of HUC12s that have an average P(occurrece)>0.05 for the climate change conditions
 head(NHDplusV2_NewEngCrop_cc)
 tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") %>% 
-  group_by(huc12_tnmid, huc12_name, , common_name) %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
   summarise(mean_prob = mean(value, na.rm = T)) %>% 
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(common_name) %>% 
   summarise(count_cc = n(),
             avg_prob_cc = mean(mean_prob))
+
+
+
+
+#climate change and connectivity reduction
+
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(huc8_damcount = huc8_damcount * 1.5,
+         huc12_damden_sqkm = huc12_damden_sqkm * 1.5,
+         logRdCrsCat = logRdCrsCat * 1.5) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_dvlp_cnnctv <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+#this is a scenario we used for NAB the devleopment scenario
+# NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
+#   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+#          PctImp_Ws = PctImp_Ws+2,
+#          pctAg_Ws = pctAg_Ws+2,
+#          logRdCrsCat = logRdCrsCat+2,
+#          huc12_damden_sqkm = huc12_damden_sqkm+2,
+#          huc8_damcount = huc8_damcount+2
+#          )
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_ccdvlp_cnnctv <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_dvlp_cnnctv, type = "response"))
+names(predictions_ccdvlp_cnnctv)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_dvlp_cnnctv, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_ccdvlp_cnnctv <- cbind(predictions_ccdvlp_cnnctv, tmp)
+  
+  
+}
+
+
+#join the predictions_ccdvlp_cnnctv to the list of comids
+NHDplusV2_NewEngCrop_cc_dvlp_cnnctv <- cbind(NHDplusV2_NewEngCrop_cc_dvlp_cnnctv, predictions_ccdvlp_cnnctv)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_cc_dvlp_cnnctv)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the climate change and connectivity reduction conditions
+head(NHDplusV2_NewEngCrop_cc_dvlp_cnnctv)
+tmp_ccdvlp_cnnctv <- NHDplusV2_NewEngCrop_cc_dvlp_cnnctv %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_ccdvlp_cnnctv = n(),
+            avg_prob_ccdvlp_cnnctv = mean(mean_prob))
+
+
+
+#climate change and connectivity improvements
+
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(huc8_damcount = huc8_damcount * .75,
+         huc12_damden_sqkm = huc12_damden_sqkm * .75,
+         logRdCrsCat = logRdCrsCat * .75) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_mgmt_cnnctv <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_ccmgmt_cnnctv <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_mgmt_cnnctv, type = "response"))
+names(predictions_ccmgmt_cnnctv)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_mgmt_cnnctv, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_ccmgmt_cnnctv <- cbind(predictions_ccmgmt_cnnctv, tmp)
+  
+  
+}
+
+
+#join the predictions_ccmgmt_cnnctv to the list of comids
+NHDplusV2_NewEngCrop_cc_mgmt_cnnctv <- cbind(NHDplusV2_NewEngCrop_cc_mgmt_cnnctv, predictions_ccmgmt_cnnctv)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_cc_mgmt_cnnctv)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the climate change and connectivity improvement conditions
+head(NHDplusV2_NewEngCrop_cc_mgmt_cnnctv)
+tmp_ccmgmt_cnnctv <- NHDplusV2_NewEngCrop_cc_mgmt_cnnctv %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_ccmgmt_cnnctv = n(),
+            avg_prob_ccmgmt_cnnctv = mean(mean_prob))
+
+
+
+
+
+
+
+#climate change and land cover developments (ie increase in ag and impervious)
+
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(PctImp_Ws = PctImp_Ws * 1.5,
+         pctAg_Ws = pctAg_Ws * 1.5) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_dvlp_cvr <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_ccdvlp_cvr <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_dvlp_cvr, type = "response"))
+names(predictions_ccdvlp_cvr)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_dvlp_cvr, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_ccdvlp_cvr <- cbind(predictions_ccdvlp_cvr, tmp)
+  
+  
+}
+
+
+#join the predictions_ccdvlp_cvr to the list of comids
+NHDplusV2_NewEngCrop_cc_dvlp_cvr <- cbind(NHDplusV2_NewEngCrop_cc_dvlp_cvr, predictions_ccdvlp_cvr)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_cc_dvlp_cvr)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the climate change and increased ag and impervious
+head(NHDplusV2_NewEngCrop_cc_dvlp_cvr)
+tmp_ccdvlp_cvr <- NHDplusV2_NewEngCrop_cc_dvlp_cvr %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_ccdvlp_cvr = n(),
+            avg_prob_ccdvlp_cvr = mean(mean_prob))
+
+
+
+
+#climate change and land cover improvements (ie reduced  ag and impervious)
+
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(PctImp_Ws = PctImp_Ws * .75,
+         pctAg_Ws = pctAg_Ws * .75) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_mgmt_cvr <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_ccmgmt_cvr <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_mgmt_cvr, type = "response"))
+names(predictions_ccmgmt_cvr)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_mgmt_cvr, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_ccmgmt_cvr <- cbind(predictions_ccmgmt_cvr, tmp)
+  
+  
+}
+
+
+#join the predictions_ccmgmt_cvr to the list of comids
+NHDplusV2_NewEngCrop_cc_mgmt_cvr <- cbind(NHDplusV2_NewEngCrop_cc_mgmt_cvr, predictions_ccmgmt_cvr)
+
+#sample plot
+ggplot(data = NHDplusV2_NewEngCrop_cc_mgmt_cvr)+
+  geom_sf(aes(color = pres_brook.trout.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+
+#this calcuated the total number of HUC8s that have an average P(occurrece)>0.05 for the climate change and reduced ag and impervious
+head(NHDplusV2_NewEngCrop_cc_mgmt_cvr)
+tmp_ccmgmt_cvr <- NHDplusV2_NewEngCrop_cc_mgmt_cvr %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") %>% 
+  group_by(huc12_tnmid, huc12_name, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(common_name) %>% 
+  summarise(count_ccmgmt_cvr = n(),
+            avg_prob_ccmgmt_cvr = mean(mean_prob))
+
+
+
 
 
 
@@ -423,7 +806,7 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
 #Even though the origin vary by state, for now, were just going to use the MA designations
 
 
-#### species richness by origin
+#### species richness by origin for the climate change, baseline, dvlp conn, dvlp cvr, mgmt conn, and mgmt cvr
 
 
 tmp_cc <- NHDplusV2_NewEngCrop_cc %>% 
@@ -451,15 +834,15 @@ tmp_cc <- tmp_cc %>%
 
 
 
-tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+tmp_ccdvlp_cnnctv <- NHDplusV2_NewEngCrop_cc_dvlp_cnnctv %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccdvlp$common_name <- gsub(".rds", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("pres_", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("\\.", " ", tmp_ccdvlp$common_name)
+tmp_ccdvlp_cnnctv$common_name <- gsub(".rds", "", tmp_ccdvlp_cnnctv$common_name)
+tmp_ccdvlp_cnnctv$common_name <- gsub("pres_", "", tmp_ccdvlp_cnnctv$common_name)
+tmp_ccdvlp_cnnctv$common_name <- gsub("\\.", " ", tmp_ccdvlp_cnnctv$common_name)
 
-tmp_ccdvlp <-  tmp_ccdvlp %>% 
+tmp_ccdvlp_cnnctv <-  tmp_ccdvlp_cnnctv %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -468,22 +851,23 @@ tmp_ccdvlp <-  tmp_ccdvlp %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, origin) %>% 
-  summarise(rich_ccdvlp = n())%>% 
-  pivot_wider(names_from = origin, values_from = rich_ccdvlp) %>% 
+  summarise(rich_ccdvlp_cnnctv = n())%>% 
+  pivot_wider(names_from = origin, values_from = rich_ccdvlp_cnnctv) %>% 
   mutate(sum = sum(native, introduced, na.rm = T),
-         prop_native_ccdvlp = native/sum) %>% 
+         prop_native_ccdvlp_cnnctv = native/sum) %>% 
   select(-introduced, -native, -'NA', -sum)
 
 
-tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+
+tmp_ccdvlp_cvr <- NHDplusV2_NewEngCrop_cc_dvlp_cvr %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccmgmt$common_name <- gsub(".rds", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("pres_", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("\\.", " ", tmp_ccmgmt$common_name)
+tmp_ccdvlp_cvr$common_name <- gsub(".rds", "", tmp_ccdvlp_cvr$common_name)
+tmp_ccdvlp_cvr$common_name <- gsub("pres_", "", tmp_ccdvlp_cvr$common_name)
+tmp_ccdvlp_cvr$common_name <- gsub("\\.", " ", tmp_ccdvlp_cvr$common_name)
 
-tmp_ccmgmt <- tmp_ccmgmt %>% 
+tmp_ccdvlp_cvr <-  tmp_ccdvlp_cvr %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -492,10 +876,58 @@ tmp_ccmgmt <- tmp_ccmgmt %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, origin) %>% 
-  summarise(rich_ccmgmt = n()) %>% 
-  pivot_wider(names_from = origin, values_from = rich_ccmgmt) %>% 
+  summarise(rich_ccdvlp_cvr = n())%>% 
+  pivot_wider(names_from = origin, values_from = rich_ccdvlp_cvr) %>% 
   mutate(sum = sum(native, introduced, na.rm = T),
-         prop_native_ccmgmt = native/sum) %>% 
+         prop_native_ccdvlp_cvr = native/sum) %>% 
+  select(-introduced, -native, -'NA', -sum)
+
+
+tmp_ccmgmt_cnnctv <- NHDplusV2_NewEngCrop_cc_mgmt_cnnctv %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_ccmgmt_cnnctv$common_name <- gsub(".rds", "", tmp_ccmgmt_cnnctv$common_name)
+tmp_ccmgmt_cnnctv$common_name <- gsub("pres_", "", tmp_ccmgmt_cnnctv$common_name)
+tmp_ccmgmt_cnnctv$common_name <- gsub("\\.", " ", tmp_ccmgmt_cnnctv$common_name)
+
+tmp_ccmgmt_cnnctv <- tmp_ccmgmt_cnnctv %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, origin, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, origin) %>% 
+  summarise(rich_ccmgmt_cnnctv = n()) %>% 
+  pivot_wider(names_from = origin, values_from = rich_ccmgmt_cnnctv) %>% 
+  mutate(sum = sum(native, introduced, na.rm = T),
+         prop_native_ccmgmt_cnnctv = native/sum) %>% 
+  select(-introduced, -native, -'NA', -sum)
+
+
+tmp_ccmgmt_cvr <- NHDplusV2_NewEngCrop_cc_mgmt_cvr %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_ccmgmt_cvr$common_name <- gsub(".rds", "", tmp_ccmgmt_cvr$common_name)
+tmp_ccmgmt_cvr$common_name <- gsub("pres_", "", tmp_ccmgmt_cvr$common_name)
+tmp_ccmgmt_cvr$common_name <- gsub("\\.", " ", tmp_ccmgmt_cvr$common_name)
+
+tmp_ccmgmt_cvr <- tmp_ccmgmt_cvr %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, origin, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, origin) %>% 
+  summarise(rich_ccmgmt_cvr = n()) %>% 
+  pivot_wider(names_from = origin, values_from = rich_ccmgmt_cvr) %>% 
+  mutate(sum = sum(native, introduced, na.rm = T),
+         prop_native_ccmgmt_cvr = native/sum) %>% 
   select(-introduced, -native, -'NA', -sum)
 
 
@@ -560,29 +992,36 @@ huc12 <- huc12 %>%
 
 huc12 <- left_join(huc12, tmp_baseline, by = c("huc12_tnmid", "huc12_name"))
 huc12 <- left_join(huc12, tmp_cc, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccdvlp, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccmgmt, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccdvlp_cnnctv, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccdvlp_cvr, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccmgmt_cnnctv, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccmgmt_cvr, by = c("huc12_tnmid", "huc12_name"))
 
 #calcuate change in climate change from baseline, but change in the other two from climate change
 huc12 <- huc12 %>% 
-  mutate(change_ccdvlp = prop_native_ccdvlp - prop_native_cc,
-         change_ccmgmt = prop_native_ccmgmt - prop_native_cc)
+  mutate(change_ccdvlp_cnnctv = prop_native_ccdvlp_cnnctv - prop_native_baseline,
+         change_ccdvlp_crv = prop_native_ccdvlp_cvr - prop_native_baseline,
+         change_ccmgmt_cnnctv = prop_native_ccmgmt_cnnctv - prop_native_baseline,
+         change_ccmgmt_crv = prop_native_ccmgmt_cvr - prop_native_baseline,
+         change_cc = prop_native_cc - prop_native_baseline)
 
 #plot absolute values of proportaional richness of native spp
 huc12a <- huc12 %>% 
-  select(3:7) %>% 
-  pivot_longer(2:5, names_to = "scenario", values_to = "prop_richness") %>% 
+  select(3:9) %>% 
+  pivot_longer(2:7, names_to = "scenario", values_to = "prop_richness") %>% 
   filter(!is.na(prop_richness))
-huc12a$scenario[huc12a$scenario == "prop_native_baseline"] <- "Baseline"
-huc12a$scenario[huc12a$scenario == "prop_native_cc"] <- "Clim Change"
-huc12a$scenario[huc12a$scenario == "prop_native_ccdvlp"] <- "Clim Chng + Develop"
-huc12a$scenario[huc12a$scenario == "prop_native_ccmgmt"] <- "Clim Chng + Manage"
+huc12a$scenario[huc12a$scenario == "prop_native_baseline"] <- "baseline"
+huc12a$scenario[huc12a$scenario == "prop_native_cc"] <- "cc"
+huc12a$scenario[huc12a$scenario == "prop_native_ccdvlp_cnnctv"] <- "cc + dvlp + cnn"
+huc12a$scenario[huc12a$scenario == "prop_native_ccdvlp_cvr"] <- "cc + dvlp + cvr"
+huc12a$scenario[huc12a$scenario == "prop_native_ccmgmt_cnnctv"] <- "cc + mgmt + cnn"
+huc12a$scenario[huc12a$scenario == "prop_native_ccmgmt_cvr"] <- "cc + mgmt + cvr"
 
 
 ggplot(data = huc12a)+
   geom_sf(aes(fill = prop_richness), color = NA)+
   scale_fill_viridis_c()+
-  facet_wrap(~scenario, nrow = 1)+
+  facet_wrap(~scenario, nrow = 2)+
     geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
@@ -608,17 +1047,24 @@ ggsave(
 
 #plot change of proportaional richness of native spp
 huc12b <- huc12 %>% 
-  select(3, 9, 10) %>% 
-  pivot_longer(2:3, names_to = "scenario", values_to = "change") %>% 
+  select(3, 11:15) %>% 
+  pivot_longer(2:6, names_to = "scenario", values_to = "change") %>% 
   filter(!is.na(change))
-huc12b$scenario[huc12b$scenario == "change_ccdvlp"] <- "Clim Chng + Develop"
-huc12b$scenario[huc12b$scenario == "change_ccmgmt"] <- "Clim Chng + Manage"
+huc12b$scenario[huc12b$scenario == "prop_native_baseline"] <- "baseline"
+huc12b$scenario[huc12b$scenario == "prop_native_cc"] <- "cc"
+huc12b$scenario[huc12b$scenario == "prop_native_ccdvlp_cnnctv"] <- "cc + dvlp + cnn"
+huc12b$scenario[huc12b$scenario == "prop_native_ccdvlp_cvr"] <- "cc + dvlp + cvr"
+huc12b$scenario[huc12b$scenario == "prop_native_ccmgmt_cnnctv"] <- "cc + mgmt + cnn"
+huc12b$scenario[huc12b$scenario == "prop_native_ccmgmt_cvr"] <- "cc + mgmt + cvr"
 
 
 ggplot(data = huc12b)+
   geom_sf(aes(fill = change), color = NA)+
-  scale_fill_viridis_c(option = "magma")+
-  facet_wrap(~scenario, nrow = 1)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "white",
+                        high = "red",
+                        midpoint = 0)+
+  facet_wrap(~scenario, nrow = 2)+
     geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
@@ -634,7 +1080,7 @@ ggplot(data = huc12b)+
 ggsave(
     filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/predicted_native_spp_richness_change.png",
     plot = last_plot(),
-    width = 9,
+    width = 18,
     height = 12,
     units = "cm",
     dpi = 300
@@ -672,15 +1118,15 @@ tmp_cc <- tmp_cc %>%
 
 
 
-tmp_ccdvlp <- NHDplusV2_NewEngCrop_ccdvlp %>% 
+tmp_ccdvlp_cnnctv <- NHDplusV2_NewEngCrop_cc_dvlp_cnnctv %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccdvlp$common_name <- gsub(".rds", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("pres_", "", tmp_ccdvlp$common_name)
-tmp_ccdvlp$common_name <- gsub("\\.", " ", tmp_ccdvlp$common_name)
+tmp_ccdvlp_cnnctv$common_name <- gsub(".rds", "", tmp_ccdvlp_cnnctv$common_name)
+tmp_ccdvlp_cnnctv$common_name <- gsub("pres_", "", tmp_ccdvlp_cnnctv$common_name)
+tmp_ccdvlp_cnnctv$common_name <- gsub("\\.", " ", tmp_ccdvlp_cnnctv$common_name)
 
-tmp_ccdvlp <-  tmp_ccdvlp %>% 
+tmp_ccdvlp_cnnctv <-  tmp_ccdvlp_cnnctv %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -689,22 +1135,22 @@ tmp_ccdvlp <-  tmp_ccdvlp %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, tmp) %>% 
-  summarise(rich_ccdvlp = n())%>% 
-  pivot_wider(names_from = tmp, values_from = rich_ccdvlp) %>% 
+  summarise(rich_ccdvlp_cnnctv = n())%>% 
+  pivot_wider(names_from = tmp, values_from = rich_ccdvlp_cnnctv) %>% 
   mutate(sum = sum(warm, cold, cool, na.rm = T),
-         prop_cold_ccdvlp = cold/sum) %>% 
-  select(-warm, -cold, -cool, -sum)
+         prop_cold_ccdvlp_cnnctv = cold/sum) %>% 
+  select(-warm, -cold, -cool, -sum, -eury)
 
 
-tmp_ccmgmt <- NHDplusV2_NewEngCrop_ccmgmt %>% 
+tmp_ccdvlp_cvr <- NHDplusV2_NewEngCrop_cc_dvlp_cvr %>% 
   data.frame() %>% 
   select(huc12_tnmid, huc12_name, 40:96) %>% 
   pivot_longer(3:59, names_to = "common_name") 
-tmp_ccmgmt$common_name <- gsub(".rds", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("pres_", "", tmp_ccmgmt$common_name)
-tmp_ccmgmt$common_name <- gsub("\\.", " ", tmp_ccmgmt$common_name)
+tmp_ccdvlp_cvr$common_name <- gsub(".rds", "", tmp_ccdvlp_cvr$common_name)
+tmp_ccdvlp_cvr$common_name <- gsub("pres_", "", tmp_ccdvlp_cvr$common_name)
+tmp_ccdvlp_cvr$common_name <- gsub("\\.", " ", tmp_ccdvlp_cvr$common_name)
 
-tmp_ccmgmt <- tmp_ccmgmt %>% 
+tmp_ccdvlp_cvr <-  tmp_ccdvlp_cvr %>% 
   left_join(final_traits, by = "common_name") %>% 
   left_join(origin, by = "common_name")  %>% 
   left_join(temperature, by = "common_name") %>%  
@@ -713,11 +1159,61 @@ tmp_ccmgmt <- tmp_ccmgmt %>%
   filter(mean_prob >0.05) %>%
   ungroup() %>% 
   group_by(huc12_tnmid, huc12_name, tmp) %>% 
-  summarise(rich_ccmgmt = n()) %>% 
-  pivot_wider(names_from = tmp, values_from = rich_ccmgmt) %>% 
+  summarise(rich_ccdvlp_cvr = n())%>% 
+  pivot_wider(names_from = tmp, values_from = rich_ccdvlp_cvr) %>% 
+  mutate(sum = sum(warm, cold, cool, na.rm = T),
+         prop_cold_ccdvlp_cvr = cold/sum) %>% 
+  select(-warm, -cold, -cool, -sum, -eury)
+
+
+
+tmp_ccmgmt_cnnctv <- NHDplusV2_NewEngCrop_cc_mgmt_cnnctv %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_ccmgmt_cnnctv$common_name <- gsub(".rds", "", tmp_ccmgmt_cnnctv$common_name)
+tmp_ccmgmt_cnnctv$common_name <- gsub("pres_", "", tmp_ccmgmt_cnnctv$common_name)
+tmp_ccmgmt_cnnctv$common_name <- gsub("\\.", " ", tmp_ccmgmt_cnnctv$common_name)
+
+tmp_ccmgmt_cnnctv <- tmp_ccmgmt_cnnctv %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_ccmgmt_cnnctv = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_ccmgmt_cnnctv) %>% 
   mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
-         prop_cold_mgmt = cold/sum) %>% 
+         prop_cold_mgmt_cnnctv = cold/sum) %>% 
   select(-warm, -cold, -cool, -eury, -sum)
+
+
+tmp_ccmgmt_cvr <- NHDplusV2_NewEngCrop_cc_mgmt_cvr %>% 
+  data.frame() %>% 
+  select(huc12_tnmid, huc12_name, 40:96) %>% 
+  pivot_longer(3:59, names_to = "common_name") 
+tmp_ccmgmt_cvr$common_name <- gsub(".rds", "", tmp_ccmgmt_cvr$common_name)
+tmp_ccmgmt_cvr$common_name <- gsub("pres_", "", tmp_ccmgmt_cvr$common_name)
+tmp_ccmgmt_cvr$common_name <- gsub("\\.", " ", tmp_ccmgmt_cvr$common_name)
+
+tmp_ccmgmt_cvr <- tmp_ccmgmt_cvr %>% 
+  left_join(final_traits, by = "common_name") %>% 
+  left_join(origin, by = "common_name")  %>% 
+  left_join(temperature, by = "common_name") %>%  
+  group_by(huc12_tnmid, huc12_name, tmp, common_name) %>% 
+  summarise(mean_prob = mean(value, na.rm = T)) %>% 
+  filter(mean_prob >0.05) %>%
+  ungroup() %>% 
+  group_by(huc12_tnmid, huc12_name, tmp) %>% 
+  summarise(rich_ccmgmt_cvr = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = rich_ccmgmt_cvr) %>% 
+  mutate(sum = sum(warm, cold, cool, eury, na.rm = T),
+         prop_cold_mgmt_cvr = cold/sum) %>% 
+  select(-warm, -cold, -cool, -eury, -sum)
+
 
 
 
@@ -781,28 +1277,36 @@ huc12 <- huc12 %>%
 
 huc12 <- left_join(huc12, tmp_baseline, by = c("huc12_tnmid", "huc12_name"))
 huc12 <- left_join(huc12, tmp_cc, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccdvlp, by = c("huc12_tnmid", "huc12_name"))
-huc12 <- left_join(huc12, tmp_ccmgmt, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccdvlp_cnnctv, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccdvlp_cvr, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccmgmt_cnnctv, by = c("huc12_tnmid", "huc12_name"))
+huc12 <- left_join(huc12, tmp_ccmgmt_cvr, by = c("huc12_tnmid", "huc12_name"))
 
 huc12 <- huc12 %>% 
-  mutate(change_ccdvlp = prop_cold_ccdvlp - prop_cold_cc,
-         change_ccmgmt = prop_cold_mgmt - prop_cold_cc)
+  mutate(change_cc = prop_cold_cc - prop_cold_baseline,
+         change_ccdvlp_cnnctv = prop_cold_ccdvlp_cnnctv - prop_cold_baseline,
+         change_ccdvlp_cvr = prop_cold_ccdvlp_cvr - prop_cold_baseline,
+         change_ccmgmt_cnnctv = prop_cold_mgmt_cnnctv - prop_cold_baseline,
+         change_ccmgmt_cvr = prop_cold_mgmt_cvr - prop_cold_baseline,
+         )
 
 #plot absolute values of proportion of cold spp richness
 huc12a <- huc12 %>% 
-  select(3:7) %>% 
-  pivot_longer(2:5, names_to = "scenario", values_to = "prop_richness") %>% 
+  select(3:9) %>% 
+  pivot_longer(2:7, names_to = "scenario", values_to = "prop_richness") %>% 
   filter(!is.na(prop_richness))
-huc12a$scenario[huc12a$scenario == "prop_cold_baseline"] <- "Baseline"
-huc12a$scenario[huc12a$scenario == "prop_cold_cc"] <- "Clim Change"
-huc12a$scenario[huc12a$scenario == "prop_cold_ccdvlp"] <- "Clim Chng + Develop"
-huc12a$scenario[huc12a$scenario == "prop_cold_ccmgmt"] <- "Clim Chng + Manage"
+huc12a$scenario[huc12a$scenario == "prop_cold_baseline"] <- "baseline"
+huc12a$scenario[huc12a$scenario == "prop_cold_cc"] <- "cc"
+huc12a$scenario[huc12a$scenario == "prop_cold_ccdvlp_cnnctv"] <- "cc + dvlp + cnn"
+huc12a$scenario[huc12a$scenario == "prop_cold_ccdvlp_cvr"] <- "cc + dvlp + cvr"
+huc12a$scenario[huc12a$scenario == "prop_cold_mgmt_cnnctv"] <- "cc + mgmt + cnn"
+huc12a$scenario[huc12a$scenario == "prop_cold_mgmt_cvr"] <- "cc + mgmt + cvr"
 
 
 ggplot(data = huc12a)+
   geom_sf(aes(fill = prop_richness), color = NA)+
   scale_fill_viridis_c()+
-  facet_wrap(~scenario, nrow = 1)+
+  facet_wrap(~scenario, nrow = 2)+
     geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
@@ -826,17 +1330,23 @@ ggsave(
 
 #plot change of proportion of cold spp richness
 huc12a <- huc12 %>% 
-  select(3, 9, 10) %>% 
-  pivot_longer(2:3, names_to = "scenario", values_to = "change") %>% 
+  select(3, 11:15) %>% 
+  pivot_longer(2:6, names_to = "scenario", values_to = "change") %>% 
   filter(!is.na(change))
-huc12a$scenario[huc12a$scenario == "change_ccdvlp"] <- "Clim Chng + Develop"
-huc12a$scenario[huc12a$scenario == "change_ccmgmt"] <- "Clim Chng + Manage"
+huc12a$scenario[huc12a$scenario == "prop_cold_cc"] <- "cc"
+huc12a$scenario[huc12a$scenario == "prop_cold_ccdvlp_cnnctv"] <- "cc + dvlp + cnn"
+huc12a$scenario[huc12a$scenario == "prop_cold_ccdvlp_cvr"] <- "cc + dvlp + cvr"
+huc12a$scenario[huc12a$scenario == "prop_cold_mgmt_cnnctv"] <- "cc + mgmt + cnn"
+huc12a$scenario[huc12a$scenario == "prop_cold_mgmt_cvr"] <- "cc + mgmt + cvr"
 
 
 ggplot(data = huc12a)+
   geom_sf(aes(fill = change), color = NA)+
-  scale_fill_viridis_c(option = "magma")+
-  facet_wrap(~scenario, nrow = 1)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "white",
+                        high = "red",
+                        midpoint = 0)+
+  facet_wrap(~scenario, nrow = 2)+
     geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
@@ -850,7 +1360,7 @@ ggplot(data = huc12a)+
 
 
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/predicted_cold_spp_richness.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/predicted_cold_spp_richness_change.png",
     plot = last_plot(),
     width = 9,
     height = 12,
@@ -1007,9 +1517,37 @@ ggsave(
 
 
 #prediction using climate change values values:
-NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
-         )
+
+
+#load the 2080 file that has the projected stream temperature and streamflow covariate values
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates_2080.RData")
+
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+#this is what we used for the NAB conferencce
+# NHDplusV2_NewEngCrop_cc <- NHDplusV2_NewEngCrop %>% 
+#   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2
+#          )
 
 
 tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_cc, "probs")
@@ -1091,22 +1629,47 @@ ggsave(
 
 
 
-#prediction using climate change and development  values:
+#prediction using climate change and development  - connectivity reduction:
 
-NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
-         PctImp_Ws = PctImp_Ws + 2,
-         pctAg_Ws = pctAg_Ws + 2,
-         logRdCrsCat = logRdCrsCat + 2,
-         huc12_damden_sqkm = huc12_damden_sqkm + 2,
-         huc8_damcount = huc8_damcount + 2
-         )
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(huc8_damcount = huc8_damcount * 5,
+         huc12_damden_sqkm = huc12_damden_sqkm * 5,
+         logRdCrsCat = logRdCrsCat * 5) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
 
 
-tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_ccdvlp, "probs")
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_dvlp_cnnctv <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+#this is what we used for the NAB conference
+# NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
+#   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+#          PctImp_Ws = PctImp_Ws + 2,
+#          pctAg_Ws = pctAg_Ws + 2,
+#          logRdCrsCat = logRdCrsCat + 2,
+#          huc12_damden_sqkm = huc12_damden_sqkm + 2,
+#          huc8_damcount = huc8_damcount + 2
+#          )
+
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_dvlp_cnnctv, "probs")
 
 #join the predictions_ccmgmt to the list of comids
-tmp <- cbind(NHDplusV2_NewEngCrop_ccdvlp, tmp)
+tmp <- cbind(NHDplusV2_NewEngCrop_cc_dvlp_cnnctv, tmp)
 
 tmp <- tmp %>%
   data.frame() %>% 
@@ -1120,13 +1683,13 @@ tmp <- tmp %>%
 
 
 
-temptraits_ccdvlp <- left_join(huc12, tmp, by = c("huc12_name", "huc12_tnmid"))
+temptraits_ccdvlp_cnn <- left_join(huc12, tmp, by = c("huc12_name", "huc12_tnmid"))
 
 
-temptraits_ccdvlp <- temptraits_ccdvlp %>%  
+temptraits_ccdvlp_cnn <- temptraits_ccdvlp_cnn %>%  
   filter(!is.na(temperature))
 
-ggplot(data = temptraits_ccdvlp)+
+ggplot(data = temptraits_ccdvlp_cnn)+
   geom_sf(aes(fill = mean), color = NA)+
   scale_fill_viridis_c(limits = c(0,1))+
   facet_wrap(~temperature, nrow = 1)+
@@ -1141,7 +1704,7 @@ ggplot(data = temptraits_ccdvlp)+
         axis.ticks.x = element_blank())+
     labs(fill = "Avg Prop.")
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp_cnn.png",
     plot = last_plot(),
     width = 14,
     height = 7,
@@ -1149,7 +1712,7 @@ ggsave(
     dpi = 200
   )
 
-ggplot(data = temptraits_ccdvlp, aes(x = huc8_name, y = mean))+
+ggplot(data = temptraits_ccdvlp_cnn, aes(x = huc8_name, y = mean))+
   geom_point(size = 3)+
   geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
   coord_flip()+
@@ -1164,7 +1727,7 @@ ggplot(data = temptraits_ccdvlp, aes(x = huc8_name, y = mean))+
         title = element_text(size = 15))+
     ggtitle(label = "Temperature Trait Proportion")
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp_dot.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp_cnn_dot.png",
     plot = last_plot(),
     width = 14,
     height = 9,
@@ -1178,22 +1741,46 @@ ggsave(
 
 
 
-#prediction using climate change and management values:
+#prediction using climate change and management values: increase in connectivity
 
-NHDplusV2_NewEngCrop_ccmgmt <- NHDplusV2_NewEngCrop %>% 
-  mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
-         PctImp_Ws = PctImp_Ws - 2,
-         pctAg_Ws = pctAg_Ws - 2,
-         logRdCrsCat = logRdCrsCat - 2,
-         huc12_damden_sqkm = huc12_damden_sqkm - 2,
-         huc8_damcount = huc8_damcount - 2,
-         
-         )
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(huc8_damcount = huc8_damcount * .1,
+         huc12_damden_sqkm = huc12_damden_sqkm * .1,
+         logRdCrsCat = logRdCrsCat * .1) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
 
-tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_ccmgmt, "probs")
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_mgmt_cnnctv <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+#used for NAB
+# NHDplusV2_NewEngCrop_ccmgmt <- NHDplusV2_NewEngCrop %>% 
+#   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+#          PctImp_Ws = PctImp_Ws - 2,
+#          pctAg_Ws = pctAg_Ws - 2,
+#          logRdCrsCat = logRdCrsCat - 2,
+#          huc12_damden_sqkm = huc12_damden_sqkm - 2,
+#          huc8_damcount = huc8_damcount - 2,
+#          
+#          )
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_mgmt_cnnctv, "probs")
 
 #join the predictions_ccmgmt to the list of comids
-tmp <- cbind(NHDplusV2_NewEngCrop_ccmgmt, tmp)
+tmp <- cbind(NHDplusV2_NewEngCrop_cc_mgmt_cnnctv, tmp)
 
 tmp <- tmp %>%
   data.frame() %>% 
@@ -1207,13 +1794,13 @@ tmp <- tmp %>%
 
 
 
-temptraits_ccmgmt <- left_join(huc12, tmp, by = c("huc12_name", "huc12_tnmid"))
+temptraits_ccmgmt_cnn <- left_join(huc12, tmp, by = c("huc12_name", "huc12_tnmid"))
 
 
-temptraits_ccmgmt <- temptraits_ccmgmt %>%  
+temptraits_ccmgmt_cnn <- temptraits_ccmgmt_cnn %>%  
   filter(!is.na(temperature))
 
-ggplot(data = temptraits_ccmgmt)+
+ggplot(data = temptraits_ccmgmt_cnn)+
   geom_sf(aes(fill = mean), color = NA)+
   scale_fill_viridis_c(limits = c(0,1))+
   facet_wrap(~temperature, nrow = 1)+
@@ -1228,7 +1815,7 @@ ggplot(data = temptraits_ccmgmt)+
         axis.ticks.x = element_blank())+
     labs(fill = "Avg Prop.")
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt_cnn.png",
     plot = last_plot(),
     width = 14,
     height = 7,
@@ -1236,7 +1823,7 @@ ggsave(
     dpi = 200
   )
 
-ggplot(data = temptraits_ccmgmt, aes(x = huc8_name, y = mean))+
+ggplot(data = temptraits_ccmgmt_cnn, aes(x = huc8_name, y = mean))+
   geom_point(size = 3)+
   geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
   coord_flip()+
@@ -1251,7 +1838,7 @@ ggplot(data = temptraits_ccmgmt, aes(x = huc8_name, y = mean))+
         title = element_text(size = 15))+
     ggtitle(label = "Temperature Trait Proportion")
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt_dot.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt_cnn_dot.png",
     plot = last_plot(),
     width = 14,
     height = 9,
@@ -1262,20 +1849,250 @@ ggsave(
 
 
 
-temptraits_baseline$scenario <- "Baseline"
+
+
+#prediction using climate change and development  - cover reduction:
+
+#need to get the variables named the same as the baseline dataframe and need to order the variables in the same way so that we can scale them
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(PctImp_Ws = PctImp_Ws * 5,
+         pctAg_Ws = pctAg_Ws * 5) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_dvlp_cvr <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+#this is what we used for the NAB conference
+# NHDplusV2_NewEngCrop_ccdvlp <- NHDplusV2_NewEngCrop %>% 
+#   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+#          PctImp_Ws = PctImp_Ws + 2,
+#          pctAg_Ws = pctAg_Ws + 2,
+#          logRdCrsCat = logRdCrsCat + 2,
+#          huc12_damden_sqkm = huc12_damden_sqkm + 2,
+#          huc8_damcount = huc8_damcount + 2
+#          )
+
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_dvlp_cvr, "probs")
+
+#join the predictions_ccmgmt to the list of comids
+tmp <- cbind(NHDplusV2_NewEngCrop_cc_dvlp_cvr, tmp)
+
+tmp <- tmp %>%
+  data.frame() %>% 
+  select(huc12_name, huc12_tnmid, warm, cold, cool) %>% 
+  pivot_longer(3:5, names_to = "temperature", values_to = "prop") %>% 
+  group_by(huc12_name, huc12_tnmid, temperature) %>%
+  summarise(mean = round(mean(prop, na.rm = T), 2),
+            min = round(quantile(prop, probs = 0.05, na.rm = T), 2),
+            max = round(quantile(prop, probs = 0.95, na.rm = T), 2))
+  
+
+
+
+temptraits_ccdvlp_cvr <- left_join(huc12, tmp, by = c("huc12_name", "huc12_tnmid"))
+
+
+temptraits_ccdvlp_cvr <- temptraits_ccdvlp_cvr %>%  
+  filter(!is.na(temperature))
+
+ggplot(data = temptraits_ccdvlp_cvr)+
+  geom_sf(aes(fill = mean), color = NA)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Avg Prop.")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp_cvr.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = temptraits_ccdvlp_cvr, aes(x = huc8_name, y = mean))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = "Temperature Trait Proportion")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccdvlp_cvr_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+
+
+#prediction using climate change and management values: increase in connectivity
+
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  select(7:8, 10:39) %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  mutate(PctImp_Ws = PctImp_Ws * .1,
+         pctAg_Ws = pctAg_Ws * .1) %>% 
+  select(1:2, 27:31, 3:24, 32, 25:26)
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to 
+NHDplusV2_NewEngCrop_cc_mgmt_cvr <- cbind((NHDplusV2_NewEngCrop_2080)[,c(1:6, 9)], test)
+
+
+#used for NAB
+# NHDplusV2_NewEngCrop_ccmgmt <- NHDplusV2_NewEngCrop %>% 
+#   mutate(annual_mean_summer_temp = annual_mean_summer_temp + 2,
+#          PctImp_Ws = PctImp_Ws - 2,
+#          pctAg_Ws = pctAg_Ws - 2,
+#          logRdCrsCat = logRdCrsCat - 2,
+#          huc12_damden_sqkm = huc12_damden_sqkm - 2,
+#          huc8_damcount = huc8_damcount - 2,
+#          
+#          )
+
+tmp <- predict(mdl, newdata = NHDplusV2_NewEngCrop_cc_mgmt_cvr, "probs")
+
+#join the predictions_ccmgmt to the list of comids
+tmp <- cbind(NHDplusV2_NewEngCrop_cc_mgmt_cvr, tmp)
+
+tmp <- tmp %>%
+  data.frame() %>% 
+  select(huc12_name, huc12_tnmid, warm, cold, cool) %>% 
+  pivot_longer(3:5, names_to = "temperature", values_to = "prop") %>% 
+  group_by(huc12_name, huc12_tnmid, temperature) %>%
+  summarise(mean = round(mean(prop, na.rm = T), 2),
+            min = round(quantile(prop, probs = 0.05, na.rm = T), 2),
+            max = round(quantile(prop, probs = 0.95, na.rm = T), 2))
+  
+
+
+
+temptraits_ccmgmt_cvr <- left_join(huc12, tmp, by = c("huc12_name", "huc12_tnmid"))
+
+
+temptraits_ccmgmt_cvr <- temptraits_ccmgmt_cvr %>%  
+  filter(!is.na(temperature))
+
+ggplot(data = temptraits_ccmgmt_cvr)+
+  geom_sf(aes(fill = mean), color = NA)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  facet_wrap(~temperature, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.2, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())+
+    labs(fill = "Avg Prop.")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt_cvr.png",
+    plot = last_plot(),
+    width = 14,
+    height = 7,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = temptraits_ccmgmt_cvr, aes(x = huc8_name, y = mean))+
+  geom_point(size = 3)+
+  geom_errorbar(aes(ymin = min, ymax = max), width = .2)+
+  coord_flip()+
+  facet_wrap(~temperature, nrow = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = "Temperature Trait Proportion")
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_ccmgmt_cvr_dot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+temptraits_baseline$scenario <- "baseline"
 temptraits_cc$scenario <- "CC"
-temptraits_ccdvlp$scenario <- "CC + Develop"
-temptraits_ccmgmt$scenario <- "CC + Manage"
+temptraits_ccdvlp_cnn$scenario <- "CC + dvlp + cnn"
+temptraits_ccdvlp_cvr$scenario <- "CC + dvlp + cvr"
+temptraits_ccmgmt_cnn$scenario <- "CC + Mgmt + cnn"
+temptraits_ccmgmt_cvr$scenario <- "CC + Mgmt + cvr"
 
-
-tmp <- bind_rows(temptraits_baseline, temptraits_cc, temptraits_ccdvlp, temptraits_ccmgmt)
+tmp <- bind_rows(temptraits_baseline, temptraits_cc, 
+                 temptraits_ccdvlp_cnn, temptraits_ccdvlp_cvr, 
+                 temptraits_ccmgmt_cnn, temptraits_ccmgmt_cvr)
 tmp <- tmp %>% 
   filter(huc12_name %in% c("Sudbury Reservoir-Sudbury River", "East Branch Saco River", "Buffalo Stream"))
-tmp$huc12_name <- factor(tmp$huc12_name, levels = c("Sudbury Reservoir-Sudbury River", "East Branch Saco River", "Buffalo Stream"))
-tmp$scenario <- factor(tmp$scenario, levels = c("Baseline", "CC", "CC + Develop", "CC + Manage"))
+tmp$huc12_name[tmp$huc12_name == "Sudbury Reservoir-Sudbury River"] <- "Sudbury Reservoir"
+tmp$huc12_name <- factor(tmp$huc12_name, levels = c("Sudbury Reservoir", "East Branch Saco River", "Buffalo Stream"))
+tmp$scenario <- factor(tmp$scenario, levels = c("baseline", 
+                                                "CC", 
+                                                "CC + dvlp + cnn", 
+                                                "CC + dvlp + cvr", 
+                                                "CC + Mgmt + cnn",
+                                                "CC + Mgmt + cvr"))
 
 ggplot(data = tmp, aes(x = huc12_name, y = mean, color = scenario))+
-  scale_color_manual(values = c("mediumpurple1", "darkgoldenrod1", "red3", "green4"))+
+  scale_color_manual(values = c("mediumpurple1", "darkgoldenrod1", "red3", "green4", "blue", "purple"))+
   geom_point(size = 2, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = min, ymax = max), width = .5, position=position_dodge(width=0.5))+
   geom_hline(yintercept = 0.5, color = "grey80", linetype = "dashed")+
@@ -1296,8 +2113,8 @@ ggplot(data = tmp, aes(x = huc12_name, y = mean, color = scenario))+
 ggsave(
     filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/temp_prep_prediction_compare_dot.png",
     plot = last_plot(),
-    width = 14,
-    height = 9,
+    width = 19,
+    height = 10,
     units = "cm",
     dpi = 200
   )

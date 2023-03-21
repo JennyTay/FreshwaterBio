@@ -52,6 +52,7 @@ st_write(NE_crop, dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/Spatia
 #SHEDs temp data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_annaul.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds_temp_metrics_huc12_pls4.RData")
 
 #USFS flow metrics
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USFS flow metrics/flowmet_historical_crop.RData")
@@ -174,10 +175,20 @@ strmcatByyr_landcov <- strmcatByyr_landcov %>%
 NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_landcov, by = "COMID")
 
 
-#join the usfs flow metrics using the historical values for the baseline predictions
+#usfs flow metrics - historical values for the baseline predictions
 flowmet_historical_crop <- as.data.frame(flowmet_historical_crop)
 flowmet_historical_crop$COMID <- as.integer(flowmet_historical_crop$COMID)
 NHDv2_huc_join <- left_join(NHDv2_huc_join, flowmet_historical_crop, by = "COMID")
+
+#usfs flow metrics - midcen values for the future predictions
+flowmet_midcen_crop <- as.data.frame(flowmet_midcen_crop)
+flowmet_midcen_crop$COMID <- as.integer(flowmet_midcen_crop$COMID)
+NHDv2_huc_join <- left_join(NHDv2_huc_join, flowmet_midcen_crop, by = "COMID")
+
+#usfs flow metrics - endofcen values for the future predictions
+flowmet_endofcen_crop <- as.data.frame(flowmet_endofcen_crop)
+flowmet_endofcen_crop$COMID <- as.integer(flowmet_endofcen_crop$COMID)
+NHDv2_huc_join <- left_join(NHDv2_huc_join, flowmet_endofcen_crop, by = "COMID")
 
 #join to the sheds data by HUC12 name.  the model is built using the modeled temperature at the year of the survey, but in the prediction data
 #set, we will jsut use the average baseline temperature from the 'post' time period (2000+)
@@ -188,6 +199,14 @@ metrics12 <- metrics12 %>%
   select(-timeperiod)
 
 NHDv2_huc_join <- left_join(NHDv2_huc_join, metrics12, by = "huc12_name")
+
+
+#join to the sheds future +4 data by HUC12 name.  
+#Probably want to go back to the sheds data and make the join by TNMID because some of the huc12 watersheds have the same name!
+names(metrics12_pls4)[2:6] <- paste(names(metrics12_pls4[2:6]), "pls_4", sep = "_")
+
+NHDv2_huc_join <- left_join(NHDv2_huc_join, metrics12_pls4, by = "huc12_name")
+
 
 
 #join to the dam data used the tnmid
@@ -220,17 +239,23 @@ NHDv2_huc_join <- NHDv2_huc_join %>%
 NHDv2_huc_join <- NHDv2_huc_join %>% 
   mutate(logWsAreaSqKm = log(WsAreaSqKm+1),
          logMJJA_HIST = log(MJJA_HIST+1),
+         logMJJA_2040 = log(MJJA_2040+1),
+         logMJJA_2080 = log(MJJA_2080+1),
          logRdCrsCat = log(RdCrsCat+1),
          logPctOw_Cat = log(PctOw_Cat+1)) %>% 
   select(-WsAreaSqKm, -MJJA_HIST, -RdCrsCat, -PctOw_Cat ) %>% 
-  rename(annual_mean_summer_temp = mean_summer_temp) #put annual in front so that it matches the covariates
+  rename(annual_mean_summer_temp = mean_summer_temp,   #put annual in front so that it matches the covariates
+         annual_mean_summer_temp_pls_4 = mean_summer_temp_pls_4) 
 
 
-#select just the variables we keep in the covariate dataset
+#select just the variables we keep in the covariate dataset for the baseline predictions
+
+
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
 
+baselinecov <- NHDv2_huc_join
 
-NHDv2_huc_join <- NHDv2_huc_join %>% 
+baselinecov <- baselinecov %>% 
   select(COMID, huc8_tnmid, huc10_name, huc10_tnmid, huc12_name, huc12_tnmid, 
          names(fishcovariates)[2:3], names(fishcovariates)[8:38]) %>% 
   data.frame() %>% 
@@ -244,7 +269,7 @@ NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop %>% st_zm() %>%
   filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
   select(COMID) 
 
-NHDplusV2_NewEngCrop <- left_join(NHDplusV2_NewEngCrop, NHDv2_huc_join, by = "COMID")
+NHDplusV2_NewEngCrop <- left_join(NHDplusV2_NewEngCrop, baselinecov, by = "COMID")
 
 
 
@@ -254,15 +279,53 @@ save(NHDplusV2_NewEngCrop, file = "C:/Users/jenrogers/Documents/necascFreshwater
 
 
 
-load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+#select just the variables we keep in the covariate dataset for the future predictions (lets do 2080)
 
-ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = huc8_damcount))+
+futcov <- NHDv2_huc_join
+
+#select the covariates for the future, some are the same from the baseline that we are going to manipulate for the mgmt scenarios,
+# some of the projections of streamflow and stream temperature
+futcov <- futcov %>% 
+  select(COMID, huc8_tnmid, huc10_name, huc10_tnmid, huc12_name, huc12_tnmid, 
+         names(fishcovariates)[2:3], names(fishcovariates)[8], names(fishcovariates)[14:35],
+         names(fishcovariates)[37:38], 
+         annual_mean_summer_temp_pls_4, 
+         BFI_2080, 
+         LO7Q1DT_2080, 
+         CFM_2080, 
+         W95_2080, 
+         logMJJA_2080) %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+
+
+#join to the line file because its currently in the mid point form
+NHDplusV2_NewEngCrop_2080 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+NHDplusV2_NewEngCrop_2080 <- NHDplusV2_NewEngCrop_2080 %>% st_zm() %>% 
+  filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
+  select(COMID) 
+
+NHDplusV2_NewEngCrop_2080 <- left_join(NHDplusV2_NewEngCrop_2080, futcov, by = "COMID")
+
+
+
+save(NHDplusV2_NewEngCrop_2080, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates_2080.RData")
+
+
+
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates_2080.RData")
+
+ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = annual_mean_summer_temp))+
   geom_sf() +
   scale_color_gradient2(
     low = "blue",
     mid = "white",
     high = "red",
-    midpoint = 750)+
+    midpoint = 17)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
         panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
@@ -274,12 +337,3 @@ ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = huc8_damcount))+
        color = "m")
 
 
-clu <- NHDplusV2_NewEngCrop %>%
-  data.frame() %>% 
-  select("annual_mean_max_temp_30d", "BFI_HIST", "CFM_HIST", "W95_HIST", 
-         "BFIWs", "ElevWs", "PctImp_WsRp100", "pctforest_Ws")
-clu <- clu[complete.cases(clu),]
-
-
-#clustering isnt working because the dataframe is too big. will need to cut the data frame down randonly, maybe assign random number and drop 20,000
-clusters <- hclust(dist(clu))
