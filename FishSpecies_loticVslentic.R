@@ -9,10 +9,10 @@ library(tidyverse)
 
 
 #load data
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
-load(file = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_event.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
 
 
 #add life history information
@@ -39,6 +39,7 @@ tmp1 <- fish_presence%>%
 #sum the number of time a spp was found  in lotic vs lentic.
 tmp <- fish_presence %>% 
   left_join(event, by = "UID") %>% 
+  filter(stock == "natural" | is.na(stock)) %>% 
   select(common_name, waterbody) %>% 
   group_by(common_name, waterbody) %>% 
   summarise(count = n()) %>%   

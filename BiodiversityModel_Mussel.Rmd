@@ -1,0 +1,157 @@
+---
+title: "BiodiversityModel_mussel"
+author: "Jenny Rogers"
+date: "2023-03-22"
+output: html_document
+---
+
+
+
+In this script we model the probability of freshwater mussel occurrence at the HUC10 scale 
+
+In the first part of the script, we use a logistic regression model using enviromental covariates and fish host distirubtion to model each mussel individually 
+
+In the second part of the script we model proportional abundance of mussel traits using a multinomial logistic regression
+
+
+
+Part 1: logistic regression to model each mussel species presence and absence probability
+```{r}
+
+#load datafiles
+
+
+
+#mussel data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData")
+fish_shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_event.shp")
+
+#mussel event and hydrography join
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowline_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowlineV2_join.RData")
+
+#watershed shape files
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+
+#load New England state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+
+
+
+#environmental covariates
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc10.RData")
+
+
+
+
+#join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
+occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
+#there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
+#present in the mussel_occurrence data file.
+occ <- occ %>% 
+  filter(!is.na(huc10_name)) %>% 
+  group_by(huc10_name, huc10_tnmid, common_name) %>% 
+  summarise(live_occurrence = max(live_occurrence),
+            shell_occurrence = max(shell_occurrence))
+
+#join occurrence data by huc10 to the covariate dataset for the model
+#first need to remove all repeated rows of huc10 covariates
+mussel_covariates <- mussel_covariates_huc10 %>% 
+  data.frame() %>% 
+  select(-c(UID, state, date, project, source, waterbody, waterbody2,
+            huc8_tnmid, huc8_areasqkm, huc8_name,
+            huc12_tnmid, huc12_areasqkm,huc12_name,
+            geometry)) %>% 
+  unique()
+
+
+dat <- left_join(occ, mussel_covariates, by = c("huc10_name", "huc10_tnmid"))
+
+
+#logistic regression model for mussel occurrence
+
+
+
+mdl <- glm(live_occurrence ~ 
+             lat +
+             long +
+             ElevCat +
+             CaOWs +
+             RunoffWs +
+             pollutionWs +
+             WWTPMajorDensWs +
+             KffactWs +
+             annual_mean_summer_temp + 
+             W95_HIST +
+             logMJJA_HIST + 
+             pctForest_ws +
+             PctOw_Ws +  
+             PctImp_WsRp100 +  
+             pctAg_Ws + 
+             huc12_damden_sqkm +
+             huc8_damcount,
+             data = dat[dat$common_name == "triangle floater",],
+             family = "binomial")
+
+summary(mdl)
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name), ".rds", sep = ""))
+
+results1 <- 
+  data.frame(
+    "estimate" = summary(mdl)$coefficients[,1],
+    "std_er" = summary(mdl)$coefficients[,2],
+    "p_val" = summary(mdl)$coefficients[,4],
+    "variable" = rownames(summary(mdl)$coefficients),
+    "common_name" = "triangle floater")
+
+
+for (i in 2:length(unique(fish_count_with_zeros_filtered$common_name))) {
+ 
+ 
+mdl <- glm(live_occurrence ~ 
+             lat +
+             long +
+             ElevCat +
+             CaOWs +
+             RunoffWs +
+             pollutionWs +
+             WWTPMajorDensWs +
+             KffactWs +
+             annual_mean_summer_temp + 
+             W95_HIST +
+             logMJJA_HIST + 
+             pctForest_ws +
+             PctOw_Ws +  
+             PctImp_WsRp100 +  
+             pctAg_Ws + 
+             huc12_damden_sqkm +
+             huc8_damcount,
+             data = dat,
+             family = "binomial")
+
+summary(mdl)
+
+results2 <- 
+  data.frame(
+    "estimate" = summary(mdl)$coefficients[,1],
+    "std_er" = summary(mdl)$coefficients[,2],
+    "p_val" = summary(mdl)$coefficients[,4],
+    "variable" = rownames(summary(mdl)$coefficients),
+    "common_name" = "triangle floater") 
+  
+  
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(fish_count_with_zeros_filtered$common_name)[i], ".rds", sep = ""))
+ 
+}
+
+
+```
+
+
+
+
+Part 2: multinomial logistic regression model to predict proportional abundance of mussel traits

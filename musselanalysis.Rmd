@@ -184,8 +184,8 @@ uid <- unique(mussel_presence$UID)
 mussel <- unique(mussel_presence$common_name)
 
 #make a dataframe that has each UID repeated for each fish spp
-absence <- data.frame('UID' = rep(uid, each = 20))
-absence$common_name <- rep(mussel, times = 3789)
+absence <- data.frame('UID' = rep(uid, each = 21))
+absence$common_name <- rep(mussel, times = 3971)
 #keep only rows in the absence list that are not in the mussel_presence list
 keep <- anti_join(absence, mussel_presence, by = c("UID", "common_name"))
 #add additional scientific names to the new absence data frame

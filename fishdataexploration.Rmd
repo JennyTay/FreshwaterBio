@@ -26,6 +26,7 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_size.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData")
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData")
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData")
 
 
 
@@ -107,6 +108,20 @@ event <- event %>%
 
 method <- method %>% 
   filter(UID %in% keep)
+
+```
+
+
+```{r}
+
+t <- left_join(fish_presence, event, by = "UID")
+
+t <- t %>% 
+  filter(waterbody == "lotic",
+         stock == "natural") %>% 
+  group_by(common_name) %>% 
+  summarise(lotic = n()) %>% 
+  arrange(lotic)
 
 ```
 
