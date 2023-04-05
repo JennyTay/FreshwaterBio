@@ -191,7 +191,7 @@ dat <- left_join(huc8, dat, by = c("name" = "huc8_name"))
 
 
 
-Plot the fish distributions 
+Plot the mussel distributions 
 These plots include all the surveys, included the lentic surveys and the ones > 500 m
 ```{r}
 
@@ -915,6 +915,52 @@ print(i)
 }
 
 
+
+
+```
+
+
+
+
+In this chunk, we explore the relationship to the occurrence of certain mussel spp within a huc compared the the occurrene of certain fish host
+```{r}
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+
+
+fish_count_with_zeros_filtered <- fish_count_with_zeros %>% 
+  filter(common_name %in% c("american eel", "white perch", "rosyside dace", "channel catfish", "bowfin", "round whitefish", 
+                            "white catfish", "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "walleye", "cutlips minnow", "green sunfish", 
+                            "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
+
+counts <- fish_count_with_zeros_filtered %>%
+  filter(gear == "efish_backpack") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = (count / totalcount))
+
+
+#eastern pearlshell
+#filter for HUC12 watersheds where mussel surveys have occurred
+#calcuate the average proportational abundance of salmonid spp in these watersehds
+#box plots: eastern pearl shell presence and absence on x, by prop abund of salmonids on y
+
+
+#Tidewater mucket and Yellow lampmussel
+#filter for HUC12 watersheds where mussel surveys have occurred
+#calcuate the average proportational abundance of yellow and white in these watersehds
+#box plots: mussel presence and absence on x, by prop abund of yellow/white perch on y
 
 
 ```

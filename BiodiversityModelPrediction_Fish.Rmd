@@ -128,7 +128,7 @@ NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 
 #sample plot
 ggplot(data = NHDplusV2_NewEngCrop_baseline)+
-  geom_sf(aes(color = pres_brook.trout.rds))+
+  geom_sf(aes(color = pres_eastern.blacknose.dace.rds))+
   scale_color_gradient2(low = "blue",
                         mid = "yellow",
                         high = "red",

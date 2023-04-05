@@ -215,7 +215,7 @@ sheds <- dat2 %>%
 sheds <- sheds[complete.cases(sheds),]
 cor <- cor(sheds, method = c("spearman"))
 corrplot(cor, type = "lower")
-#these are all incredible correlated so we will just keep one - annual_mean_max_temp_30d
+#these are all incredible correlated so we will just keep one - annual_mean_summer_temp
 
 keep2 <- "annual_mean_summer_temp"  
 #this removes "max_temp", "mean_jul_temp", "mean_summer_temp", "mean_max_temp_30d", "annual_max_temp",

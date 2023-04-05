@@ -785,7 +785,7 @@ vtdat <- vtdat %>%
 vtdat <- left_join(vtdat, name_conversion, by = "scientific_name")
 vtdat$common_name[vtdat$scientific_name == "pyganodon grandis"] <- "giant floater"
 vtdat$common_name[vtdat$scientific_name == "lasmigona compressa"] <- "creek heelsplitter"  
-vtdat$common_name[vtdat$scientific_name == "lampsilis ovata"] <- "pocketbook mussel"
+vtdat$common_name[vtdat$scientific_name == "lampsilis ovata"] <- "pocketbook"
 vtdat$common_name[vtdat$scientific_name == "potamilus alatus"] <-  "pink heelsplitter" 
 vtdat$common_name[vtdat$common_name == "squawfoot"] <-  "creeper"
 vtdat$common_name[vtdat$common_name == "pocketbook mussel"] <-  "pocketbook"
@@ -823,7 +823,7 @@ vtdat2022 <- vtdat2022  %>%
 
 
 vtdat2022 <- left_join(vtdat2022, name_conversion, by = "scientific_name")
-vtdat2022$common_name[vtdat2022$scientific_name == "lampsilis ovata"] <- "pocketbook mussel"
+vtdat2022$common_name[vtdat2022$scientific_name == "lampsilis ovata"] <- "pocketbook"
 vtdat2022$common_name[vtdat2022$scientific_name == "potamilus alatus"] <-  "pink heelsplitter" 
 vtdat2022$common_name[vtdat2022$scientific_name == "lasmigona costata"] <-  "flutedshell" 
 
@@ -887,7 +887,10 @@ names(vt_mussel_pdf_event)[2:8] <- tolower(names(vt_mussel_pdf_event)[2:8])
 
 
 #tidy the occurrence data
-vt_mussel_pdf_occurrence <- VToccurr %>% 
+vt_mussel_pdf_occurrence <- VToccurr
+vt_mussel_pdf_occurrence$live_occurrence[103:620] <- ifelse(vt_mussel_pdf_occurrence$live_count[103:620] >0, 1, 0 )
+
+vt_mussel_pdf_occurrence <- vt_mussel_pdf_occurrence %>% 
   select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
   mutate(common_name = tolower(common_name),
          scientific_name = tolower(scientific_name))

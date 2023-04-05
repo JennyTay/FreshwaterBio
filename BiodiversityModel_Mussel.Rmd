@@ -4,18 +4,169 @@ author: "Jenny Rogers"
 date: "2023-03-22"
 output: html_document
 ---
+```{r}
+library(tidyverse)
+library(sf)
+library(glmmTMB)
 
-
+```
 
 In this script we model the probability of freshwater mussel occurrence at the HUC10 scale 
 
-In the first part of the script, we use a logistic regression model using enviromental covariates and fish host distirubtion to model each mussel individually 
+In the first chunk, we prepare the host fish covariate data by reading in the fish model and predicting in the baseline for presence/absence and proportional abundance
 
-In the second part of the script we model proportional abundance of mussel traits using a multinomial logistic regression
+In the second part of the script, we use a logistic regression model using environmental covariates and fish host distribution to model each mussel individually 
+
+In the third part of the script we model species richness and shannon index by HUC10
+
+In the forth part of the script we model proportional abundance of mussel traits using a multinomial logistic regression
+
+
+Part 1: prepare host fish covariates
+```{r}
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+#need to scal the variavles
+test <- NHDplusV2_NewEngCrop %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+test <- test[,c(7:8, 10:39)]
+
+#scale data
+test <- data.frame(scale(test))
+
+NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
+
+
+#fish host covariate with probability of presence by spp
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+names(predictions)[1] <- file.list[i]
 
 
 
-Part 1: logistic regression to model each mussel species presence and absence probability
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+
+#join the predictions to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
+
+#average by HUC10 becuase that is the scale we are modeling mussels
+fish_host_prob_occ <- NHDplusV2_NewEngCrop_baseline %>%
+  data.frame() %>% 
+  select(huc10_name, huc10_tnmid, 40:96) %>% 
+  filter(!is.na(pres_brook.trout.rds),
+         !is.na(huc10_name)) %>%
+  pivot_longer(3:59, names_to = "common_name", values_to = "prob_occ") %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(total_prob_occ = sum(prob_occ))
+  
+
+
+
+
+
+#fish host covariate with proportional abundance by family. First do prop abund model. then add within a family
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+
+#join the predictions to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
+
+#average by HUC10 becuase that is the scale we are modeling mussels
+fish_host_propabun <- NHDplusV2_NewEngCrop_baseline %>%
+  data.frame() %>% 
+  select(huc10_name, huc10_tnmid, 40:96) %>% 
+  filter(!is.na(propabun_brook.trout.rds),
+         !is.na(huc10_name)) %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise_all(mean) %>% 
+  pivot_longer(3:59, names_to = "common_name", values_to = "propabun")
+fish_host_propabun$common_name <- gsub("propabun_", "", fish_host_propabun$common_name)
+fish_host_propabun$common_name <- gsub(".rds", "", fish_host_propabun$common_name)
+fish_host_propabun$common_name <- gsub("\\.", " ", fish_host_propabun$common_name)
+
+#add family information
+fish_host_propabun <- fish_host_propabun %>% 
+  mutate(family = ifelse(common_name%in% c("american brook lamprey"), "Petromyzontidae",
+                         ifelse(common_name %in% c("american eel"), "Anguillidae",
+                                ifelse(common_name%in% c("atlantic salmon", "brook trout", "brown trout", "rainbow trout", "round whitefish"), "Salmonidae",
+                                       ifelse(common_name %in% c("banded killifish"), "Fundulidae",
+                                              ifelse(common_name %in% c("banded sunfish", "black crappie", "bluegill", "green sunfish", "largemouth bass", "pumpkinseed", "redbreast sunfish", "rock bass", "smallmouth bass"), "Centrarchidae",
+                                                     ifelse(common_name %in% c("bluntnose minnow", "bridle shiner", "common carp", "common shiner", "creek chub", "cutlips minnow", "eastern blacknose dace", "eastern silvery minnow", "fallfish", "fathead minnow", "finescale dace", "golden shiner", "lake chub", "longnose dace", "mimic shiner", "redbelly dace", "rosyface shiner", "rosyside dace", "spotfin shiner", "spottail shiner"), "Cyprinidae",
+                                                            ifelse(common_name %in% c("bowfin"), "Amiidae",
+                                                                   ifelse(common_name %in% c("brook stickleback"), "Gasterosteidae",
+                                                                          ifelse(common_name %in% c("brown bullhead", "channel catfish", "margined madtom", "white catfish"), "Ictaluridae",
+                                                                                 ifelse(common_name %in% c("burbot"), "Lotidae",
+                                                                                        ifelse(common_name %in% c("central mudminnow"), "Umbridae" ,
+                                                                                               ifelse(common_name %in% c("chain pickerel", "northern pike", "redfin pickerel"), "Esocidae",
+                                                                                                      ifelse(common_name %in% c("creek chubsucker", "longnose sucker", "white sucker", "yellow bullhead"), "Catostomidae",
+                                                                                                             ifelse(common_name %in% c("slimy sculpin"), "Cottidae", "Percidae")
+                                                                                                             ))))))))))))))
+
+#swamp darter", "tessellated darter", "walleye", "yellow perch" are percidae
+
+#group by family for total proportional abundance by family
+fish_host_propabun <- fish_host_propabun %>% 
+  group_by(huc10_name, huc10_tnmid, family) %>% 
+  summarise(propabun = sum(propabun)) %>% 
+  pivot_wider(names_from = family, values_from = propabun) %>% 
+  select(-Gasterosteidae) #its zero in every observation
+
+```
+
+
+
+
+
+
+Part 2: logistic regression to model each mussel species presence and absence probability
 ```{r}
 
 #load datafiles
@@ -40,10 +191,9 @@ huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/N
 states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
 
 
-
-
 #environmental covariates
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc10.RData")
+
 
 
 
@@ -53,10 +203,11 @@ occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
 #there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
 #present in the mussel_occurrence data file.
 occ <- occ %>% 
+  data.frame() %>% 
   filter(!is.na(huc10_name)) %>% 
   group_by(huc10_name, huc10_tnmid, common_name) %>% 
-  summarise(live_occurrence = max(live_occurrence),
-            shell_occurrence = max(shell_occurrence))
+  summarise(live_occurrence = max(live_occurrence, na.rm = T),
+            shell_occurrence = max(shell_occurrence, na.rm = T))
 
 #join occurrence data by huc10 to the covariate dataset for the model
 #first need to remove all repeated rows of huc10 covariates
@@ -70,6 +221,270 @@ mussel_covariates <- mussel_covariates_huc10 %>%
 
 
 dat <- left_join(occ, mussel_covariates, by = c("huc10_name", "huc10_tnmid"))
+
+#join the covariates to the fish_host_prob_occ - the total probabiity of occuurence for each spp summed in a huc10
+dat <- left_join(dat, fish_host_prob_occ, by = c("huc10_name", "huc10_tnmid"))
+
+#join the covariates to the fish_host by family prop abun predictions
+dat <- left_join(dat, fish_host_propabun, by = c("huc10_name", "huc10_tnmid"))
+
+
+
+#plot curves of each species and the bivariate relatiomship with each covariate
+
+dat2 <- dat %>% 
+  filter(common_name == "eastern lampmussel")
+
+
+for (i in 8:length(names(dat2))) {
+  
+ggplot(data = dat2, mapping = aes(x = dat2[[i]], y = live_occurrence))+
+  geom_jitter(size = 2, alpha = .2, height = .05)+
+  geom_smooth(method = "glm", 
+    method.args = list(family = "binomial"))+
+  labs(x = names(dat2[i]), y = "Live Occurrence")
+ 
+ggsave(paste("tmpfigures/mussel_pres-abs_log_reg_plots/", "eastlmp_", names(dat2[i]), ".png", sep = ""), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+  
+}
+
+
+#do a series of bivariate models between each mussel spp pres/abs to see what variables are important to each spp,
+#each mussel spp can have a different model
+
+for (j in unique(dat$common_name)) {
+
+dat2 <- dat %>% 
+  filter(common_name == j)
+
+  mdl <- glm(live_occurrence ~ lat,
+           data = dat2,
+             family = "binomial")
+
+results <- 
+  data.frame(
+    "variable" = names(dat2[i]),
+    "estimate" = summary(mdl)$coefficients[2,1],
+    "std_er" = summary(mdl)$coefficients[2,2],
+    "p_val" = summary(mdl)$coefficients[2,4],
+    "common_name" = unique(dat2$common_name))
+
+results <- results %>% 
+  mutate(LB = estimate -1.96*std_er,
+         UB = estimate + 1.96*std_er,
+         OR = exp(estimate),
+         OR_LB = exp(LB),
+         OR_UB = exp(UB))
+
+
+
+
+for (i in 8:length(names(dat2))) {
+
+  mdl <- glm(live_occurrence ~ dat2[[i]],
+           data = dat2,
+             family = "binomial")
+
+results2 <- 
+  data.frame(
+    "variable" = names(dat2[i]),
+    "estimate" = round(summary(mdl)$coefficients[2,1],2),
+    "std_er" = round(summary(mdl)$coefficients[2,2],2),
+    "p_val" = round(summary(mdl)$coefficients[2,4],2),
+    "common_name" = unique(dat2$common_name))
+
+results2 <- results2 %>% 
+  mutate(LB = round(estimate -1.96*std_er,2),
+         UB = round(estimate + 1.96*std_er,2),
+         OR = round(exp(estimate),2),
+         OR_LB = round(exp(LB),2),
+         OR_UB = round(exp(UB),2))
+
+results <- rbind(results, results2)
+
+results <- results %>% 
+  filter(p_val<0.05) %>% 
+  arrange(p_val)
+
+write.csv(results, file = paste("tmpfigures/", unique(dat2$common_name), "_coef.csv", sep = ""))
+
+
+
+
+
+}
+
+ggplot(data = results, aes(x = variable, y = estimate))+
+  geom_point(size = 2)+
+  geom_errorbar(aes(ymin = LB, ymax = UB), width = .2)+
+  coord_flip()+
+  geom_hline(yintercept = 0, color  = "red", linetype = "dashed", linewidth = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 6),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = unique(results$common_name))
+
+ggsave(
+    filename = paste("C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/mussel_log_odd_plots/", unique(results$common_name),  ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200)
+
+print(j)
+
+}
+
+
+#cluster fish and mussels
+
+
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+
+fish_event_huc_join <- fish_event_huc_join %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+
+mussel_event_huc_join <- mussel_event_huc_join %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+#cluster based on co-occurnece at the HUC8 scale
+
+fish <- left_join(fish_occurrence, fish_event_huc_join, by = "UID") %>%
+  filter(stock == "natural",
+         !is.na(huc8_name),
+         common_name %in% c("american eel", "white perch", "rosyside dace", "channel catfish", "bowfin", "round whitefish", 
+                            "white catfish", "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "walleye", "cutlips minnow", "green sunfish", 
+                            "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
+  select(common_name, scientific_name, occurrence, huc8_tnmid , huc8_name) %>% 
+  group_by(common_name, huc8_tnmid , huc8_name) %>% 
+  summarise(occurrence = max(occurrence, na.rm = T)) %>% 
+  ungroup()
+
+
+mussel <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")%>%
+  select(common_name, scientific_name, live_occurrence, huc8_tnmid , huc8_name) %>% 
+  filter(!is.na(huc8_name)) %>% 
+  rename(occurrence = live_occurrence)%>% 
+  group_by(common_name, huc8_tnmid , huc8_name) %>% 
+  summarise(occurrence = max(occurrence, na.rm = T))%>% 
+  ungroup()
+
+
+
+names(fish)
+names(mussel)
+
+dat <- rbind(fish, mussel)
+
+
+dat <- dat %>%
+  select(huc8_name, common_name, occurrence) %>%
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "huc8_name")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = "tmpfigures/fish_mussel_hclust_byhuc8.png", units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg)
+dev.off()
+
+
+
+#cluster based on co-occurnece at the HUC810 scale
+
+
+fish <- left_join(fish_occurrence, fish_event_huc_join, by = "UID") %>%
+  filter(stock == "natural",
+         !is.na(huc10_name),
+         common_name %in% c("american eel", "white perch", "rosyside dace", "channel catfish", "bowfin", "round whitefish", 
+                            "white catfish", "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "walleye", "cutlips minnow", "green sunfish", 
+                            "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
+  select(common_name, scientific_name, occurrence, huc10_tnmid , huc10_name) %>% 
+  group_by(common_name, huc10_tnmid , huc10_name) %>% 
+  summarise(occurrence = max(occurrence, na.rm = T)) %>% 
+  ungroup()
+
+
+mussel <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")%>%
+  select(common_name, scientific_name, live_occurrence, huc10_tnmid , huc10_name) %>% 
+  filter(!is.na(huc10_name)) %>% 
+  rename(occurrence = live_occurrence)%>% 
+  group_by(common_name, huc10_tnmid , huc10_name) %>% 
+  summarise(occurrence = max(occurrence, na.rm = T))%>% 
+  ungroup()
+
+
+
+names(fish)
+names(mussel)
+
+dat <- rbind(fish, mussel)
+dat$huc10_name <- paste(dat$huc10_name, dat$huc10_tnmid, sep = "_")
+
+
+dat <- dat %>%
+  select(huc10_name, common_name, occurrence) %>%
+  pivot_wider(names_from = common_name, values_from = occurrence) %>% 
+  column_to_rownames(var = "huc10_name")
+
+test <- t(dat)
+colnames(test) <- rownames(dat)
+
+dist_mat <- dist(test, method = "binary")
+
+hclust_avg <- hclust(dist_mat, method = "average")
+hclust_avg$labels<- names(dat)
+
+png(height = 10, width = 15, file = "tmpfigures/fish_mussel_hclust_byhuc10.png", units = "in", res = 150, type = "cairo")
+
+plot(hclust_avg)
+dev.off()
+
+
+
+
+
 
 
 #logistic regression model for mussel occurrence
@@ -94,22 +509,22 @@ mdl <- glm(live_occurrence ~
              pctAg_Ws + 
              huc12_damden_sqkm +
              huc8_damcount,
-             data = dat[dat$common_name == "triangle floater",],
+             data = dat[dat$common_name == "alewife floater",],
              family = "binomial")
 
 summary(mdl)
-saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name), ".rds", sep = ""))
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[1], ".rds", sep = ""))
 
-results1 <- 
+results <- 
   data.frame(
     "estimate" = summary(mdl)$coefficients[,1],
     "std_er" = summary(mdl)$coefficients[,2],
     "p_val" = summary(mdl)$coefficients[,4],
     "variable" = rownames(summary(mdl)$coefficients),
-    "common_name" = "triangle floater")
+    "common_name" = "alewife floater")
 
 
-for (i in 2:length(unique(fish_count_with_zeros_filtered$common_name))) {
+for (i in 2:length(unique(dat$common_name))) {
  
  
 mdl <- glm(live_occurrence ~ 
@@ -130,10 +545,11 @@ mdl <- glm(live_occurrence ~
              pctAg_Ws + 
              huc12_damden_sqkm +
              huc8_damcount,
-             data = dat,
+             data = dat[dat$common_name== unique(dat$common_name)[i],],
              family = "binomial")
 
 summary(mdl)
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[i], ".rds", sep = ""))
 
 results2 <- 
   data.frame(
@@ -141,12 +557,267 @@ results2 <-
     "std_er" = summary(mdl)$coefficients[,2],
     "p_val" = summary(mdl)$coefficients[,4],
     "variable" = rownames(summary(mdl)$coefficients),
-    "common_name" = "triangle floater") 
+    "common_name" = unique(dat$common_name)[i]) 
+
+results <- rbind(results, results2)
+
+print(unique(dat$common_name)[i])
   
   
-saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(fish_count_with_zeros_filtered$common_name)[i], ".rds", sep = ""))
+
  
 }
+
+
+rownames(results) <- NULL
+
+results <- results %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = exp(estimate),
+         ORCIlow = exp(CIlow),
+         ORCIhigh = exp(CIhigh)) %>% 
+  arrange(OR) %>% 
+  filter(variable != "(Intercept)")
+
+```
+
+
+
+
+Part 3: Species richness and shannon index
+
+```{r}
+
+
+#calcuate species richness by HUC10, HUC8, and then beta (huc10/HUC8)
+
+#join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
+occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
+occ <- left_join(occ, mussel_count_with_zeros, by = c("UID", "common_name", "scientific_name"))
+names(occ)
+occ <- occ %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence, live_count, shell_count, 6:20)
+names(occ)
+#there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
+#present in the mussel_occurrence data file.
+occ <- occ %>% 
+  filter(!is.na(huc10_name)) 
+
+
+huc10_richness <- occ %>% 
+  select(common_name, scientific_name, live_occurrence, huc10_name, huc10_tnmid, huc8_name) %>% 
+  unique() %>% 
+  group_by(huc10_tnmid, huc10_name, huc8_name) %>% 
+  summarise(alpha_richness = sum(live_occurrence, na.rm = T))
+  
+huc8_richness <- occ %>% 
+  select(common_name, scientific_name, live_occurrence, huc8_name, huc8_tnmid) %>% 
+  unique() %>% 
+  group_by(huc8_tnmid, huc8_name) %>% 
+  summarise(gamma_richness = sum(live_occurrence, na.rm = T))
+
+richness <- left_join(huc8_richness, huc10_richness, by = "huc8_name") %>% 
+  mutate(beta_richness = alpha_richness / gamma_richness)
+
+
+
+
+#calculate shannon weiner by huc10
+
+
+
+#need to get the number of surveys in each HUC so we can divide abundance by the number of surveys
+surveycounts <- left_join(mussel_count_with_zeros, 
+                          mussel_event_huc_join, 
+                          by = "UID") %>% 
+   select(UID, huc10_name, huc10_tnmid) %>% 
+   unique() %>% 
+   group_by(huc10_name, huc10_tnmid) %>% 
+   summarise(suveynum = n())
+
+
+
+shannon1 <- mussel_count_with_zeros %>% 
+  filter(live_count>0,
+         !is.na(live_count),
+         !is.na(common_name))
+
+#count of each spp by huc
+shannon <- left_join(mussel_event_huc_join, shannon1, by = "UID") %>%
+  data.frame() %>% 
+  filter(!is.na(live_count),
+         !is.na(common_name)) %>% 
+  group_by(huc10_name, huc10_tnmid, common_name) %>% 
+  summarise(n = sum(live_count)) %>% 
+  data.frame()
+
+shannon <- left_join(shannon, surveycounts, by = c("huc10_tnmid", "huc10_name")) %>% 
+  mutate(n1 = n/suveynum)
+
+#Total sum of all counts of all spp
+shannon2 <- left_join(mussel_event_huc_join, shannon1, by = "UID") %>%
+  data.frame() %>% 
+  filter(!is.na(live_count),
+         !is.na(common_name)) %>% 
+  group_by(huc10_name, huc10_tnmid)%>% 
+  summarise(N = sum(live_count)) %>% 
+  data.frame()
+
+shannon2 <- left_join(shannon2, surveycounts, by = c("huc10_tnmid", "huc10_name")) %>% 
+  mutate(N1 = N/suveynum)
+
+shannon3 <- left_join(shannon, shannon2, by = c("huc10_tnmid", "huc10_name")) %>% 
+  mutate(tmp = n1/N1,
+         tmp2 = log(tmp),
+         tmp3 = tmp * tmp2) %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(shannonwiener = -(sum(tmp3)))
+
+
+huc10 <- huc10 %>% 
+  filter(States != "CN")
+
+dat <- left_join(huc10, shannon3, by = c("Name" = "huc10_name"))
+
+hist(dat$shannonwiener)
+
+dat$shannonwiener <- as.numeric(dat$shannonwiener)
+
+ggplot()+
+  geom_sf(data = dat, lwd = 0.2,
+          aes(fill = shannonwiener))+
+  scale_fill_gradient2(low = "red",
+  mid = "white",
+  high = "blue",
+  midpoint = mean(dat$shannonwiener, na.rm = T))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank())+
+    labs(title = "Shannon Wiener (H`), huc10 scale",
+    fill = "H`")+
+  geom_sf(data = states, fill = NA, lwd = 0.25, color = "black")+
+  geom_sf(data = huc8, fill = NA, lwd = 0.25, color = "black")
+
+
+
+
+
+
+
+
+#join occurrence data by huc10 to the covariate dataset for the model
+#remove all repeated rows of huc10 covariates
+mussel_covariates <- mussel_covariates_huc10 %>% 
+  data.frame() %>% 
+  select(-c(UID, state, date, project, source, waterbody, waterbody2,
+            huc8_tnmid, huc8_areasqkm, huc8_name,
+            huc12_tnmid, huc12_areasqkm,huc12_name,
+            geometry)) %>% 
+  unique()
+
+
+dat <- left_join(richness, mussel_covariates, by = c("huc10_name", "huc10_tnmid"))
+dat2 <- left_join(shannon3, mussel_covariates, by = c("huc10_name", "huc10_tnmid"))
+
+names(richness)
+names(shannon3)
+
+
+
+
+
+#glm model for spp richness by HUC10
+#logistic regression model for mussel occurrence
+
+
+
+mdl <- glm(alpha_richness ~ 
+             lat +
+             long +
+             ElevCat +
+             CaOWs +
+             RunoffWs +
+             pollutionWs +
+             WWTPMajorDensWs +
+             KffactWs +
+             annual_mean_summer_temp + 
+             W95_HIST +
+             logMJJA_HIST + 
+             pctForest_ws +
+             PctOw_Ws +  
+             PctImp_WsRp100 +  
+             pctAg_Ws + 
+             huc12_damden_sqkm +
+             huc8_damcount,
+             data = dat,
+             family = "poisson")
+
+summary(mdl)
+saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_alpharichness.rds")
+
+
+
+
+
+dat$beta_richness[dat$beta_richness == 1] <- 0.99
+dat$beta_richness[dat$beta_richness == 0] <- 0.01
+
+mdl <- glm(beta_richness ~ 
+             lat +
+             long +
+             ElevCat +
+             CaOWs +
+             RunoffWs +
+             pollutionWs +
+             WWTPMajorDensWs +
+             KffactWs +
+             annual_mean_summer_temp + 
+             W95_HIST +
+             logMJJA_HIST + 
+             pctForest_ws +
+             PctOw_Ws +  
+             PctImp_WsRp100 +  
+             pctAg_Ws + 
+             huc12_damden_sqkm +
+             huc8_damcount,
+             data = dat,
+             family = beta_family())
+
+summary(mdl)
+saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_alpharichness.rds")
+
+
+
+#glm model for shannon weiner by HUC10
+
+mdl <- lm(shannonwiener ~ 
+             lat +
+             long +
+             ElevCat +
+             CaOWs +
+             RunoffWs +
+             pollutionWs +
+             WWTPMajorDensWs +
+             KffactWs +
+             annual_mean_summer_temp + 
+             W95_HIST +
+             logMJJA_HIST + 
+             pctForest_ws +
+             PctOw_Ws +  
+             PctImp_WsRp100 +  
+             pctAg_Ws + 
+             huc12_damden_sqkm +
+             huc8_damcount,
+             data = dat2)
+
+summary(mdl)
+
+
 
 
 ```
@@ -154,4 +825,35 @@ saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objec
 
 
 
-Part 2: multinomial logistic regression model to predict proportional abundance of mussel traits
+Part 4: multinomial logistic regression model to predict proportional abundance of mussel traits
+
+```{r}
+
+
+#attribute mussel occurrence by trait
+#drought tolerance: https://doi.org/10.1002/aqc.3884
+####Body size, 
+####physiological temperature tolerance  
+#####life history strategy
+
+
+#join mussel_occurrence data to the mussel event huc join so that we can get proportional abundance of each trait by huc10
+
+
+
+
+#join occurrence data by huc10 to the covariate dataset for the model
+
+
+
+
+#remove all repeated rows of huc10 covariates
+
+
+
+
+#multinomial logistc regression model of proportional abundance of each trait
+
+
+
+```
