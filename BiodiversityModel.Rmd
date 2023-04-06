@@ -14,6 +14,7 @@ library(sf)
 library(lubridate)
 library(corrplot)
 library(caret)
+library(readxl)
 
 
 ```
@@ -172,10 +173,11 @@ saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objec
 library(glmmTMB)
 
 #filter the fish names to be only those that we agreed as a group we would include
+#we also excluded bowfin, white catfish, channel catfish, round whitefish, and walleye becuase when splitting into testing and trainng data, there was not enough 'present' observations and it was thowing a model errow
 fish_count_with_zeros_filtered <- fish_count_with_zeros %>% 
-  filter(common_name %in% c("american eel", "white perch", "rosyside dace", "channel catfish", "bowfin", "round whitefish", 
-                            "white catfish", "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
-                            "eastern silvery minnow", "rosyface shiner", "walleye", "cutlips minnow", "green sunfish", 
+  filter(common_name %in% c("american eel", "white perch", "rosyside dace",  
+                            "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "cutlips minnow", "green sunfish", 
                             "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
                             "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
                             "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
@@ -191,7 +193,7 @@ counts <- fish_count_with_zeros_filtered %>%
   mutate(totalcount = sum(count)) %>% 
   ungroup() %>% 
   mutate(propabun = (count / totalcount)) %>% 
-  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m, avg_reach_width_m, efish_duration_s) %>% 
+  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m) %>% 
   mutate(abund_km = count / (reach_length_m) *1000) %>% 
   filter(common_name == "white sucker")
 
@@ -237,7 +239,7 @@ dat <- left_join(counts, fishcovariates, by = "UID")
 
 dat <- dat %>% 
   mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
-  select(UID, common_name, occurrence, propabun, state, huc8_name, 16:47)
+  select(UID, common_name, occurrence, propabun, state, huc8_name, 14:45)
 
 
 #plot of variables vs proportional abundance
@@ -288,6 +290,19 @@ ggsave(
 # summary(mdl)
 
 dat$propabun[dat$propabun == 1] <- 0.99
+dat <- dat %>% 
+  filter(!is.na(lat))
+
+#set aside 20% for validation and put 80% into the calibration dataset
+n_obs <- nrow(dat)
+permuted_rows <- sample(n_obs)
+dat <- dat[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(3223)
+train <- dat[1:split, ]
+test <- dat[(split+1):n_obs, ]
+
+
 #global model
 mdl <- glmmTMB(propabun ~
                  annual_mean_summer_temp + 
@@ -304,9 +319,31 @@ mdl <- glmmTMB(propabun ~
                  logRdCrsCat + 
                  logPctOw_Cat +
                  huc12_damden_sqkm +
-                 huc8_damcount,
-               data = dat,
-               ziformula = ~lat + long + ElevCat + logWsAreaSqKm,
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
+                data = train,
+               ziformula = ~annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 WtDepWs + 
+                 PctOw_Ws +  
+                 PctImp_Ws +  
+                 pctAg_Ws + 
+                 pctWetland_Cat + 
+                 logMJJA_HIST + 
+                 logRdCrsCat + 
+                 logPctOw_Cat +
+                 huc12_damden_sqkm +
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
                family = beta_family())
 
 summary(mdl)
@@ -333,9 +370,51 @@ results2 <-
 results <- rbind(results1, results2)
 results$common_name <- unique(dat$common_name)
 
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
 
+predict_zer <- predict(mdl, test, type = 'zprob') #the probability of a zero
 
+#compare the predicted zeros to the actual zeros, the prediction prop abund to the actual prop abun
+#The last two are ranked predicted prop abund to the ranked actual prop abund. Even if the raw magnitudes differ, we would still want a positive relatiomship between the ranked values, so this is what I used to validate in the plot with r2 value
+compare <- data.frame(
+  "common_name" = test$common_name,
+  "occurrence" = factor(test$occurrence),
+  "propabun" = round(test$propabun, 2),
+  "pred_occurrence" = factor(ifelse(predict_zer > 0.7, 0, 1), levels = levels(factor(test$occurrence))),
+  "pred_propabun" = round(predict_resp, 2),
+  "rank_propabun" = as.numeric(ordered(round(test$propabun, 2))),
+  "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
+)
 
+#validate the ranked prop abund values
+r2 <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
+
+ggplot(data = compare, aes(x = rank_propabun, y = rank_pred_propabun))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm")+
+  labs(x = "Testing Data Prop Abun Rank", y = "Predicted Prop Abun Rank")+
+  annotate("text",x=20,y=5,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = paste("tmpfigures/propabun_rank_compare/" , unique(train$common_name), ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+#validations for the predicted occurrence vs the actual occurrence
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val_zero_prob <- data.frame(
+  "common_name" = unique(train$common_name),
+  "accuracy" = cm$overall[1],
+  "sensitivity" = cm$byClass[1],
+  "Specificity" = cm$byClass[2],
+  "Pos Pred Value" = cm$byClass[3],
+  "Neg Pred Value" = cm$byClass[4]
+)
 
 
 #Start the for loop here
@@ -350,15 +429,27 @@ counts <- fish_count_with_zeros_filtered %>%
   mutate(totalcount = sum(count)) %>% 
   ungroup() %>% 
   mutate(propabun = (count / totalcount)) %>% 
-  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m, avg_reach_width_m, efish_duration_s) %>% 
+  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m) %>% 
   mutate(abund_km = count / (reach_length_m) *1000) %>% 
   filter(common_name == unique(fish_count_with_zeros_filtered$common_name)[i])
 
 
 #join the counts to the tidying covariates, fishcovariates
 dat <- left_join(counts, fishcovariates, by = "UID")
+dat$occurrence <- ifelse(dat$count>0, 1,0)
 dat <- dat[complete.cases(dat),]
 dat$propabun[dat$propabun == 1] <- 0.99
+dat <- dat %>% 
+  filter(!is.na(lat))
+
+#set aside 20% for validation and put 80% into the calibration dataset
+n_obs <- nrow(dat)
+permuted_rows <- sample(n_obs)
+dat <- dat[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- dat[1:split, ]
+test <- dat[(split+1):n_obs, ]
 
 #global model
 mdl <- glmmTMB(propabun ~
@@ -376,9 +467,31 @@ mdl <- glmmTMB(propabun ~
                  logRdCrsCat + 
                  logPctOw_Cat +
                  huc12_damden_sqkm +
-                 huc8_damcount,
-               data = dat,
-               ziformula = ~lat + long + ElevCat + logWsAreaSqKm,
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
+                data = train,
+               ziformula = ~annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 WtDepWs + 
+                 PctOw_Ws +  
+                 PctImp_Ws +  
+                 pctAg_Ws + 
+                 pctWetland_Cat + 
+                 logMJJA_HIST + 
+                 logRdCrsCat + 
+                 logPctOw_Cat +
+                 huc12_damden_sqkm +
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
                family = beta_family())
 
 saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/propabun_", unique(fish_count_with_zeros_filtered$common_name)[i], ".rds", sep = ""))
@@ -409,9 +522,55 @@ tmp$common_name <- unique(fish_count_with_zeros_filtered$common_name)[i]
 
 results <- rbind(results, tmp)
 
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
+
+predict_zer <- predict(mdl, test, type = 'zprob') #the probability of a zero
+
+compare <- data.frame(
+  "common_name" = rep(unique(train$common_name), nrow(test)),
+  "occurrence" = factor(test$occurrence),
+  "propabun" = round(test$propabun, 2),
+  "pred_occurrence" = factor(ifelse(predict_zer > 0.7, 0, 1), levels = levels(factor(test$occurrence))),
+  "pred_propabun" = round(predict_resp, 2),
+  "rank_propabun" = as.numeric(ordered(round(test$propabun, 2))),
+  "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
+)
+
+r2 <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
+
+ggplot(data = compare, aes(x = rank_propabun, y = rank_pred_propabun))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm")+
+  labs(x = "Testing Data Prop Abun Rank", y = "Predicted Prop Abun Rank")+
+  annotate("text",x=20,y=5,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = paste("tmpfigures/propabun_rank_compare/" , unique(train$common_name), ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val2 <- data.frame(
+  "common_name" = unique(train$common_name),
+  "accuracy" = cm$overall[1],
+  "sensitivity" = cm$byClass[1],
+  "Specificity" = cm$byClass[2],
+  "Pos Pred Value" = cm$byClass[3],
+  "Neg Pred Value" = cm$byClass[4]
+)
+val_zero_prob <- rbind(val_zero_prob, val2)
+
+
 print(unique(fish_count_with_zeros_filtered$common_name)[i])
 
 }
+
+write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob.csv")
 
 #filter to remove spp that did not converge, these include:
 #common carp, northern pike, bowfin, white catfish, channel catfish, eastern silvery minnow, rosyside dace, mimic shiner,
