@@ -488,7 +488,22 @@ dev.off()
 
 
 #logistic regression model for mussel occurrence
+#remove mussels that are not found in enough watersheds
+dat <- dat %>% 
+  filter(common_name %in% c("alewife floater", "eastern elliptio", "brook floater", "creeper", "dwarf wedgemussel", "eastern floater",
+                            "eastern lampmussel", "eastern pearlshell", "eastern pondmussel", "tidewater mucket",
+                            "triangle floater", "yellow lampmussel"))
 
+#set aside 20% for validation and put 80% into the calibration dataset
+dat2 <- dat %>% 
+  filter(common_name == "alewife floater")
+n_obs <- nrow(dat2)
+permuted_rows <- sample(n_obs)
+dat2 <- dat2[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- dat2[1:split, ]
+test <- dat2[(split+1):n_obs, ]
 
 
 mdl <- glm(live_occurrence ~ 
@@ -508,8 +523,13 @@ mdl <- glm(live_occurrence ~
              PctImp_WsRp100 +  
              pctAg_Ws + 
              huc12_damden_sqkm +
-             huc8_damcount,
-             data = dat[dat$common_name == "alewife floater",],
+             huc8_damcount +
+             total_prob_occ +
+             Centrarchidae +
+             Catostomidae +
+             Cyprinidae +
+             Percidae,
+             data = dat2,
              family = "binomial")
 
 summary(mdl)
@@ -524,8 +544,47 @@ results <-
     "common_name" = "alewife floater")
 
 
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
+
+
+#compare the predicted zeros to the actual zeros
+compare <- data.frame(
+  "common_name" = test$common_name,
+  "occurrence" = factor(test$live_occurrence, levels = c(1,0)),
+  "pred_occurrence" = factor(ifelse(predict_resp > 0.5, 1, 0), levels = levels(factor(test$live_occurrence, levels = c(1,0))))
+)
+
+
+#validations for the predicted occurrence vs the actual occurrence
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val_zero_prob <- data.frame(
+  "common_name" = unique(train$common_name),
+  "test_dat_pres" = nrow(test[test$live_occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$live_occurrence == 0,]),
+  "accuracy" = cm$overall[1],
+  "sensitivity" = cm$byClass[1],
+  "Specificity" = cm$byClass[2],
+  "Pos Pred Value" = cm$byClass[3],
+  "Neg Pred Value" = cm$byClass[4]
+)
+
+
+
+
 for (i in 2:length(unique(dat$common_name))) {
  
+dat2 <- dat %>% 
+filter(common_name == unique(dat$common_name)[i])
+n_obs <- nrow(dat2)
+permuted_rows <- sample(n_obs)
+dat2 <- dat2[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- dat2[1:split, ]
+test <- dat2[(split+1):n_obs, ]
+  
  
 mdl <- glm(live_occurrence ~ 
              lat +
@@ -544,7 +603,12 @@ mdl <- glm(live_occurrence ~
              PctImp_WsRp100 +  
              pctAg_Ws + 
              huc12_damden_sqkm +
-             huc8_damcount,
+             huc8_damcount +
+             total_prob_occ +
+             Centrarchidae +
+             Catostomidae +
+             Cyprinidae +
+             Percidae,
              data = dat[dat$common_name== unique(dat$common_name)[i],],
              family = "binomial")
 
@@ -561,13 +625,63 @@ results2 <-
 
 results <- rbind(results, results2)
 
+
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
+
+
+#compare the predicted zeros to the actual zeros
+compare <- data.frame(
+  "common_name" = test$common_name,
+  "occurrence" = factor(test$live_occurrence, levels = c(1,0)),
+  "pred_occurrence" = factor(ifelse(predict_resp > 0.5, 1, 0), levels = levels(factor(test$live_occurrence, levels = c(1,0))))
+)
+
+
+#validations for the predicted occurrence vs the actual occurrence
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val2 <- data.frame(
+  "common_name" = unique(train$common_name),
+  "test_dat_pres" = nrow(test[test$live_occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$live_occurrence == 0,]),
+  "accuracy" = cm$overall[1],
+  "sensitivity" = cm$byClass[1],
+  "Specificity" = cm$byClass[2],
+  "Pos Pred Value" = cm$byClass[3],
+  "Neg Pred Value" = cm$byClass[4]
+)
+
+val_zero_prob <- rbind(val_zero_prob, val2)
+
 print(unique(dat$common_name)[i])
   
   
 
  
 }
-
+#experimented with Random Forest
+# rf <- randomForest(as.factor(live_occurrence) ~ 
+#                         lat +
+#                         long +
+#                         ElevCat +
+#                         CaOWs +
+#                         RunoffWs +
+#                         pollutionWs +
+#                         WWTPMajorDensWs +
+#                         KffactWs +
+#                         annual_mean_summer_temp + 
+#                         W95_HIST +
+#                         logMJJA_HIST + 
+#                         pctForest_ws +
+#                        PctOw_Ws +  
+#                         PctImp_WsRp100 +  
+#                         pctAg_Ws + 
+#                         huc12_damden_sqkm +
+#                         huc8_damcount + Percidae,
+#                     data = dat2)
+#  rf
+# 
 
 rownames(results) <- NULL
 

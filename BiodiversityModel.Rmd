@@ -573,11 +573,12 @@ print(unique(fish_count_with_zeros_filtered$common_name)[i])
 write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob.csv")
 
 #filter to remove spp that did not converge, these include:
-#common carp, northern pike, bowfin, white catfish, channel catfish, eastern silvery minnow, rosyside dace, mimic shiner,
-#walleye, round whitefish, rosyface shiner, brook stickleback, spotfin shiner
+#bowfin, white catfish, channel catfish, round whitefish, 
 
 results <- results %>% 
-  filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
+  filter(common_name %in% c("common carp", "northern pike", "eastern silvery minnow", "rosyside dace", "mimic shiner",
+                            "rosyface shiner", "brook stickleback", "spotfin shiner",
+                            "american eel", "white perch", "finescale dace", "american brook lamprey", 
                             "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
                             "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
                             "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
