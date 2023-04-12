@@ -167,7 +167,7 @@ saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objec
 ```
 
 
-
+Proportional abundance at the stream reach scale
 ```{r}
 #models at the stream reach scale
 library(glmmTMB)
@@ -386,6 +386,14 @@ compare <- data.frame(
   "rank_propabun" = as.numeric(ordered(round(test$propabun, 2))),
   "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
 )
+
+compare <- na.omit(compare)
+r2 <- cor(compare$propabun,  compare$pred_propabun)
+ggplot(data = compare, aes(x = propabun, y = pred_propabun))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm")+
+  labs(x = "Testing Data Prop Abun", y = "Predicted Prop Abun")+
+  annotate("text",x=.5,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
 
 #validate the ranked prop abund values
 r2 <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
@@ -1489,7 +1497,7 @@ temp_counts <- temp_counts %>%
   select(tmp, UID) %>% 
   left_join(fishcovariates, by = "UID")
 
-#convert the temperature designations to 'factor' variables. Reference level = 'cool' (all results interpreted in relation to "cool")
+#convert the temperature designations to 'factor' variables. Reference level = 'warm' (all results interpreted in relation to "warm")
 temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "warm")
 
 #run the multinomial model
