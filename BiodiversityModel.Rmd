@@ -388,21 +388,21 @@ compare <- data.frame(
 )
 
 compare <- na.omit(compare)
-r2 <- cor(compare$propabun,  compare$pred_propabun)
+r2_probabun <- cor(compare$propabun,  compare$pred_propabun)
 ggplot(data = compare, aes(x = propabun, y = pred_propabun))+
   geom_jitter(alpha = 0.1, size = 3)+
   geom_smooth(method = "lm")+
   labs(x = "Testing Data Prop Abun", y = "Predicted Prop Abun")+
-  annotate("text",x=.5,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+  annotate("text",x=.5,y=.2,label=r2_probabun,parse=TRUE, color = "red", size = 5)
 
 #validate the ranked prop abund values
-r2 <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
+r2_rank_propabun <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
 
 ggplot(data = compare, aes(x = rank_propabun, y = rank_pred_propabun))+
   geom_jitter(alpha = 0.1, size = 3)+
   geom_smooth(method = "lm")+
   labs(x = "Testing Data Prop Abun Rank", y = "Predicted Prop Abun Rank")+
-  annotate("text",x=20,y=5,label=r2,parse=TRUE, color = "red", size = 5)
+  annotate("text",x=20,y=5,label=r2_rank_propabun,parse=TRUE, color = "red", size = 5)
 ggsave(
     filename = paste("tmpfigures/propabun_rank_compare/" , unique(train$common_name), ".png", sep = ""),
     plot = last_plot(),
@@ -412,7 +412,16 @@ ggsave(
     dpi = 300
   )
 
+val_prop_abun <- data.frame(
+  "common_name" = unique(train$common_name),
+  "r2_probabun" = r2_probabun,
+  "r2_rank_propabun" = r2_rank_propabun
+  
+)
+
 #validations for the predicted occurrence vs the actual occurrence
+compare$pred_occurrence <- factor(compare$pred_occurrence, levels = c(1,0))
+compare$occurrence <- factor(compare$occurrence, levels = c(1,0))
 cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
 
 val_zero_prob <- data.frame(
@@ -545,13 +554,21 @@ compare <- data.frame(
   "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
 )
 
-r2 <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
+r2_propabun <- cor(compare$propabun,  compare$pred_propabun)
+
+ggplot(data = compare, aes(x = propabun, y = pred_propabun))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm")+
+  labs(x = "Testing Data Prop Abun Rank", y = "Predicted Prop Abun Rank")+
+  annotate("text",x=20,y=5,label=r2_propabun,parse=TRUE, color = "red", size = 5)
+
+r2_rank_propabun <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
 
 ggplot(data = compare, aes(x = rank_propabun, y = rank_pred_propabun))+
   geom_jitter(alpha = 0.1, size = 3)+
   geom_smooth(method = "lm")+
   labs(x = "Testing Data Prop Abun Rank", y = "Predicted Prop Abun Rank")+
-  annotate("text",x=20,y=5,label=r2,parse=TRUE, color = "red", size = 5)
+  annotate("text",x=20,y=5,label=r2_rank_propabun,parse=TRUE, color = "red", size = 5)
 ggsave(
     filename = paste("tmpfigures/propabun_rank_compare/" , unique(train$common_name), ".png", sep = ""),
     plot = last_plot(),
@@ -560,6 +577,18 @@ ggsave(
     units = "cm",
     dpi = 300
   )
+
+val_prop_abun2 <- data.frame(
+  "common_name" = unique(train$common_name),
+  "r2_propabun" = r2_propabun,
+  "r2_rank_propabun" = r2_rank_propabun
+  
+)
+
+val_prop_abun <- rbind(val_prop_abun, val_prop_abun2)
+
+compare$pred_occurrence <- factor(compare$pred_occurrence, levels = c(1,0))
+compare$occurrence <- factor(compare$occurrence, levels = c(1,0))
 
 cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
 
@@ -1401,6 +1430,7 @@ ggsave(
 
 Model proportional abundances of each traits using a multinomial logistic regression 
 1. temperature preferences - four categories
+2. Fluvial dependence - 3 categories
 2. spawning strategy - two categories
 3. spawning season - nine categories
 
@@ -1500,6 +1530,17 @@ temp_counts <- temp_counts %>%
 #convert the temperature designations to 'factor' variables. Reference level = 'warm' (all results interpreted in relation to "warm")
 temp_counts$tmp2 <- relevel(as.factor(temp_counts$tmp), ref = "warm")
 
+#put 20% of the data aside for testing
+temp_counts <- temp_counts %>% 
+  filter(!is.na(lat))
+n_obs <- nrow(temp_counts)
+permuted_rows <- sample(n_obs)
+temp_counts <- temp_counts[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- temp_counts[1:split, ]
+test <- temp_counts[(split+1):n_obs, ]
+
 #run the multinomial model
 mdl <- multinom(tmp2 ~ 
                  annual_mean_summer_temp + 
@@ -1514,10 +1555,78 @@ mdl <- multinom(tmp2 ~
                  pctWetland_Cat + 
                  logMJJA_HIST + 
                  logRdCrsCat + 
-                 logPctOw_Cat,
-                 data = temp_counts)
+                 logPctOw_Cat +
+                 huc12_damden_sqkm +
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
+                 data = train)
 results <- summary(mdl)
 saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_temp_all_natural_spp.rds")
+
+#validation prediction on testing data
+test2 <- test %>% 
+  select(-tmp, -tmp2) %>% 
+  unique()
+validation <- predict(mdl, newdata = test2, "probs")
+validation <- cbind(validation, test2) 
+
+test3 <- test %>% 
+  select(tmp, UID) %>% 
+  group_by(UID, tmp) %>% 
+  summarise(count = n()) %>% 
+  pivot_wider(names_from = tmp, values_from = count) %>% 
+  mutate(totalcount = sum(cold, cool, warm, na.rm = T)) %>% 
+  mutate(true_cold = cold/totalcount,
+         true_cool = cool/totalcount,
+         true_warm = warm/totalcount)
+test3$true_cold[is.na(test3$true_cold)] <- 0
+test3$true_cool[is.na(test3$true_cool)] <- 0
+test3$true_warm[is.na(test3$true_warm)] <- 0
+
+test3 <- left_join(validation, test3, by = "UID")
+validation <- test3 %>% 
+  select(true_cold, true_cool, true_warm, "warm.x", "cold.x", "cool.x") %>% 
+  rename(predict_warm = "warm.x",
+         predict_cool = "cool.x",
+         predict_cold = "cold.x")
+
+r2 <- cor(validation$predict_cold,  validation$true_cold)
+ggplot(data = validation, aes(x = true_cold, y = predict_cold))+
+  geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
+  geom_smooth(method = "lm")+
+  labs(x = "True Prop Cold", y = "Predicted Prop Cold")+
+  annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = "tmpfigures/Validation_fish_prop_cold.png",
+    plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
+  )
+
+r2 <- cor(validation$predict_cool,  validation$true_cool)
+ggplot(data = validation, aes(x = true_cool, y = predict_cool))+
+  geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
+  geom_smooth(method = "lm")+
+  labs(x = "True Prop Cool", y = "Predicted Prop Cool")+
+  annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = "tmpfigures/Validation_fish_prop_cool.png",
+    plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
+  )
+
+r2 <- cor(validation$predict_warm,  validation$true_warm)
+ggplot(data = validation, aes(x = true_warm, y = predict_warm))+
+  geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
+  geom_smooth(method = "lm")+
+  labs(x = "True Prop Warm", y = "Predicted Prop Warm")+
+  annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = "tmpfigures/Validation_fish_prop_warm.png",
+    plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
+  )
+
+
 
 #plot the OR and the 95% confidence interval for Cold fish (vs warm fish)
 coef <- data.frame(results$coefficients) #make a coef table
@@ -1876,6 +1985,306 @@ ggsave(
 
 #odds = exp(logodds)
 #probability = odds/(1+odds)
+
+
+
+
+
+
+
+
+
+
+
+
+############### toleranace  ######################
+############### model built using all species ###############
+
+
+
+
+
+#set up the tolerance dataframe.  Want to count the number of fluvial specialist, dependent, and generalist spp
+tol_counts <- counts %>% 
+  filter(!is.na(tolerance)) %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup()  %>% 
+  group_by(UID, tolerance) %>% 
+  mutate(tol_count = sum(count)) %>%
+  ungroup() %>% 
+  select(UID, tolerance, totalcount, tol_count) %>% 
+  unique() %>% 
+  mutate(propabun_tol = tol_count/totalcount) %>% 
+  filter(tol_count> 0)
+
+#revalue counts of greater than 500 to be 500 -- eventually we want to edit the fish count file to exclude juveniles.. hopefully this will get rid of some of the really large counts..
+tol_counts$tol_count[tol_counts$tol_count>500] <- 500
+
+#plot the observed proportional abundance
+shp <- left_join(fish_shp, tol_counts, by = "UID") %>%
+  filter(!is.na(propabun_tol)) 
+ggplot(data = shp)+
+  geom_sf(aes(fill = propabun_tol, color = propabun_tol), pch = 21, alpha = 0.7)+
+  scale_fill_viridis_c(limits = c(0,1))+
+  labs(fill = "Rel. Abun.")+
+  guides(color = "none")+
+  facet_wrap(~tolerance, nrow = 1)+
+    geom_sf(data = states, fill = NA, lwd = 0.3, color = "black")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey70",
+                                        colour = "black"),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/tol_propabun_baseline.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+#for the multinomial analysis, we want the dependent variable to be catagores, rather than a proportion of different categories
+#one way to do this, is to repeat each observation 'n' times
+#for example, is a site had 5 fluvial specialist spp and 5 generalist spp, we would make five rows for each.
+n <-  tol_counts$tol_count
+tol_counts <- tol_counts[rep(seq_len(nrow(tol_counts)), n),]
+tol_counts <- tol_counts %>% 
+  select(tolerance, UID) %>% 
+  left_join(fishcovariates, by = "UID")
+
+#convert the temperature designations to 'factor' variables. Reference level = 'generalist' (all results interpreted in relation to "generalist")
+tol_counts$tolerance2 <- relevel(as.factor(tol_counts$tolerance), ref = "generalist")
+
+#put 20% of the data aside for testing
+tol_counts <- tol_counts %>% 
+  filter(!is.na(lat))
+n_obs <- nrow(tol_counts)
+permuted_rows <- sample(n_obs)
+tol_counts <- tol_counts[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- tol_counts[1:split, ]
+test <- tol_counts[(split+1):n_obs, ]
+
+#run the multinomial model
+mdl <- multinom(tolerance2 ~ 
+                 annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 WtDepWs + 
+                 PctOw_Ws +  
+                 PctImp_Ws +  
+                 pctAg_Ws + 
+                 pctWetland_Cat + 
+                 logMJJA_HIST + 
+                 logRdCrsCat + 
+                 logPctOw_Cat +
+                 huc12_damden_sqkm +
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
+                 data = train)
+results <- summary(mdl)
+saveRDS(mdl, "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_tol_all_natural_spp.rds")
+
+#validation prediction on testing data
+test2 <- test %>% 
+  select(-tolerance, -tolerance2) %>% 
+  unique()
+validation <- predict(mdl, newdata = test2, "probs")
+validation <- cbind(validation, test2) 
+
+test3 <- test %>% 
+  select(tolerance, UID) %>% 
+  group_by(UID, tolerance) %>% 
+  summarise(count = n()) %>% 
+  pivot_wider(names_from = tolerance, values_from = count) %>% 
+  mutate(totalcount = sum(cold, cool, warm, na.rm = T)) %>% 
+  mutate(true_cold = cold/totalcount,
+         true_cool = cool/totalcount,
+         true_warm = warm/totalcount)
+test3$true_cold[is.na(test3$true_cold)] <- 0
+test3$true_cool[is.na(test3$true_cool)] <- 0
+test3$true_warm[is.na(test3$true_warm)] <- 0
+
+test3 <- left_join(validation, test3, by = "UID")
+validation <- test3 %>% 
+  select(true_cold, true_cool, true_warm, "warm.x", "cold.x", "cool.x") %>% 
+  rename(predict_warm = "warm.x",
+         predict_cool = "cool.x",
+         predict_cold = "cold.x")
+
+r2 <- cor(validation$predict_cold,  validation$true_cold)
+ggplot(data = validation, aes(x = true_cold, y = predict_cold))+
+  geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
+  geom_smooth(method = "lm")+
+  labs(x = "True Prop Cold", y = "Predicted Prop Cold")+
+  annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = "tmpfigures/Validation_fish_prop_cold.png",
+    plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
+  )
+
+r2 <- cor(validation$predict_cool,  validation$true_cool)
+ggplot(data = validation, aes(x = true_cool, y = predict_cool))+
+  geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
+  geom_smooth(method = "lm")+
+  labs(x = "True Prop Cool", y = "Predicted Prop Cool")+
+  annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = "tmpfigures/Validation_fish_prop_cool.png",
+    plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
+  )
+
+r2 <- cor(validation$predict_warm,  validation$true_warm)
+ggplot(data = validation, aes(x = true_warm, y = predict_warm))+
+  geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
+  geom_smooth(method = "lm")+
+  labs(x = "True Prop Warm", y = "Predicted Prop Warm")+
+  annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = "tmpfigures/Validation_fish_prop_warm.png",
+    plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
+  )
+
+
+
+#plot the OR and the 95% confidence interval for Cold fish (vs warm fish)
+coef <- data.frame(results$coefficients) #make a coef table
+coef <- coef %>%  # keep only the cold coefficients 
+  mutate(temperature = rownames(coef)) %>% 
+  filter(temperature == "cold") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "coef")
+se <- data.frame(results$standard.errors) #make a standard error table
+se <- se %>%  #keep only the cold water standard errors
+  mutate(temperature = rownames(se)) %>% 
+  filter(temperature == "cold") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "se")
+
+#create a dataframe with the variables, coef and se in one dataframe
+results2 <- data.frame( 
+  "variable" = coef$variable,
+  "coef" = coef$coef,
+  "se" = se$se)
+
+#calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results2 <- results2 %>% 
+  mutate(z = coef/se,
+         p = (1 - pnorm(abs(z), 0, 1)) * 2,
+         CIlow = coef - (1.96*se),
+         CIhigh = coef + (1.96*se),
+         OR = exp(coef),
+         ORCIlow = exp(CIlow),
+         ORCIhigh = exp(CIhigh)) %>% 
+  arrange(OR)
+#the plot is ordering by the alphbatized letters of the variables, so we will make them factors ordered by the value of of the OR
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
+results2$variable <- factor(results2$variable, levels = results2$variable)
+
+#dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
+  geom_point()+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), width = 0)+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 17),
+          axis.text = element_text(size = 15))+
+  labs(x = NULL,
+       y = "Odds Ratio")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/coldtraitDotPlot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+
+
+#plot the OR and the 95% confidence interval for cool fish (vs warm fish)
+coef <- data.frame(results$coefficients) #make a coef table
+coef <- coef %>%  # keep only the cool coefficients 
+  mutate(temperature = rownames(coef)) %>% 
+  filter(temperature == "cool") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "coef")
+se <- data.frame(results$standard.errors) #make a standard error table
+se <- se %>%  #keep only the cool water standard errors
+  mutate(temperature = rownames(se)) %>% 
+  filter(temperature == "cool") %>% 
+  select(-temperature, -X.Intercept.) %>% 
+  pivot_longer(1:13, names_to = "variable", values_to = "se")
+
+#create a dataframe with the variables, coef and se in one dataframe
+results2 <- data.frame( 
+  "variable" = coef$variable,
+  "coef" = coef$coef,
+  "se" = se$se)
+
+#calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results2 <- results2 %>% 
+  mutate(z = coef/se,
+         p = (1 - pnorm(abs(z), 0, 1)) * 2,
+         CIlow = coef - (1.96*se),
+         CIhigh = coef + (1.96*se),
+         OR = exp(coef),
+         ORCIlow = exp(CIlow),
+         ORCIhigh = exp(CIhigh)) %>% 
+  arrange(OR)
+#the plot is ordering by the alphbatized letters of the variables, so we will make them factors ordered by the value of of the OR
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
+results2$variable <- factor(results2$variable, levels = results2$variable)
+#dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
+  geom_point()+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), width = 0)+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 17),
+          axis.text = element_text(size = 15))+
+  labs(x = NULL,
+       y = "Odds Ratio")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/cooltraitDotPlot.png",
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+
+#odds = exp(logodds)
+#probability = odds/(1+odds)
+
+
+
+
+
 
 
 
