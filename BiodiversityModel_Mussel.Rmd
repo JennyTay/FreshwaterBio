@@ -220,8 +220,15 @@ mussel_covariates <- mussel_covariates_huc10 %>%
             huc12_tnmid, huc12_areasqkm,huc12_name,
             geometry)) %>% 
   unique()
+
+#join the covariates to the fish_host_prob_occ - the total probabiity of occuurence for each spp summed in a huc10
+mussel_covariates <- left_join(mussel_covariates, fish_host_prob_occ, by = c("huc10_name", "huc10_tnmid"))
+
+#join the covariates to the fish_host by family prop abun predictions
+mussel_covariates <- left_join(mussel_covariates, fish_host_propabun, by = c("huc10_name", "huc10_tnmid"))
+
 #scale mussel covariates
-test <- mussel_covariates[,c(5:32)]
+test <- mussel_covariates[,c(5:47)]
 
 #scale data
 test <- data.frame(scale(test))
@@ -232,15 +239,10 @@ mussel_covariates <- cbind((mussel_covariates)[,c(1:4)], test)
 
 dat <- left_join(occ, mussel_covariates, by = c("huc10_name", "huc10_tnmid"))
 
-#join the covariates to the fish_host_prob_occ - the total probabiity of occuurence for each spp summed in a huc10
-dat <- left_join(dat, fish_host_prob_occ, by = c("huc10_name", "huc10_tnmid"))
-
-#join the covariates to the fish_host by family prop abun predictions
-dat <- left_join(dat, fish_host_propabun, by = c("huc10_name", "huc10_tnmid"))
 
 
 
-#plot curves of each species and the bivariate relatiomship with each covariate
+#plot curves of each species and the bivariate relationship with each covariate
 
 dat2 <- dat %>% 
   filter(common_name == "eastern lampmussel")
@@ -547,7 +549,7 @@ mdl <- glm(live_occurrence ~
              family = "binomial")
 
 summary(mdl)
-saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[1], ".rds", sep = ""))
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat_rare$common_name)[1], ".rds", sep = ""))
 
 results <- 
   data.frame(
@@ -592,7 +594,7 @@ val_zero_prob <- data.frame(
 for (i in 2:length(unique(dat_rare$common_name))) {
  
 dat2 <- dat_rare %>% 
-filter(common_name == unique(dat_rare$common_name)[i])
+  filter(common_name == unique(dat_rare$common_name)[i])
 n_obs <- nrow(dat2)
 permuted_rows <- sample(n_obs)
 dat2 <- dat2[permuted_rows,]
@@ -628,8 +630,7 @@ mdl <- glm(live_occurrence ~
              data = train,
              family = "binomial")
 
-summary(mdl)
-saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[i], ".rds", sep = ""))
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat_rare$common_name)[i], ".rds", sep = ""))
 
 results2 <- 
   data.frame(
@@ -637,7 +638,7 @@ results2 <-
     "std_er" = summary(mdl)$coefficients[,2],
     "p_val" = summary(mdl)$coefficients[,4],
     "variable" = rownames(summary(mdl)$coefficients),
-    "common_name" = unique(dat$common_name)[i]) 
+    "common_name" = unique(dat_rare$common_name)[i]) 
 
 results <- rbind(results, results2)
 
@@ -730,7 +731,7 @@ mdl <- glm(live_occurrence ~
              family = "binomial")
 
 summary(mdl)
-saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[1], ".rds", sep = ""))
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat2$common_name)[1], ".rds", sep = ""))
 
 results_common <- 
   data.frame(
@@ -738,7 +739,7 @@ results_common <-
     "std_er" = summary(mdl)$coefficients[,2],
     "p_val" = summary(mdl)$coefficients[,4],
     "variable" = rownames(summary(mdl)$coefficients),
-    "common_name" = "alewife floater")
+    "common_name" = "creeper")
 
 
 #use model to predict on testing data
@@ -775,7 +776,7 @@ val_zero_prob_common <- data.frame(
 for (i in 2:length(unique(dat_common$common_name))) {
  
 dat2 <- dat_common %>% 
-filter(common_name == unique(dat_common$common_name)[i])
+  filter(common_name == unique(dat_common$common_name)[i])
 n_obs <- nrow(dat2)
 permuted_rows <- sample(n_obs)
 dat2 <- dat2[permuted_rows,]
@@ -811,7 +812,6 @@ mdl <- glm(live_occurrence ~
              data = train,
              family = "binomial")
 
-summary(mdl)
 saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat_common$common_name)[i], ".rds", sep = ""))
 
 results2 <- 
@@ -867,8 +867,13 @@ val_zero_prob <- rbind(val_zero_prob, val_zero_prob_common)
 write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob_with_host.csv")
 results <- rbind(results, results_common)
 results <- results %>% 
-  filter(p_val <0.05)
-
+  filter(p_val <0.05) %>% 
+  mutate(odds = exp(estimate),
+         std_er = exp(std_er)) %>% 
+  filter(variable !="(Intercept)") %>% 
+  arrange(common_name) %>% 
+  select(common_name, variable, odds, std_er, p_val)
+write.csv(results, file = "tmpfigures/mussel_results_with_host.csv")
 
 
 
@@ -876,7 +881,7 @@ results <- results %>%
 
 #####without host
 
-#
+
 #### Rare spp 
 
 dat_rare <- dat %>% 
@@ -1218,7 +1223,7 @@ print(unique(dat_common$common_name)[i])
 val_zero_prob <- rbind(val_zero_prob, val_zero_prob_common)
 
 withouthost <- val_zero_prob
-
+write.csv(withouthost, file = "tmpfigures/val_zero_prob_without_host.csv")
 
 
 #compare with and without host fish in the  model

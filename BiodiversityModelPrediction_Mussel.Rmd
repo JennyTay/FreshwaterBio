@@ -1,0 +1,408 @@
+---
+title: "BiodiversityModelPrediction_Mussel"
+author: "Jenny Rogers"
+date: "2023-04-14"
+output: html_document
+---
+
+```{r}
+#mussel data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData")
+mussel_shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_event.shp")
+
+#mussel event and hydrography join
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowline_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowlineV2_join.RData")
+
+#watershed shape files
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+
+#load New England state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+
+```
+
+Baseline predictions
+
+
+need to calculate the baseline host fish distributions at the HUC10 scale (we also did this in the biodiveristyModel_mussel file)
+
+Host fish distributions at HUC10 scale.  This predicts the host fish distributions in the baseline condition. 
+When we want to do mussel predictions in future time periods, we will need to redo this calcuation changing out the covariate data file for one with climate change and/or the management scenarios.  The new data sets need to be scaled according to the same mean and sd as the baseline.
+```{r}
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+#need to scal the variavles
+test <- NHDplusV2_NewEngCrop %>% 
+  data.frame() %>% 
+  select(-geometry)
+
+test <- test[,c(7:8, 10:39)]
+
+#scale data
+test <- data.frame(scale(test))
+
+NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
+
+
+#fish host covariate with probability of presence by spp
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+
+#join the predictions to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
+
+#average by HUC10 becuase that is the scale we are modeling mussels
+fish_host_prob_occ <- NHDplusV2_NewEngCrop_baseline %>%
+  data.frame() %>% 
+  select(huc10_name, huc10_tnmid, 40:96) %>% 
+  filter(!is.na(pres_brook.trout.rds),
+         !is.na(huc10_name)) %>%
+  pivot_longer(3:59, names_to = "common_name", values_to = "prob_occ") %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(total_prob_occ = sum(prob_occ))
+  
+
+
+
+
+
+#fish host covariate with proportional abundance by family. First do prop abund model. then add within a family
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+
+#join the predictions to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
+
+#average by HUC10 becuase that is the scale we are modeling mussels
+fish_host_propabun <- NHDplusV2_NewEngCrop_baseline %>%
+  data.frame() %>% 
+  select(huc10_name, huc10_tnmid, 40:96) %>% 
+  filter(!is.na(propabun_brook.trout.rds),
+         !is.na(huc10_name)) %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise_all(mean) %>% 
+  pivot_longer(3:59, names_to = "common_name", values_to = "propabun")
+fish_host_propabun$common_name <- gsub("propabun_", "", fish_host_propabun$common_name)
+fish_host_propabun$common_name <- gsub(".rds", "", fish_host_propabun$common_name)
+fish_host_propabun$common_name <- gsub("\\.", " ", fish_host_propabun$common_name)
+
+#add family information
+fish_host_propabun <- fish_host_propabun %>% 
+  mutate(family = ifelse(common_name%in% c("american brook lamprey"), "Petromyzontidae",
+                         ifelse(common_name %in% c("american eel"), "Anguillidae",
+                                ifelse(common_name%in% c("atlantic salmon", "brook trout", "brown trout", "rainbow trout", "round whitefish"), "Salmonidae",
+                                       ifelse(common_name %in% c("banded killifish"), "Fundulidae",
+                                              ifelse(common_name %in% c("banded sunfish", "black crappie", "bluegill", "green sunfish", "largemouth bass", "pumpkinseed", "redbreast sunfish", "rock bass", "smallmouth bass"), "Centrarchidae",
+                                                     ifelse(common_name %in% c("bluntnose minnow", "bridle shiner", "common carp", "common shiner", "creek chub", "cutlips minnow", "eastern blacknose dace", "eastern silvery minnow", "fallfish", "fathead minnow", "finescale dace", "golden shiner", "lake chub", "longnose dace", "mimic shiner", "redbelly dace", "rosyface shiner", "rosyside dace", "spotfin shiner", "spottail shiner"), "Cyprinidae",
+                                                            ifelse(common_name %in% c("bowfin"), "Amiidae",
+                                                                   ifelse(common_name %in% c("brook stickleback"), "Gasterosteidae",
+                                                                          ifelse(common_name %in% c("brown bullhead", "channel catfish", "margined madtom", "white catfish"), "Ictaluridae",
+                                                                                 ifelse(common_name %in% c("burbot"), "Lotidae",
+                                                                                        ifelse(common_name %in% c("central mudminnow"), "Umbridae" ,
+                                                                                               ifelse(common_name %in% c("chain pickerel", "northern pike", "redfin pickerel"), "Esocidae",
+                                                                                                      ifelse(common_name %in% c("creek chubsucker", "longnose sucker", "white sucker", "yellow bullhead"), "Catostomidae",
+                                                                                                             ifelse(common_name %in% c("slimy sculpin"), "Cottidae", "Percidae")
+                                                                                                             ))))))))))))))
+
+#swamp darter", "tessellated darter", "walleye", "yellow perch" are percidae
+
+#group by family for total proportional abundance by family
+fish_host_propabun <- fish_host_propabun %>% 
+  group_by(huc10_name, huc10_tnmid, family) %>% 
+  summarise(propabun = sum(propabun)) %>% 
+  pivot_wider(names_from = family, values_from = propabun) %>% 
+  select(-Gasterosteidae) #its zero in every observation
+
+
+
+
+
+```
+
+
+
+
+Load in the HUC10 mussel covariates,  join the host fish distributions, and scale
+```{r}
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC10.RData")
+
+covariates <- left_join(NHDplusV2_NewEngCrop_mussel_covariates_HUC10, fish_host_prob_occ, by = c("huc10_name", "huc10_tnmid"))
+
+covariates <- left_join(covariates, fish_host_propabun, by = c("huc10_name", "huc10_tnmid"))
+
+
+#scale mussel covariates
+test <- covariates[,c(3:45)]
+
+means <- sapply(test, mean, na.rm = T)
+save(means, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/musselcovariates_scaling_mean.RData")
+sd <- sapply(test, sd, na.rm = T)
+save(sd, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/musselcovariates_scaling_sd.RData")
+
+
+#scale data
+test <- data.frame(scale(test))
+
+covariates <- cbind((covariates)[,c(1:2)], test)
+
+
+
+
+
+```
+
+Load in the mussel models and apply them to the baseline data
+
+```{r}
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "mussel_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = covariates, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+
+
+for (i in 2:12) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = covariates, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+names(predictions) <- gsub(pattern = ".rds", replacement = "", x = names(predictions))
+names(predictions) <- gsub(pattern = "mussel_", replacement = "", x = names(predictions))
+
+#join the predictions to the list of comids
+predictions <- cbind(covariates, predictions)
+
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+predictions <- left_join(huc10, predictions, by = c("huc10_name", "huc10_tnmid"))
+
+
+#sample plot
+shp <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID") %>% 
+  filter(!is.na(live_occurrence)) %>% 
+  filter(live_occurrence == 1) %>% 
+  filter(huc10_name != "Long Island Sound")
+predictions <- predictions %>% 
+  filter(huc10_name != "Long Island Sound")
+
+
+  
+ggplot(data = predictions)+
+  geom_sf(aes(fill = `eastern lampmussel`))+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 0.5,
+                       limits = c(0,1))+
+  geom_sf(data =shp[shp$common_name == "eastern lampmussel",], 
+          aes(color = live_occurrence), color = "black", size = .5)
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/easternlampmussel.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+
+```
+
+
+apply the predictions to the climate change projections for flow and temperature
+
+```{r}
+
+#make the un-scaled baseline covariate file again
+covariates <- left_join(NHDplusV2_NewEngCrop_mussel_covariates_HUC10, fish_host_prob_occ, by = c("huc10_name", "huc10_tnmid"))
+
+covariates <- left_join(covariates, fish_host_propabun, by = c("huc10_name", "huc10_tnmid"))
+
+
+#load the 2080 file that has the projected stream temperature and streamflow covariate values
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates_2080.RData")
+
+
+#average by huc10 all the projected flow and temperature variables
+test <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  select(huc10_name, huc10_tnmid, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, logMJJA_HIST) %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(annual_mean_summer_temp = mean(annual_mean_summer_temp, na.rm = T),
+            BFI_HIST = mean(BFI_HIST, na.rm = T),
+            LO7Q1DT_HIST = mean(LO7Q1DT_HIST, na.rm = T),
+            CFM_HIST = mean(CFM_HIST, na.rm = T),
+            W95_HIST = mean(W95_HIST, na.rm = T),
+            logMJJA_HIST = mean(logMJJA_HIST, na.rm = T))
+
+#need to order the new dataframe correctly and scale using the means and sd from the baseline data
+
+#remove the current flow and temperature values from the baseline file and add in the 2080 projections
+order <- names(covariates)
+covariates2 <- covariates %>% 
+  select(-c(annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, logMJJA_HIST)) %>% #remove the baseline values for these variables
+  left_join(test, by = c("huc10_name", "huc10_tnmid")) %>%  #add in the projected 2080 values
+  select(all_of(order))
+
+
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+test <- covariates2[,c(3:45)]
+test <- sweep(test, 2, means, FUN = '-') 
+test <- sweep(test, 2, sd, FUN = '/')  
+
+#join the scaled variables back to the full dataset
+covariates_cc <- cbind((covariates2)[,c(1:2)], test)
+
+
+
+#apply models to the climate change covariates
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "mussel_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = covariates_cc, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+
+
+for (i in 2:12) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+  tmp <- data.frame("test" = predict(mdl, newdata = covariates_cc, type = "response"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions <- cbind(predictions, tmp)
+  
+  
+}
+
+names(predictions) <- gsub(pattern = ".rds", replacement = "", x = names(predictions))
+names(predictions) <- gsub(pattern = "mussel_", replacement = "", x = names(predictions))
+
+#join the predictions to the list of comids
+prediction_cc <- cbind(covariates_cc, predictions)
+
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+prediction_cc <- left_join(huc10, prediction_cc, by = c("huc10_name", "huc10_tnmid"))
+
+
+
+
+#sample plot
+shp <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID") %>% 
+  filter(!is.na(live_occurrence)) %>% 
+  filter(live_occurrence == 1) %>% 
+  filter(huc10_name != "Long Island Sound")
+prediction_cc <- prediction_cc %>% 
+  filter(huc10_name != "Long Island Sound")
+
+
+  
+ggplot(data = prediction_cc)+
+  geom_sf(aes(fill = `yellow lampmussel`))+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 0.5,
+                       limits = c(0,1))+
+  geom_sf(data =shp[shp$common_name == "yellow lampmussel",], 
+          aes(color = live_occurrence), color = "black", size = .5)
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/yellowlampmussel_cc.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+```
+

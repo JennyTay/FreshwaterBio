@@ -458,10 +458,15 @@ dat <- dat %>%
             pollutionWs = mean(pollutionWs, na.rm = T),
             nitWs = mean(nitWs, na.rm = T))
 
+#save the mussel covariate datafile that has all of the HUC10 inclued
+NHDplusV2_NewEngCrop_mussel_covariates_HUC10 <- dat
+save(NHDplusV2_NewEngCrop_mussel_covariates_HUC10, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC10.RData")
+
+
 #join to the mussel_event_huc_join so we can get the UIDs of each sampling event that occurred in that watershed
 dat <- left_join(mussel_event_huc_join, dat, by = c("huc10_name", "huc10_tnmid"))
 mussel_covariates_huc10 <- dat
 
-#save
+#save the mussel covariate datafile that is linked to the mussel observation data
 save(mussel_covariates_huc10, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc10.RData")
 
