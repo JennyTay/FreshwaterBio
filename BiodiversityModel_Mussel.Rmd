@@ -245,7 +245,7 @@ dat <- left_join(occ, mussel_covariates, by = c("huc10_name", "huc10_tnmid"))
 #plot curves of each species and the bivariate relationship with each covariate
 
 dat2 <- dat %>% 
-  filter(common_name == "eastern lampmussel")
+  filter(common_name == "brook floater")
 
 
 for (i in 8:length(names(dat2))) {
@@ -256,7 +256,7 @@ ggplot(data = dat2, mapping = aes(x = dat2[[i]], y = live_occurrence))+
     method.args = list(family = "binomial"))+
   labs(x = names(dat2[i]), y = "Live Occurrence")
  
-ggsave(paste("tmpfigures/mussel_pres-abs_log_reg_plots/", "eastlmp_", names(dat2[i]), ".png", sep = ""), 
+ggsave(paste("tmpfigures/mussel_pres-abs_log_reg_plots/", "bfkfl_", names(dat2[i]), ".png", sep = ""), 
     plot = last_plot(),
     width = 18,
     height = 12,
@@ -867,16 +867,46 @@ val_zero_prob <- rbind(val_zero_prob, val_zero_prob_common)
 write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob_with_host.csv")
 results <- rbind(results, results_common)
 results <- results %>% 
-  filter(p_val <0.05) %>% 
+  filter(p_val <0.1) %>%  
   mutate(odds = exp(estimate),
-         std_er = exp(std_er)) %>% 
+         up = estimate + (1.64 * std_er),#90% confidence interval
+         up_odds = exp(up),
+         lw = estimate - (1.64 * std_er),
+         lw_odds = exp(lw)) %>% 
   filter(variable !="(Intercept)") %>% 
   arrange(common_name) %>% 
-  select(common_name, variable, odds, std_er, p_val)
+  select(common_name, variable, odds, up_odds, lw_odds, p_val)
 write.csv(results, file = "tmpfigures/mussel_results_with_host.csv")
 
 
 
+for (i in 1:12) {
+  
+ggplot(data = results[results$common_name == unique(results$common_name)[i],], aes(x = variable, y = odds))+
+  geom_point(size = 2)+
+  geom_errorbar(aes(ymin = lw_odds, ymax = up_odds), width = .2)+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", linewidth = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+    ggtitle(label = unique(results$common_name)[i])
+
+ggsave(
+    filename = paste("C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/mussel_log_odd_plots_multivariate/", unique(results$common_name)[i],  ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200)
+
+print(i)
+}
 
 
 #####without host

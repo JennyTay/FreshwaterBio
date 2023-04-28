@@ -1114,7 +1114,7 @@ dev.off()
 
 
 
-Model of presence and absence
+Logistic Regression Model of presence and absence at the stream reach scale
 
 
 
@@ -1191,8 +1191,20 @@ ggplot(data = dat, mapping = aes(x = occurrence, y = pctForest_ws))+
 # summary(mdl)
 
 
+dat <- dat %>% 
+  filter(!is.na(lat))
+
+#set aside 20% for validation and put 80% into the calibration dataset
+n_obs <- nrow(dat)
+permuted_rows <- sample(n_obs)
+dat <- dat[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(3223)
+train <- dat[1:split, ]
+test <- dat[(split+1):n_obs, ]
+
 #global model
-mdl <- glmmTMB(occurrence ~
+mdl <- glm(occurrence ~
                  annual_mean_summer_temp + 
                  BFI_HIST + 
                  LO7Q1DT_HIST +
@@ -1207,9 +1219,12 @@ mdl <- glmmTMB(occurrence ~
                  logMJJA_HIST + 
                  logRdCrsCat +
                  huc12_damden_sqkm +
-                 huc8_damcount,
-               data = dat,
-               ziformula = ~lat + long + ElevCat + logWsAreaSqKm,
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
+               data = train,
                family = binomial)
 
 summary(mdl)
@@ -1217,28 +1232,45 @@ saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objec
 
 #make a table of the model resuls
 
-results1 <- 
-  data.frame(
-    "estimate" = summary(mdl)$coefficients$cond[,1],
-    "std_er" = summary(mdl)$coefficients$cond[,2],
-    "p_val" = summary(mdl)$coefficients$cond[,4],
-    "variable" = rownames(summary(mdl)$coefficients$cond),
-    "model" = "conditional")
 
-results2 <- 
+results <- 
   data.frame(
-    "estimate" = summary(mdl)$coefficients$zi[,1],
-    "std_er" = summary(mdl)$coefficients$zi[,2],
-    "p_val" = summary(mdl)$coefficients$zi[,4],
-    "variable" = rownames(summary(mdl)$coefficients$zi),
-    "model" = "zeroinfla")
+    "estimate" = summary(mdl)$coefficients[,1],
+    "std_er" = summary(mdl)$coefficients[,2],
+    "p_val" = summary(mdl)$coefficients[,4],
+    "variable" = rownames(summary(mdl)$coefficients))
 
-results <- rbind(results1, results2)
 results$common_name <- unique(dat$common_name)
 
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
 
 
+#compare the predicted zeros to the actual zeros
+compare <- data.frame(
+  "common_name" = test$common_name,
+  "occurrence" = factor(test$occurrence),
+  "pred_occurrence" = factor(ifelse(predict_resp > 0.3, 1, 0), levels = levels(factor(test$occurrence)))
+)
+compare <- na.omit(compare)
 
+#validations for the predicted occurrence vs the actual occurrence
+compare$pred_occurrence <- factor(compare$pred_occurrence, levels = c(1,0))
+compare$occurrence <- factor(compare$occurrence, levels = c(1,0))
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val_zero_prob <- data.frame(
+  "common_name" = unique(train$common_name),
+  "test_dat_pres" = nrow(test[test$occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$occurrence == 0,]),
+  "train_dat_pres" = nrow(train[train$occurrence == 1, ]),
+  "train_dat_abs" = nrow(train[train$occurrence == 0, ]),
+  "accuracy" = cm$overall[1],
+  "sensitivity" = cm$byClass[1],
+  "Specificity" = cm$byClass[2],
+  "Pos Pred Value" = cm$byClass[3],
+  "Neg Pred Value" = cm$byClass[4]
+)
 
 
 #Start the for loop here
@@ -1255,9 +1287,21 @@ occurrence <- fish_occurrence_filtererd %>%
 dat <- left_join(occurrence, fishcovariates, by = "UID")
 dat <- dat[complete.cases(dat),]#ahhhh
 
+dat <- dat %>% 
+  filter(!is.na(lat))
+
+#set aside 20% for validation and put 80% into the calibration dataset
+n_obs <- nrow(dat)
+permuted_rows <- sample(n_obs)
+dat <- dat[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- dat[1:split, ]
+test <- dat[(split+1):n_obs, ]
+
 
 #global model
-mdl <- glmmTMB(occurrence ~
+mdl <- glm(occurrence ~
                  annual_mean_summer_temp + 
                  BFI_HIST + 
                  LO7Q1DT_HIST +
@@ -1272,9 +1316,12 @@ mdl <- glmmTMB(occurrence ~
                  logMJJA_HIST + 
                  logRdCrsCat  +
                  huc12_damden_sqkm +
-                 huc8_damcount,
-               data = dat,
-               ziformula = ~lat + long + ElevCat + logWsAreaSqKm,
+                 huc8_damcount +
+                 lat +
+                 long +
+                 ElevCat + 
+                 logWsAreaSqKm,
+               data = train,
                family = binomial)
 
 saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/pres_", unique(fish_occurrence_filtererd$common_name)[i], ".rds", sep = ""))
@@ -1282,38 +1329,60 @@ saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objec
 #make a table of the model resuls
 
 
-results1 <- 
+tmp <- 
   data.frame(
-    "estimate" = summary(mdl)$coefficients$cond[,1],
-    "std_er" = summary(mdl)$coefficients$cond[,2],
-    "p_val" = summary(mdl)$coefficients$cond[,4],
-    "variable" = rownames(summary(mdl)$coefficients$cond),
-    "model" = "conditional")
+    "estimate" = summary(mdl)$coefficients[,1],
+    "std_er" = summary(mdl)$coefficients[,2],
+    "p_val" = summary(mdl)$coefficients[,4],
+    "variable" = rownames(summary(mdl)$coefficients))
 
-results2 <- 
-  data.frame(
-    "estimate" = summary(mdl)$coefficients$zi[,1],
-    "std_er" = summary(mdl)$coefficients$zi[,2],
-    "p_val" = summary(mdl)$coefficients$zi[,4],
-    "variable" = rownames(summary(mdl)$coefficients$zi),
-    "model" = "zeroinfla")
-
-tmp <- rbind(results1, results2)
 tmp$common_name <- unique(fish_occurrence_filtererd$common_name)[i]
 
 
 
 results <- rbind(results, tmp)
 
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
+
+compare <- data.frame(
+  "common_name" = rep(unique(train$common_name), nrow(test)),
+  "occurrence" = factor(test$occurrence),
+  "pred_occurrence" = factor(ifelse(predict_resp > 0.3, 1, 0), levels = levels(factor(test$occurrence)))
+)
+
+compare$pred_occurrence <- factor(compare$pred_occurrence, levels = c(1,0))
+compare$occurrence <- factor(compare$occurrence, levels = c(1,0))
+
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val2 <- data.frame(
+  "common_name" = unique(train$common_name),
+  "test_dat_pres" = nrow(test[test$occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$occurrence == 0,]),
+  "train_dat_pres" = nrow(train[train$occurrence == 1, ]),
+  "train_dat_abs" = nrow(train[train$occurrence == 0, ]),
+  "accuracy" = cm$overall[1],
+  "sensitivity" = cm$byClass[1],
+  "Specificity" = cm$byClass[2],
+  "Pos Pred Value" = cm$byClass[3],
+  "Neg Pred Value" = cm$byClass[4]
+)
+val_zero_prob <- rbind(val_zero_prob, val2)
+
+
 print(unique(fish_occurrence_filtererd$common_name)[i])
 
 }
 
+write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob_logistic_reg_mdl.csv")
+
 #filter to remove spp that did not converge, these include:
-#bowfin, white catfish, rosyside dace, mimic shiner, #walleye, round whitefish, rosyface shiner, spotfin shiner
+#rosyside dace,  round whitefish, rosyface shiner, spotfin shiner
 
 results <- results %>% 
-  filter(common_name %in% c("american eel", "common carp", "northern pike", "channel catfish", "eastern silvery minnow", 
+  filter(common_name %in% c("bowfin", "white catfish", "mimic shiner", "walleye", "rosyface shiner", "spotfin shiner",
+                            "american eel", "common carp", "northern pike", "channel catfish", "eastern silvery minnow", 
                             "white perch", "finescale dace", "american brook lamprey", "brook stickleback",
                             "green sunfish", "central mudminnow", "bridle shiner", "cutlips minnow",
                             "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
@@ -1325,17 +1394,8 @@ results <- results %>%
                             "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
 
 
-cond <- results %>% 
-  filter(model == "conditional")
-
-
-
-zer <- results %>% 
-  filter(model == "zeroinfla")
-
-
 #calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
-results2 <- cond %>% 
+results2 <- results %>% 
   mutate(CIlow = estimate - (1.96*std_er),
          CIhigh = estimate + (1.96*std_er),
          OR = exp(estimate),
@@ -1343,10 +1403,6 @@ results2 <- cond %>%
          ORCIhigh = exp(CIhigh)) %>% 
   arrange(OR) %>% 
   filter(variable != "(Intercept)")
-
-#rename variables to make more interpretable
-results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
-results2$variable[results2$variable == "huc12_damden_sqkm"] <- "damdensity_hu12"
 
 pres_abs_fish_mdl_results <- results2
 save(pres_abs_fish_mdl_results, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_results/pres_abs_fish_mdl_results.RData")
@@ -1358,7 +1414,7 @@ for (i in 1:length(unique(results2$common_name))) {
 
 ggplot(data = results2[results2$common_name == unique(results2$common_name)[i],], aes(x = variable, y = OR))+
   geom_point(size = 3)+
-  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), width = .2)+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), linewidth = .2)+
   coord_flip()+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
@@ -1392,6 +1448,7 @@ results3 <- pres_abs_fish_mdl_results
 results3$OR[results3$OR>10] <- 10
 results3$OR[results3$OR < 0.00001] <- 0.00001
 results3$estimate[results3$estimate < -5] <- -5
+results3$estimate[results3$estimate > 5] <- 5
 results3$estimate[results3$p_val > 0.05] <- NA
 
 ggplot(results3, aes(x = variable, y = common_name, fill = estimate))+
@@ -2057,7 +2114,7 @@ tol_counts <- tol_counts %>%
   select(tolerance, UID) %>% 
   left_join(fishcovariates, by = "UID")
 
-#convert the temperature designations to 'factor' variables. Reference level = 'generalist' (all results interpreted in relation to "generalist")
+#convert the tolerance designations to 'factor' variables. Reference level = 'generalist' (all results interpreted in relation to "generalist")
 tol_counts$tolerance2 <- relevel(as.factor(tol_counts$tolerance), ref = "generalist")
 
 #put 20% of the data aside for testing
@@ -2108,68 +2165,68 @@ test3 <- test %>%
   group_by(UID, tolerance) %>% 
   summarise(count = n()) %>% 
   pivot_wider(names_from = tolerance, values_from = count) %>% 
-  mutate(totalcount = sum(cold, cool, warm, na.rm = T)) %>% 
-  mutate(true_cold = cold/totalcount,
-         true_cool = cool/totalcount,
-         true_warm = warm/totalcount)
-test3$true_cold[is.na(test3$true_cold)] <- 0
-test3$true_cool[is.na(test3$true_cool)] <- 0
-test3$true_warm[is.na(test3$true_warm)] <- 0
+  mutate(totalcount = sum(generalist, `fluvial dependent`, `fluvial specialist`, na.rm = T)) %>% 
+  mutate(true_gen = generalist/totalcount,
+         true_dep = `fluvial dependent`/totalcount,
+         true_spe = `fluvial specialist`/totalcount)
+test3$true_gen[is.na(test3$true_gen)] <- 0
+test3$true_dep[is.na(test3$true_dep)] <- 0
+test3$true_spe[is.na(test3$true_spe)] <- 0
 
 test3 <- left_join(validation, test3, by = "UID")
 validation <- test3 %>% 
-  select(true_cold, true_cool, true_warm, "warm.x", "cold.x", "cool.x") %>% 
-  rename(predict_warm = "warm.x",
-         predict_cool = "cool.x",
-         predict_cold = "cold.x")
+  select(true_gen, true_dep, true_spe, "generalist.x", "fluvial dependent.x", "fluvial specialist.x") %>% 
+  rename(predict_gen = "generalist.x",
+         predict_dep = "fluvial dependent.x",
+         predict_spe = "fluvial specialist.x")
 
-r2 <- cor(validation$predict_cold,  validation$true_cold)
-ggplot(data = validation, aes(x = true_cold, y = predict_cold))+
+r2 <- cor(validation$predict_gen,  validation$true_gen)
+ggplot(data = validation, aes(x = true_gen, y = predict_gen))+
   geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
   geom_smooth(method = "lm")+
-  labs(x = "True Prop Cold", y = "Predicted Prop Cold")+
+  labs(x = "True Prop Generalist", y = "Predicted Prop Generalist")+
   annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
 ggsave(
-    filename = "tmpfigures/Validation_fish_prop_cold.png",
+    filename = "tmpfigures/Validation_fish_prop_Generalist.png",
     plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
   )
 
-r2 <- cor(validation$predict_cool,  validation$true_cool)
-ggplot(data = validation, aes(x = true_cool, y = predict_cool))+
+r2 <- cor(validation$predict_dep,  validation$true_dep)
+ggplot(data = validation, aes(x = true_dep, y = predict_dep))+
   geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
   geom_smooth(method = "lm")+
-  labs(x = "True Prop Cool", y = "Predicted Prop Cool")+
+  labs(x = "True Prop fluvial dependent", y = "Predicted Prop fluvial dependent")+
   annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
 ggsave(
-    filename = "tmpfigures/Validation_fish_prop_cool.png",
+    filename = "tmpfigures/Validation_fish_prop_fluvdep.png",
     plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
   )
 
-r2 <- cor(validation$predict_warm,  validation$true_warm)
-ggplot(data = validation, aes(x = true_warm, y = predict_warm))+
+r2 <- cor(validation$predict_spe,  validation$true_spe)
+ggplot(data = validation, aes(x = true_spe, y = predict_spe))+
   geom_jitter(alpha = 0.05, size = 3, width = 0.05, height = 0.05)+
   geom_smooth(method = "lm")+
-  labs(x = "True Prop Warm", y = "Predicted Prop Warm")+
+  labs(x = "True Prop fluvial specialist", y = "Predicted Prop fluvial specialist")+
   annotate("text",x=.2,y=.2,label=r2,parse=TRUE, color = "red", size = 5)
 ggsave(
-    filename = "tmpfigures/Validation_fish_prop_warm.png",
+    filename = "tmpfigures/Validation_fish_prop_fluvspe.png",
     plot = last_plot(),    width = 14,    height = 9,    units = "cm",    dpi = 300
   )
 
 
 
-#plot the OR and the 95% confidence interval for Cold fish (vs warm fish)
+#plot the OR and the 95% confidence interval for specialist fish (vs generalist fish)
 coef <- data.frame(results$coefficients) #make a coef table
-coef <- coef %>%  # keep only the cold coefficients 
-  mutate(temperature = rownames(coef)) %>% 
-  filter(temperature == "cold") %>% 
-  select(-temperature, -X.Intercept.) %>% 
+coef <- coef %>%  # keep only the specialist coefficients 
+  mutate(tolerance = rownames(coef)) %>% 
+  filter(tolerance == "fluvial specialist") %>% 
+  select(-tolerance, -X.Intercept.) %>% 
   pivot_longer(1:13, names_to = "variable", values_to = "coef")
 se <- data.frame(results$standard.errors) #make a standard error table
-se <- se %>%  #keep only the cold water standard errors
-  mutate(temperature = rownames(se)) %>% 
-  filter(temperature == "cold") %>% 
-  select(-temperature, -X.Intercept.) %>% 
+se <- se %>%  #keep only the fluvial specialist water standard errors
+  mutate(tolerance = rownames(se)) %>% 
+  filter(tolerance == "fluvial specialist") %>% 
+  select(-tolerance, -X.Intercept.) %>% 
   pivot_longer(1:13, names_to = "variable", values_to = "se")
 
 #create a dataframe with the variables, coef and se in one dataframe
@@ -2208,7 +2265,7 @@ ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
        y = "Odds Ratio")
 
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/coldtraitDotPlot.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/specialisttraitDotPlot.png",
     plot = last_plot(),
     width = 14,
     height = 9,
@@ -2220,18 +2277,18 @@ ggsave(
 
 
 
-#plot the OR and the 95% confidence interval for cool fish (vs warm fish)
+#plot the OR and the 95% confidence interval for fluvial dependent fish (vs generalist fish)
 coef <- data.frame(results$coefficients) #make a coef table
-coef <- coef %>%  # keep only the cool coefficients 
-  mutate(temperature = rownames(coef)) %>% 
-  filter(temperature == "cool") %>% 
-  select(-temperature, -X.Intercept.) %>% 
+coef <- coef %>%  # keep only the fluvial dependent coefficients 
+  mutate(tolerance = rownames(coef)) %>% 
+  filter(tolerance == "fluvial dependent") %>% 
+  select(-tolerance, -X.Intercept.) %>% 
   pivot_longer(1:13, names_to = "variable", values_to = "coef")
 se <- data.frame(results$standard.errors) #make a standard error table
-se <- se %>%  #keep only the cool water standard errors
-  mutate(temperature = rownames(se)) %>% 
-  filter(temperature == "cool") %>% 
-  select(-temperature, -X.Intercept.) %>% 
+se <- se %>%  #keep only the fluvial dependent water standard errors
+  mutate(tolerance = rownames(se)) %>% 
+  filter(tolerance == "fluvial dependent") %>% 
+  select(-tolerance, -X.Intercept.) %>% 
   pivot_longer(1:13, names_to = "variable", values_to = "se")
 
 #create a dataframe with the variables, coef and se in one dataframe
@@ -2253,6 +2310,7 @@ results2 <- results2 %>%
 #the plot is ordering by the alphbatized letters of the variables, so we will make them factors ordered by the value of of the OR
 results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean_summer_temp"
 results2$variable <- factor(results2$variable, levels = results2$variable)
+
 #dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
 ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
   geom_point()+
@@ -2269,7 +2327,7 @@ ggplot(data = arrange(results2, OR), aes(x = variable, y = OR))+
        y = "Odds Ratio")
 
 ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/cooltraitDotPlot.png",
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/fluvdependenttraitDotPlot.png",
     plot = last_plot(),
     width = 14,
     height = 9,

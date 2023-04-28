@@ -6,6 +6,15 @@ output: html_document
 ---
 
 ```{r}
+library(tidyverse)
+library(sf)
+library(glmmTMB)
+
+
+```
+
+
+```{r}
 #mussel data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData")
@@ -169,7 +178,25 @@ fish_host_propabun <- fish_host_propabun %>%
   select(-Gasterosteidae) #its zero in every observation
 
 
+#plot fish host prob of occurrence
+plot <- left_join(huc10, fish_host_propabun, by = c("huc10_name", "huc10_tnmid"))%>% 
+  filter(huc10_name != "Long Island Sound")
 
+  
+ggplot(data = plot)+
+  geom_sf(aes(fill = Percidae))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+  labs(fill = "Percidae")
+
+ggsave(paste("tmpfigures/fish_host_propabun_perch_baseline.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)  
 
 
 ```
@@ -248,7 +275,7 @@ huc10 <- huc10 %>%
   rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
 huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
 
-predictions <- left_join(huc10, predictions, by = c("huc10_name", "huc10_tnmid"))
+predictions_baseline <- left_join(huc10, predictions, by = c("huc10_name", "huc10_tnmid"))
 
 
 #sample plot
@@ -256,22 +283,34 @@ shp <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID") %>%
   filter(!is.na(live_occurrence)) %>% 
   filter(live_occurrence == 1) %>% 
   filter(huc10_name != "Long Island Sound")
-predictions <- predictions %>% 
+predictions_baseline <- predictions_baseline %>% 
   filter(huc10_name != "Long Island Sound")
 
 
   
-ggplot(data = predictions)+
-  geom_sf(aes(fill = `eastern lampmussel`))+
+ggplot(data = predictions_baseline)+
+  geom_sf(aes(fill = `tidewater mucket`))+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
                         midpoint = 0.5,
                        limits = c(0,1))+
-  geom_sf(data =shp[shp$common_name == "eastern lampmussel",], 
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Tidewater Mucket")+
+  labs(fill = "Probability")+
+  geom_sf(data =shp[shp$common_name == "tidewater mucket",], 
           aes(color = live_occurrence), color = "black", size = .5)
 
-ggsave(paste("tmpfigures/baseline_mussel_predictions/easternlampmussel.png"), 
+ggsave(paste("tmpfigures/baseline_mussel_predictions/tidewatermucket.png"), 
     plot = last_plot(),
     width = 18,
     height = 12,
@@ -388,21 +427,288 @@ prediction_cc <- prediction_cc %>%
 
   
 ggplot(data = prediction_cc)+
-  geom_sf(aes(fill = `yellow lampmussel`))+
+  geom_sf(aes(fill = `dwarf wedgemussel`))+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
                         midpoint = 0.5,
                        limits = c(0,1))+
-  geom_sf(data =shp[shp$common_name == "yellow lampmussel",], 
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Dwarf Wedgemussel")+
+  labs(fill = "Probability")+
+  geom_sf(data =shp[shp$common_name == "dwarf wedgemussel",], 
           aes(color = live_occurrence), color = "black", size = .5)
 
-ggsave(paste("tmpfigures/baseline_mussel_predictions/yellowlampmussel_cc.png"), 
+ggsave(paste("tmpfigures/baseline_mussel_predictions/dwarfwedgemussel_cc.png"), 
     plot = last_plot(),
     width = 18,
     height = 12,
     units = "cm",
     dpi = 300) 
+
+```
+
+
+
+
+
+species richness, change in species richness, change for each species
+```{r}
+#change from baseline to climate change for each species
+
+prediction_cc <- data.frame(prediction_cc)
+predictions_baseline <- data.frame(predictions_baseline)
+
+cc <- as.matrix(prediction_cc[, 47:58])
+bl <- as.matrix(predictions_baseline[, 47:58])
+
+change <- (cc - bl)
+change <- data.frame(change)
+change <- cbind(predictions_baseline[1:3], change)
+
+change <- left_join(huc10, change, by = c("huc10_name", "huc10_tnmid"))
+
+names(change) <- gsub("\\.", " ", names(change))
+
+
+#sample plot
+shp <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID") %>% 
+  filter(!is.na(live_occurrence)) %>% 
+  filter(live_occurrence == 1) %>% 
+  filter(huc10_name != "Long Island Sound")
+change <- change %>% 
+  filter(huc10_name != "Long Island Sound")
+
+
+  
+ggplot(data = change)+
+  geom_sf(aes(fill = `tidewater mucket`))+
+  scale_fill_gradient2(low = "red2",
+                        mid = "white",
+                        high = "green4",
+                        midpoint = 0,
+                       limits = c(-1,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+    ggtitle(label = "Tidewater Mucket")+
+  labs(fill = "Δ P")
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/tidewatermucket_change.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+
+
+#species richness in the baseline
+richness_baseline <- predictions_baseline %>% 
+  select(1,3,47:58) %>% 
+  pivot_longer(3:14, names_to = "common_name", values_to = "prob") %>% 
+  mutate(occurrence = ifelse(common_name %in% c("alewife.floater", "brook.floater", "dwarf.wedgemussel", "eastern.pondmussel", "tidewater.mucket", "yellow.lampmussel") &
+                                                  prob > 0.1 , 1,
+                                                ifelse(common_name %in% c("creeper", "eastern.elliptio", "eastern.floater", "eastern.lampmussel", "eastern.pearlshell", "triangle.floater") & prob > 0.5, 1, 0)))  %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(richness = sum(occurrence))
+
+
+baseline <- left_join(huc10, richness_baseline, by = c("huc10_name", "huc10_tnmid"))%>% 
+  filter(huc10_name != "Long Island Sound")
+
+  
+ggplot(data = baseline)+
+  geom_sf(aes(fill = richness))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+    ggtitle(label = "Baseline Species Richness")+
+  labs(fill = "Richness")
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/mussel_richness_baseline.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+
+
+
+
+#species richness in climate change
+richness_cc <- prediction_cc %>% 
+  select(1,3,47:58) %>% 
+  pivot_longer(3:14, names_to = "common_name", values_to = "prob") %>% 
+  mutate(occurrence = ifelse(common_name %in% c("alewife.floater", "brook.floater", "dwarf.wedgemussel", "eastern.pondmussel", "tidewater.mucket", "yellow.lampmussel") &
+                                                  prob > 0.1 , 1,
+                                                ifelse(common_name %in% c("creeper", "eastern.elliptio", "eastern.floater", "eastern.lampmussel", "eastern.pearlshell", "triangle.floater") & prob > 0.5, 1, 0))) %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(richness = sum(occurrence))
+
+
+
+
+
+
+#change in species richness: climate change - baseline
+
+change_richness <- data.frame(
+  "huc10_tnmid" = richness_baseline[,1],
+  "huc10_name" = richness_baseline[,2],
+  "richness_change" = richness_cc$richness - richness_baseline$richness
+)
+
+
+change_richness <- left_join(huc10, change_richness, by = c("huc10_name", "huc10_tnmid"))%>% 
+  filter(huc10_name != "Long Island Sound")
+
+  
+ggplot(data = change_richness)+
+  geom_sf(aes(fill = richness_change))+
+  scale_fill_gradient2(low = "red2",
+                        mid = "white",
+                        high = "green4",
+                        midpoint = 0,
+                       limits = c(min(change_richness$richness_change, na.rm = T), max(change_richness$richness_change, na.rm = T)))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+    ggtitle(label = "Change Species Richness")+
+  labs(fill = "	Δ Richness")
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/mussel_richness_change.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+
+
+
+
+#align change in richess values with change in the climate change varaibles
+covariates_bl <- NHDplusV2_NewEngCrop_mussel_covariates_HUC10 %>% 
+  select(huc10_name, huc10_tnmid, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, logMJJA_HIST)
+
+#Climate change streamflow and temperature variables
+covariates_cc <- NHDplusV2_NewEngCrop_2080 %>% 
+  data.frame() %>% 
+  rename(annual_mean_summer_temp = annual_mean_summer_temp_pls_4,
+         BFI_HIST = BFI_2080,
+         LO7Q1DT_HIST = LO7Q1DT_2080,
+         CFM_HIST = CFM_2080,
+         W95_HIST = W95_2080,
+         logMJJA_HIST = logMJJA_2080) %>% 
+  select(huc10_name, huc10_tnmid, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, logMJJA_HIST) %>% 
+  group_by(huc10_name, huc10_tnmid) %>% 
+  summarise(annual_mean_summer_temp = mean(annual_mean_summer_temp, na.rm = T),
+            BFI_HIST = mean(BFI_HIST, na.rm = T),
+            LO7Q1DT_HIST = mean(LO7Q1DT_HIST, na.rm = T),
+            CFM_HIST = mean(CFM_HIST, na.rm = T),
+            W95_HIST = mean(W95_HIST, na.rm = T),
+            logMJJA_HIST = mean(logMJJA_HIST, na.rm = T))
+
+
+sum(names(covariates_bl) == names(covariates_cc)) #45
+sum(covariates_bl$huc10_name == covariates_cc$huc10_name, na.rm = T) #423
+
+bl_cov <- covariates_bl %>% 
+  ungroup() %>% 
+  select(annual_mean_summer_temp, W95_HIST, logMJJA_HIST) %>% 
+  mutate(mjja_hist = exp(logMJJA_HIST)) %>% 
+  as.matrix()
+
+cc_cov <- covariates_cc %>% 
+  ungroup() %>% 
+  select(annual_mean_summer_temp, W95_HIST, logMJJA_HIST) %>% 
+  mutate(mjja_hist = exp(logMJJA_HIST)) %>% 
+  as.matrix()
+
+change_cov <- (cc_cov - bl_cov)
+change_cov <- data.frame(change_cov)
+change_cov <- cbind(covariates_bl[1:2], change_cov)
+
+
+change_cov <- left_join(huc10, change_cov, by = c("huc10_name", "huc10_tnmid"))%>% 
+  filter(huc10_name != "Long Island Sound")
+
+  
+ggplot(data = change_cov)+
+  geom_sf(aes(fill = annual_mean_summer_temp))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+    ggtitle(label = "Annual mean summer temp Change")+
+  labs(fill = "Δ T(°C)")
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/temp_change.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)  
+
+
+change_richness <- change_richness %>% 
+  data.frame() %>% 
+  select(huc10_tnmid, huc10_name, richness_change)
+df <- left_join(change_cov, change_richness, by = c("huc10_name", "huc10_tnmid"))
+
+df <- df %>% 
+  filter(!is.na(annual_mean_summer_temp))
+
+r2 <- round(cor(df$richness_change, df$annual_mean_summer_temp),2)
+cor.test(df$richness_change, df$W95_HIST)
+label <- paste("R2 = ",  r2, sep = "")
+
+ggplot(data = df, mapping = aes(x = annual_mean_summer_temp, y = richness_change))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm", linewidth = 2, color = "red")+
+  labs(y = "Change in Richness",
+       x = "Change in Summer Stream Temperature (°C)")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.title = element_text(size = 17),
+          axis.text = element_text(size = 17))+
+  annotate("text",x=3,y=-3,label=r2 ,parse=TRUE, color = "red", size = 5)
+
+
 
 ```
 

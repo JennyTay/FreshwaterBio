@@ -68,6 +68,7 @@ ggplot(data = tmp[!is.na(tmp$prediction),])+
 
 
 ```
+
 Predict presence absence of each fish in baseline years
 
 ```{r}
@@ -128,7 +129,7 @@ NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 
 #sample plot
 ggplot(data = NHDplusV2_NewEngCrop_baseline)+
-  geom_sf(aes(color = pres_eastern.blacknose.dace.rds))+
+  geom_sf(aes(color = pres_creek.chub.rds))+
   scale_color_gradient2(low = "blue",
                         mid = "yellow",
                         high = "red",
@@ -150,10 +151,159 @@ tmp_baseline <- NHDplusV2_NewEngCrop_baseline %>%
   summarise(count = n(),
             avg_prob = mean(mean_prob))
 
+#watershed shape files
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+huc12 <- huc12 %>% 
+  select(name, tnmid)
+#align prediction results with the unscaled covariates and make plots
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+pred <- cbind(NHDplusV2_NewEngCrop, predictions)
+pred <- pred %>%
+  data.frame %>% 
+  pivot_longer(40:96, values_to = "prob", names_to = "common_name") %>% 
+  mutate(occurrence = ifelse(prob>0.3, 1, 0))
+pred$common_name <- gsub("pres_", "", pred$common_name)
+pred$common_name <- gsub(".rds", "", pred$common_name)
+pred$common_name <- gsub("\\.", " ", pred$common_name)
+#join to trait data so we can filter for certain temperature groups or origin
+#fish traits
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp") %>% 
+  filter(!is.na(tmp),
+         !tmp == "eury",
+         !(common_name %in% c("american brook lamprey") & tmp == "cold"),
+         !(common_name %in% c("common shiner", "white sucker", "smallmouth bass", "fallfish") & tmp == "warm")) %>% 
+  select(-state) %>% 
+  unique()
+
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin") %>% 
+  filter(!is.na(origin),
+         !(common_name == "spottail shiner" & origin == "introduced"),
+         !origin == "unk") %>% 
+  select(-state) %>%  
+  unique()
+
+pred <- pred %>% 
+  left_join(temperature, by = "common_name") %>% 
+  left_join(origin, by = "common_name")
+
+#plot cold water native species richness
+coldnat <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, occurrence) %>% 
+  unique() %>% 
+  filter(tmp == "cold" & origin == "native" & occurrence == 1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(coldnatrichness = n())
+coldnat <- left_join(huc12, coldnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+ggplot(data = coldnat)+
+  geom_sf(aes(fill = coldnatrichness, color = coldnatrichness))
+
+#plot cool water native species richness
+coolnat <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, occurrence) %>% 
+  unique() %>% 
+  filter(tmp == "cool" & origin == "native" & occurrence == 1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(coolnatrichness = n())
+coolnat <- left_join(huc12, coolnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+ggplot(data = coolnat)+
+  geom_sf(aes(fill = coolnatrichness, color = coolnatrichness))
+
+#plot warm water native species richness
+warmnat <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, occurrence) %>% 
+  unique() %>% 
+  filter(tmp == "warm" & origin == "native" & occurrence == 1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(warmnatrichness = n())
+warmnat <- left_join(huc12, warmnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+ggplot(data = warmnat)+
+  geom_sf(aes(fill = warmnatrichness, color = warmnatrichness))
+
+#plot warm water nonnative species richness
+warmnonnat <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, occurrence) %>% 
+  unique() %>% 
+  filter(tmp == "warm" & origin == "introduced" & occurrence == 1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(warmnonnatrichness = n())
+warmnonnat <- left_join(huc12, warmnonnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+ggplot(data = warmnonnat)+
+  geom_sf(aes(fill = warmnonnatrichness, color = warmnonnatrichness))
+
+#plot native species beta richness
+nathuc12 <- pred %>% 
+  select(huc8_name, huc8_tnmid, huc12_name, huc12_tnmid, common_name, origin, occurrence) %>% 
+  unique() %>% 
+  filter(origin == "native" & occurrence == 1) %>%
+  group_by(huc8_name, huc8_tnmid, huc12_name, huc12_tnmid) %>% 
+  summarise(nathuc12_alpharichness = n())
+
+nathuc8 <- pred %>% 
+  select(huc8_name, huc8_tnmid, common_name, origin, occurrence) %>% 
+  unique() %>% 
+  filter(origin == "native" & occurrence == 1) %>%
+  group_by(huc8_name, huc8_tnmid) %>% 
+  summarise(nathuc8_gammarichness = n())
+beta <- left_join(nathuc12, nathuc8, by = c("huc8_name", "huc8_tnmid")) %>% 
+  mutate(beta_richness = nathuc12_alpharichness / nathuc8_gammarichness)
+
+beta <- left_join(huc12, beta, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+ggplot(data = beta)+
+  geom_sf(aes(fill = beta_richness, color = beta_richness))
+
+#plot probability of brook trout occurrence
+brktrt <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, prob) %>% 
+  unique() %>% 
+  filter(common_name == "brook trout") %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(brktrt_prob = mean(prob, na.rm = T))
+brktrt <- left_join(huc12, brktrt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+ggplot(data = brktrt)+
+  geom_sf(aes(fill = brktrt_prob, color = brktrt_prob))
 
 
+coldnat <- coldnat %>% 
+  data.frame() %>% 
+  select(-geometry)
+coolnat <- coolnat %>% 
+  data.frame() %>% 
+  select(-geometry)
+warmnat <- warmnat %>% 
+  data.frame() %>% 
+  select(-geometry)
+warmnonnat <- warmnonnat %>% 
+  data.frame() %>% 
+  select(-geometry)
+beta <- beta %>% 
+  data.frame() %>% 
+  select(-geometry)
+brktrt <- brktrt %>% 
+  data.frame() %>% 
+  select(-geometry)
 
+trends <- left_join(coldnat, coolnat, by = c("name", "tnmid"))
+trends <- trends %>% 
+  left_join(warmnat, by = c("name", "tnmid")) %>% 
+  left_join(warmnonnat, by = c("name", "tnmid")) %>% 
+  left_join(beta, by = c("name", "tnmid")) %>% 
+  left_join(brktrt, by = c("name", "tnmid"))
+              
 
+huc12cov <- NHDplusV2_NewEngCrop %>%
+  data.frame() %>% 
+  select(huc12_name, huc12_tnmid, 7, 8, 10:39) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise_all(mean, na.rm = T)
+
+trends <- left_join(trends, huc12cov, by = c("name"= "huc12_name", "tnmid" = "huc12_tnmid"))
 
 
 
