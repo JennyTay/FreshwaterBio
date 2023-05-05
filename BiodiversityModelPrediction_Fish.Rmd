@@ -18,53 +18,738 @@ library(readxl)
 
 ```
 
-proportional abundance predictions
+proportional abundance and probabilty of zero predictions
 ```{r}
 
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 
+#need to scale the variables
+test <- NHDplusV2_NewEngCrop %>% 
+  data.frame() %>% 
+  select(-geometry)
 
-file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects")
+test <- test[,c(7:8, 10:39)]
+
+#we need to scale these variables, but first I will calculate the mean and sd of each column, bc we will need to use these values to scale these variables in the predicted scenarios
+
+means <- sapply(test, mean, na.rm = T)
+save(means, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fishcovariates_scaling_mean.RData")
+sd <- sapply(test, sd, na.rm = T)
+save(sd, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fishcovariates_scaling_sd.RData")
+
+#scale data
+test <- data.frame(scale(test))
+
+NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
 
 
-for (i in 1:57) { 
+
+#watershed shape files
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+huc12 <- huc12 %>% 
+  select(name, tnmid)
+
+
+#fish traits
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp") %>% 
+  filter(!is.na(tmp),
+         !tmp == "eury",
+         !(common_name %in% c("american brook lamprey") & tmp == "cold"),
+         !(common_name %in% c("common shiner", "white sucker", "smallmouth bass", "fallfish") & tmp == "warm")) %>% 
+  select(-state) %>% 
+  unique()
+
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin") %>% 
+  filter(!is.na(origin),
+         !(common_name == "spottail shiner" & origin == "introduced"),
+         !origin == "unk") %>% 
+  select(-state) %>%  
+  unique()
+
+
+#proportional abundance predictions
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+names(predictions)[1] <- file.list[i]
+
+
+for (i in 2:57) { 
   
   
    mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
   
-  NHDplusV2_NewEngCrop$baseline_predict <- predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response")
+    tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
+  names(tmp)[1] <- file.list[i]
   
-ggplot(data = NHDplusV2_NewEngCrop)+
-  geom_sf(aes(color = baseline_predict))+
-  scale_color_gradient2(low = "blue",
-                        mid = "yellow",
-                        high = "red",
-                        midpoint = 0.5)
+  predictions <- cbind(predictions, tmp)
+  
+
   
 }
 
 
-#stream reach scale spp proportional abuncnae
-
-#predict the model on the historical data
-pred_data <- dat[,11:42]
-predict <- predict(mdl, newdata = pred_data, type = "response")
-compare <- data.frame("propabun" = dat$propabun, "prediction" = predict)
+#join the predictions to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 
 
+ggplot(data = NHDplusV2_NewEngCrop_baseline)+
+  geom_sf(aes(color = propabun_eastern.blacknose.dace.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
 
-#plot
-dat$prediction <- compare$prediction
-tmp <- left_join(fish_shp, dat, by ="UID") %>% 
-  mutate(pres = as.factor(ifelse(prediction > 0.1, 1, 0)))
-ggplot(data = tmp[!is.na(tmp$prediction),])+
-  geom_sf(aes(fill=pres, size = prediction), pch = 21, col = "black")
 
-ggplot(data = tmp[!is.na(tmp$prediction),])+
-  geom_sf(aes(fill= prediction, size = prediction), pch = 21, col = "black")
+#align prediction results with the unscaled covariates and make plots
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+pred <- cbind(NHDplusV2_NewEngCrop, predictions)
+pred <- pred %>%
+  data.frame %>% 
+  pivot_longer(40:96, values_to = "propabun", names_to = "common_name") 
+pred$common_name <- gsub("propabun_", "", pred$common_name)
+pred$common_name <- gsub(".rds", "", pred$common_name)
+pred$common_name <- gsub("\\.", " ", pred$common_name)
 
-#predict the model on all of the flows lines, not just the training data 
 
+#join to trait data so we can filter for certain temperature groups or origin
+pred <- pred %>% 
+  left_join(temperature, by = "common_name") %>% 
+  left_join(origin, by = "common_name")
+
+#plot cold water native species proportional abundance
+coldnat_1 <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  unique() %>% 
+  filter(tmp == "cold" & origin == "native",
+         propabun > .1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(coldnatpropabund = mean(propabun, na.rm = T))
+coldnat_1 <- left_join(huc12, coldnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+
+cldnprob <- ggplot(data = coldnat_1)+
+  geom_sf(aes(fill = coldnatpropabund), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .35,
+                       limits = c(0,.7))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Cold Native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "Prop abun")
+
+#plot cool water native species proportional abundance
+coolnat_1 <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  unique() %>% 
+  filter(tmp == "cool" & origin == "native",
+         propabun > .1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(coolnatpropabund = mean(propabun, na.rm = T))
+coolnat_1 <- left_join(huc12, coolnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+coolnprob <- ggplot(data = coolnat_1)+
+  geom_sf(aes(fill = coolnatpropabund), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .25,
+                       limits = c(0,.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Cool Native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot warm water native species proportional abundance
+warmnat_1 <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  unique() %>% 
+  filter(tmp == "warm" & origin == "native",
+         propabun > .1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(warmnatpropabund = mean(propabun, na.rm = T))
+warmnat_1 <- left_join(huc12, warmnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+wnprob <- ggplot(data = warmnat_1)+
+  geom_sf(aes(fill = warmnatpropabund), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .4,
+                       limits = c(0,.8))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Warm Native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot warm water nonnative species proportional abundance
+warmnonnat_1 <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  unique() %>% 
+  filter(tmp == "warm" & origin == "introduced",
+         propabun > .1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(warmnonnatpropabund = mean(propabun, na.rm = T))
+warmnonnat_1 <- left_join(huc12, warmnonnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+wnnprob <- ggplot(data = warmnonnat_1)+
+  geom_sf(aes(fill = warmnonnatpropabund), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Warm Non-native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot native species shannon index
+
+#plot brook trout propabun
+brktrt_1 <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, propabun) %>% 
+  unique() %>% 
+  filter(common_name == "brook trout",
+         propabun > .1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(brktrt_propabun = mean(propabun, na.rm = T))
+brktrt_1 <- left_join(huc12, brktrt_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+brkprop <- ggplot(data = brktrt_1)+
+  geom_sf(aes(fill = brktrt_propabun), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .35,
+                       limits = c(0,.7))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Brook Trout",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot pumpkinseed propabun
+pmpk_1 <- pred %>% 
+  select(huc12_name, huc12_tnmid, common_name, propabun) %>% 
+  unique() %>% 
+  filter(common_name == "pumpkinseed",
+         propabun > .1) %>%
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(pmpk_propabun = mean(propabun, na.rm = T))
+pmpk_1 <- left_join(huc12, pmpk_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+pmpprop <- ggplot(data = pmpk_1)+
+  geom_sf(aes(fill = pmpk_propabun, color = pmpk_propabun))
+
+
+
+#probability of zero predictions
+
+
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+
+#need to scale the variables
+test <- NHDplusV2_NewEngCrop %>% 
+  data.frame() %>% 
+  select(-geometry)
+test <- test[,c(7:8, 10:39)]
+
+#scale data
+test <- data.frame(scale(test))
+
+NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
+
+
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+
+i <- 1
+
+mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+predictions_zero <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "zprob"))
+names(predictions_zero)[1] <- file.list[i]
+
+
+for (i in 2:57) { 
+  
+  
+   mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
+  
+    tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "zprob"))
+  names(tmp)[1] <- file.list[i]
+  
+  predictions_zero <- cbind(predictions_zero, tmp)
+  
+
+  
+}
+
+names(predictions_zero) <- gsub("propabun", "probZero", names(predictions_zero))
+
+#join the predictions_zero to the list of comids
+NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions_zero)
+
+
+ggplot(data = NHDplusV2_NewEngCrop_baseline)+
+  geom_sf(aes(color = probZero_eastern.blacknose.dace.rds))+
+  scale_color_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 0.5)
+
+
+#align prediction results with the unscaled covariates and make plots
+load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
+pred_zero <- cbind(NHDplusV2_NewEngCrop, predictions_zero)
+pred_zero <- pred_zero %>%
+  data.frame %>% 
+  pivot_longer(40:96, values_to = "probZero", names_to = "common_name") 
+pred_zero$common_name <- gsub("probZero_", "", pred_zero$common_name)
+pred_zero$common_name <- gsub(".rds", "", pred_zero$common_name)
+pred_zero$common_name <- gsub("\\.", " ", pred_zero$common_name)
+
+
+#join to trait data so we can filter for certain temperature groups or origin
+pred_zero <- pred_zero %>% 
+  left_join(temperature, by = "common_name") %>% 
+  left_join(origin, by = "common_name")
+
+
+#plot cold water native species richness
+coldnat <- pred_zero %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  unique() %>% 
+  filter(tmp == "cold" & origin == "native",
+         probZero < .9) %>%
+  select(huc12_name, huc12_tnmid, common_name) %>% 
+  unique() %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(coldnatrich = n())
+coldnat <- left_join(huc12, coldnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+
+cldnrich <- ggplot(data = coldnat)+
+  geom_sf(aes(fill = coldnatrich), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 3.5,
+                       limits = c(0,7))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Cold Native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "richness")
+
+#plot cool water native species richness
+coolnat <- pred_zero %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  unique() %>% 
+  filter(tmp == "cool" & origin == "native",
+         probZero < .9) %>%
+  select(huc12_name, huc12_tnmid, common_name) %>% 
+  unique() %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(coolnatrich = n())
+coolnat <- left_join(huc12, coolnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+coolnrich <- ggplot(data = coolnat)+
+  geom_sf(aes(fill = coolnatrich), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 5,
+                       limits = c(0,10))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Cool Native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "richness")
+
+#plot warm water native species richness
+warmnat <- pred_zero %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  unique() %>% 
+  filter(tmp == "warm" & origin == "native",
+         probZero < .9) %>%
+  select(huc12_name, huc12_tnmid, common_name) %>% 
+  unique() %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(warmnatrich = n())
+warmnat <- left_join(huc12, warmnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+wnrich <- ggplot(data = warmnat)+
+  geom_sf(aes(fill = warmnatrich), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 6,
+                       limits = c(0,12))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Warm Native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "richness")
+
+#plot warm water nonnative species richness
+warmnonnat <- pred_zero %>% 
+  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  unique() %>% 
+  filter(tmp == "warm" & origin == "introduced",
+         probZero < .9) %>%
+  select(huc12_name, huc12_tnmid, common_name) %>% 
+  unique() %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(warmnonnatrich = n())
+warmnonnat <- left_join(huc12, warmnonnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+wnnrich <- ggplot(data = warmnonnat)+
+  geom_sf(aes(fill = warmnonnatrich), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 7,
+                       limits = c(0,14))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Warm Non-native",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "richness")
+
+#plot native species shannon index
+
+#plot probability of brook trout probZero
+brktrt <- pred_zero %>% 
+  select(huc12_name, huc12_tnmid, common_name, probZero) %>% 
+  unique() %>% 
+  filter(common_name == "brook trout",
+         probZero < .9) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(brktrtprob = 1 - (mean(probZero)))
+brktrt <- left_join(huc12, brktrt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+brkrich <- ggplot(data = brktrt)+
+  geom_sf(aes(fill = brktrtprob), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Brook Trout",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "Prob")
+
+#plot probability of pumpkinseed probZero
+pmpk <- pred_zero %>% 
+  select(huc12_name, huc12_tnmid, common_name, probZero) %>% 
+  unique() %>% 
+  filter(common_name == "pumpkinseed",
+         probZero < .9) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(pmpkprob = 1 - (mean(probZero)))
+pmpk <- left_join(huc12, pmpk, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+pmprich <- ggplot(data = pmpk)+
+  geom_sf(aes(fill = pmpkprob, color = pmpkprob))
+
+
+
+c <- arrangeGrob(cldnprob, cldnrich, 
+                 coolnprob, coolnrich, 
+                 wnprob, wnrich, 
+                 wnnprob, wnnrich, 
+                 brkprop, brkrich,
+             ncol=2, nrow =5)
+ggsave(c, file = "tmpfigures/testing123.png", 
+    width = 12,
+    height = 20,
+    units = "cm",
+    dpi = 300)
+
+
+
+
+
+
+
+#plot each proportional abundance variable versus its richness counterpart
+
+compare <- data.frame(
+  coldnat_propabund = coldnat_1$coldnatpropabund,
+  coolnat_propabund = coolnat_1$coolnatpropabund,
+  warmnat_propabund = warmnat_1$warmnatpropabund,
+  warmnonnat_propabund = warmnonnat_1$warmnonnatpropabund,
+  brktrt_propabun = brktrt_1$brktrt,
+  coldnat_rich = coldnat$coldnatrich,
+  coolnat_rich = coolnat$coolnatrich,
+  warmnat_rich = warmnat$warmnatrich,
+  warmnonnat_rich = warmnonnat$warmnonnatrich,
+  brktrt_prob = brktrt$brktrtprob
+  
+)
+
+
+
+
+
+
+r2 <- summary(lm(data = compare, coldnat_propabund ~ coldnat_rich)) #this is the better fit
+#summary(lm(data = compare, coldnat_propabund ~ I(coldnat_rich^2)))
+#r2  <- cor.test(compare$coldnat_propabund, compare$coldnat_rich, use = "complete.obs")
+a <- ggplot(data = compare, mapping = aes(coldnat_propabund, y = coldnat_rich))+
+  geom_jitter(alpha = 0.3)+
+  stat_smooth(method = "lm")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10))+
+  labs(x = "Proportional Abundance", y = "Species Richness")+
+  geom_text(label = "Cold Native",x=.2,y=7, color = "red", size = 3)+
+  geom_text(label = paste("R² = ", round(r2$adj.r.squared,3), sep = ""),x=.5,y=1.5, color = "red", size = 3)+
+  geom_text(label = paste("p = ", round(r2$coefficients[2,4],3), sep = ""),x=.5,y=.8, color = "red", size = 3)
+
+
+#summary(lm(data = compare, coolnat_propabund ~ coolnat_rich))
+r2 <- summary(lm(data = compare[compare$coolnat_propabund<0.4,], coolnat_propabund ~ I(coolnat_rich^2)))#this is the better fit
+#r2  <- cor.test(compare[compare$coolnat_propabund<0.4,]$coolnat_propabund, compare[compare$coolnat_propabund<0.4,]$coolnat_rich, use = "complete.obs")
+b <- ggplot(data = compare[compare$coolnat_propabund<0.4,], mapping = aes(coolnat_propabund, y = coolnat_rich))+
+  geom_jitter(alpha = 0.3)+
+  stat_smooth(method = "lm", formula = y~ I(x^2))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10))+
+  labs(x = NULL, y = NULL)+
+  geom_text(label = "Cool Native",x=.15,y=10, color = "red", size = 3)+
+  geom_text(label = paste("R² = ", round(r2$adj.r.squared,3), sep = ""),x=.3,y=3, color = "red", size = 3)+
+  geom_text(label = paste("p = ", round(r2$coefficients[2,4],3), sep = ""),x=.3,y=2, color = "red", size = 3)
+
+
+#summary(lm(data = compare, warmnat_propabund ~ warmnat_rich))
+r2 <- summary(lm(data = compare[compare$warmnat_propabund<0.5,], warmnat_propabund ~ I(warmnat_rich^2)))#this is the better fit
+#r2  <- cor.test(compare[compare$warmnat_propabund<0.5,]$warmnat_propabund, compare[compare$warmnat_propabund<0.5,]$warmnat_rich, use = "complete.obs")
+c <- ggplot(data = compare[compare$warmnat_propabund<0.5,], mapping = aes(warmnat_propabund, y = warmnat_rich))+
+  geom_jitter(alpha = 0.3)+
+  stat_smooth(method = "lm", formula = y~ I(x^2))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10))+
+  labs(x = NULL, y = NULL)+
+  geom_text(label = "Warm Native",x=.16,y=12, color = "red", size = 3)+
+  geom_text(label = paste("R² = ", round(r2$adj.r.squared,3), sep = ""),x=.35,y=3, color = "red", size = 3)+
+  geom_text(label = paste("p = ", round(r2$coefficients[2,4],3), sep = ""),x=.35,y=2, color = "red", size = 3)
+
+#summary(lm(data = compare, warmnonnat_propabund ~ warmnonnat_rich))
+r2 <- summary(lm(data = compare, warmnonnat_propabund ~ I(warmnonnat_rich^2)))#this is the better fit
+#r2  <- cor.test(compare$warmnonnat_propabund, compare$warmnonnat_rich, use = "complete.obs")
+d <- ggplot(data = compare, mapping = aes(warmnonnat_propabund, y = warmnonnat_rich))+
+  geom_jitter(alpha = 0.3)+
+  stat_smooth(method = "lm", formula = y~ I(x^2))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10))+
+  labs(x = NULL, y = "Species Richness")+
+  geom_text(label = "Warm Non-native",x=.35,y=13.5, color = "red", size = 3)+
+  geom_text(label = paste("R² = ", round(r2$adj.r.squared,3), sep = ""),x=.5,y=2, color = "red", size = 3)+
+  geom_text(label = paste("p = ", round(r2$coefficients[2,4],3), sep = ""),x=.5,y=1, color = "red", size = 3)
+
+
+r2 <- summary(lm(data = compare, brktrt_propabun ~ brktrt_prob))#this is the better fit
+#summary(lm(data = compare, brktrt_propabun ~ I(brktrt_prob^2)))
+#r2  <- cor.test(compare$brktrt_propabun, compare$brktrt_prob, use = "complete.obs")
+e <- ggplot(data = compare, mapping = aes(brktrt_propabun, y = brktrt_prob))+
+  geom_jitter(alpha = 0.3)+
+  stat_smooth(method = "lm")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+          axis.text = element_text(size = 10),
+          axis.title = element_text(size = 10))+
+  labs(x = NULL, y = "Probability of Occurrence")+
+  geom_text(label = "Brook Trout",x=.2,y=1.1, color = "red", size = 3)+
+  geom_text(label = paste("R² = ", round(r2$adj.r.squared,3), sep = ""),x=.5,y=.3, color = "red", size = 3)+
+  geom_text(label = paste("p = ", round(r2$coefficients[2,4],3), sep = ""),x=.5,y=.2, color = "red", size = 3)
+
+
+c <- arrangeGrob(a, b, 
+                 c, d, 
+                 e, 
+             ncol=3, nrow =2)
+ggsave(c, file = "tmpfigures/testing234.png", 
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)
+
+
+#plot a correlation between each variable and each of the variables in the model
+
+
+coldnat <- coldnat %>% 
+  data.frame() %>% 
+  select(-geometry) %>% 
+  unique()
+coolnat <- coolnat %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+warmnat <- warmnat %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+warmnonnat <- warmnonnat %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+brktrt <- brktrt %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+coldnat_1 <- coldnat_1 %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+coolnat_1 <- coolnat_1 %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+warmnat_1 <- warmnat_1 %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+warmnonnat_1 <- warmnonnat_1 %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+brktrt_1 <- brktrt_1 %>% 
+  data.frame() %>% 
+  select(-geometry)%>% 
+  unique()
+
+trends <- left_join(coldnat, coolnat, by = c("tnmid", "name"))
+trends <- trends %>% 
+  left_join(warmnat, by = c("name", "tnmid")) %>% 
+  left_join(warmnonnat, by = c("name", "tnmid")) %>% 
+  left_join(brktrt, by = c("name", "tnmid")) %>% 
+  left_join(coldnat_1, by = c("name", "tnmid")) %>% 
+  left_join(coolnat_1, by = c("name", "tnmid")) %>% 
+  left_join(warmnat_1, by = c("name", "tnmid")) %>% 
+  left_join(warmnonnat_1, by = c("name", "tnmid")) %>% 
+  left_join(brktrt_1, by = c("name", "tnmid"))
+
+huc12cov <- NHDplusV2_NewEngCrop %>%
+  data.frame() %>%
+  select(huc12_name, huc12_tnmid, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, W95_HIST,
+         BFIWs, WtDepWs, PctOw_Ws, PctImp_Ws, pctAg_Ws, pctWetland_Cat, logMJJA_HIST,
+         logRdCrsCat, logPctOw_Cat, huc12_damden_sqkm, huc8_damcount, lat, long, ElevCat,logWsAreaSqKm) %>% 
+  unique() %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise_all(mean, na.rm = T) 
+
+trends <- left_join(trends, huc12cov, by = c("name"= "huc12_name", "tnmid" = "huc12_tnmid"))%>% 
+  filter(!is.na(lat))
+
+
+df1 <- trends[, 3:12]
+df2 <- trends[,13:31]
+
+test <- data.frame(cor(df1, df2, use = "complete.obs"))
+test$metric <- rownames(test)
+rownames(test) <- NULL
+test <- test %>% 
+  select(-c(lat, long, ElevCat,logWsAreaSqKm)) %>% 
+  pivot_longer(1:15, names_to = "variable", values_to = "r")
+
+test$metric[test$metric == "coldnatrich"] <- "cold_native_rich"
+test$metric[test$metric == "coolnatrich"] <- "cool_native_rich"
+test$metric[test$metric == "warmnatrich"] <- "warm_native_rich"
+test$metric[test$metric == "warmnonnatrich"] <- "warm_introd_rich"
+test$metric[test$metric == "brktrtprob"] <- "Brook_Trout_prob"
+
+test$metric[test$metric == "coldnatpropabund"] <- "cold_native_pa"
+test$metric[test$metric == "coolnatpropabund"] <- "cool_native_pa"
+test$metric[test$metric == "warmnatpropabund"] <- "warm_native_pa"
+test$metric[test$metric == "warmnonnatpropabund"] <- "warm_introd_pa"
+test$metric[test$metric == "brktrt_propabun"] <- "Brook_Trout_pa"
+
+ggplot(test, aes(x = metric, y = variable, fill = r))+
+  geom_tile()+
+  theme(axis.text.x = element_text(angle = 45, hjust=1, size = 14))+
+  scale_fill_gradient2(low = "red",
+                       mid = "white",
+                       high = "blue",
+                       midpoint = 0)+
+  labs(x = NULL, y = NULL)
 
 
 ```
