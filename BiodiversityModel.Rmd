@@ -387,6 +387,11 @@ compare <- data.frame(
   "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
 )
 
+compare <- compare %>% 
+  mutate(tmp = (pred_propabun - propabun)^2,
+         tmp2 = (sum(tmp, na.rm = T))/nrow(compare),
+         RMSE = sqrt(tmp2))
+
 compare <- na.omit(compare)
 r2_probabun <- cor(compare$propabun,  compare$pred_propabun)
 ggplot(data = compare, aes(x = propabun, y = pred_propabun))+
@@ -414,8 +419,9 @@ ggsave(
 
 val_prop_abun <- data.frame(
   "common_name" = unique(train$common_name),
-  "r2_probabun" = r2_probabun,
-  "r2_rank_propabun" = r2_rank_propabun
+  "r2_propabun" = r2_probabun,
+  "r2_rank_propabun" = r2_rank_propabun,
+  "RMSE" = unique(compare$RMSE)
   
 )
 
@@ -426,11 +432,15 @@ cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurr
 
 val_zero_prob <- data.frame(
   "common_name" = unique(train$common_name),
-  "accuracy" = cm$overall[1],
-  "sensitivity" = cm$byClass[1],
-  "Specificity" = cm$byClass[2],
-  "Pos Pred Value" = cm$byClass[3],
-  "Neg Pred Value" = cm$byClass[4]
+  "test_dat_pres" = nrow(test[test$occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$occurrence == 0,]),
+  "train_dat_pres" = nrow(train[train$occurrence == 1, ]),
+  "train_dat_abs" = nrow(train[train$occurrence == 0, ]),
+  "accuracy" = round(cm$overall[1], 2),
+  "sensitivity" = round(cm$byClass[1], 2),
+  "Specificity" = round(cm$byClass[2], 2),
+  "Pos Pred Value" = round(cm$byClass[3], 2),
+  "Neg Pred Value" = round(cm$byClass[4], 2)
 )
 
 
@@ -554,6 +564,11 @@ compare <- data.frame(
   "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
 )
 
+compare <- compare %>% 
+  mutate(tmp = (pred_propabun - propabun)^2,
+         tmp2 = (sum(tmp, na.rm = T))/nrow(compare),
+         RMSE = sqrt(tmp2))
+
 r2_propabun <- cor(compare$propabun,  compare$pred_propabun)
 
 ggplot(data = compare, aes(x = propabun, y = pred_propabun))+
@@ -581,7 +596,8 @@ ggsave(
 val_prop_abun2 <- data.frame(
   "common_name" = unique(train$common_name),
   "r2_propabun" = r2_propabun,
-  "r2_rank_propabun" = r2_rank_propabun
+  "r2_rank_propabun" = r2_rank_propabun,
+  "RMSE" = unique(compare$RMSE)
   
 )
 
@@ -594,11 +610,15 @@ cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurr
 
 val2 <- data.frame(
   "common_name" = unique(train$common_name),
-  "accuracy" = cm$overall[1],
-  "sensitivity" = cm$byClass[1],
-  "Specificity" = cm$byClass[2],
-  "Pos Pred Value" = cm$byClass[3],
-  "Neg Pred Value" = cm$byClass[4]
+  "test_dat_pres" = nrow(test[test$occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$occurrence == 0,]),
+  "train_dat_pres" = nrow(train[train$occurrence == 1, ]),
+  "train_dat_abs" = nrow(train[train$occurrence == 0, ]),
+  "accuracy" = round(cm$overall[1], 2),
+  "sensitivity" = round(cm$byClass[1], 2),
+  "Specificity" = round(cm$byClass[2], 2),
+  "Pos Pred Value" = round(cm$byClass[3], 2),
+  "Neg Pred Value" = round(cm$byClass[4], 2)
 )
 val_zero_prob <- rbind(val_zero_prob, val2)
 
@@ -607,7 +627,14 @@ print(unique(fish_count_with_zeros_filtered$common_name)[i])
 
 }
 
+#cbind the two validation dfs so we can write a single csv
+prop_abun_validation <- cbind(val_zero_prob, val_prop_abun)
+prop_abun_validation <- prop_abun_validation %>% 
+  select(-11) %>% 
+  arrange(common_name)
+
 write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob.csv")
+write.csv(prop_abun_validation, file = "tmpfigures/prop_abun_validation.csv")
 
 #filter to remove spp that did not converge, these include:
 #bowfin, white catfish, channel catfish, round whitefish, 
@@ -639,20 +666,69 @@ zer <- results %>%
 results2 <- cond %>% 
   mutate(CIlow = estimate - (1.96*std_er),
          CIhigh = estimate + (1.96*std_er),
-         OR = exp(estimate),
-         ORCIlow = exp(CIlow),
-         ORCIhigh = exp(CIhigh)) %>% 
-  arrange(OR) %>% 
-  filter(variable != "(Intercept)")
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, OR, ORCIlow, ORCIhigh, p_val) %>% 
+  mutate(OR = ifelse(p_val<0.001, paste(OR, "***", sep = ""),
+                     ifelse(p_val < 0.01 & p_val > 0.001, paste(OR, "**", sep = ""),
+                            ifelse(p_val < 0.1 & p_val > 0.01, paste(OR, "*", sep = ""),
+                                   OR)))) %>% 
+  filter(p_val <0.1) %>% 
+  select(-p_val)
+  
+rownames(results2) <- NULL
 
 #rename variables to make more interpretable
 results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean summer temp"
 results2$variable[results2$variable == "huc12_damden_sqkm"] <- "dam density"
+results2$variable[results2$variable == "BFI_HIST"] <- "baseflow index"
+results2$variable[results2$variable == "LO7Q1DT_HIST"] <- "low flow date"
+results2$variable[results2$variable == "W95_HIST"] <- "number of winter floods"
+results2$variable[results2$variable == "logMJJA_HIST"] <- "summer flow"
+results2$variable[results2$variable == "lat"] <- "latitude"
+results2$variable[results2$variable == "long"] <- "longitude"
+results2$variable[results2$variable == "ElevCat"] <- "elevation"
+results2$variable[results2$variable == "logWsAreaSqKm"] <- "watershed area"
+results2$variable[results2$variable == "huc8_damcount"] <- "dam count"
+
 
 write.csv(results2, file = "tmpfigures/propabun_results.csv")
 prop_abun_results <- read.csv("tmpfigures/propabun_results.csv")
 
 #dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+#need to remake the results df because when we added the asterisks to the OR column for the table, it is not longer a numeric varialbe
+results2 <- cond %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") 
+
+#rename variables to make more interpretable
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean summer temp"
+results2$variable[results2$variable == "huc12_damden_sqkm"] <- "dam density"
+results2$variable[results2$variable == "BFI_HIST"] <- "baseflow index"
+results2$variable[results2$variable == "LO7Q1DT_HIST"] <- "low flow date"
+results2$variable[results2$variable == "W95_HIST"] <- "number of winter floods"
+results2$variable[results2$variable == "logMJJA_HIST"] <- "summer flow"
+results2$variable[results2$variable == "lat"] <- "latitude"
+results2$variable[results2$variable == "long"] <- "longitude"
+results2$variable[results2$variable == "ElevCat"] <- "elevation"
+results2$variable[results2$variable == "logWsAreaSqKm"] <- "watershed area"
+results2$variable[results2$variable == "huc8_damcount"] <- "dam count"
+
+#order the variables so they occurr in the correct/ same order for all figures
+results2$variable <- factor(results2$variable, levels = c("mean summer temp", "baseflow index", "summer flow", "low flow date", 
+                                                          "number of winter floods", 
+                                                          "BFIWs", "WtDepWs", "PctImp_Ws", "pctAg_Ws", 
+                                                          "pctWetland_Cat", "dam density",
+                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "logPctOw_Cat", 
+                                                          "latitude", "longitude", "elevation", "watershed area"))
 
 for (i in 1:length(unique(results2$common_name))) {
 
@@ -681,6 +757,63 @@ ggsave(
   )
 
 }
+
+
+
+
+#make composite OR plots to show how different temperature or origin groups respond to the variables on average
+#fish traits
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp") %>% 
+  filter(!is.na(tmp),
+         !tmp == "eury",
+         !(common_name %in% c("american brook lamprey") & tmp == "cold"),
+         !(common_name %in% c("common shiner", "white sucker", "smallmouth bass", "fallfish") & tmp == "warm")) %>% 
+  select(-state) %>% 
+  unique()
+
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin") %>% 
+  filter(!is.na(origin),
+         !(common_name == "spottail shiner" & origin == "introduced"),
+         !origin == "unk") %>% 
+  select(-state) %>%  
+  unique()
+
+clusters <- read.csv("tmpfigures/fishclusters_byclimate.csv")
+clusters <- clusters %>% 
+  select(-1) %>% 
+  rename(cluster = final.cluster)
+
+composit_OR_figs <- left_join(results2, clusters, by = "common_name") %>% 
+  left_join(temperature, by  = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20,
+         !is.na(cluster)) %>%
+  group_by(cluster, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T))
+
+ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(cluster)))+
+  geom_point(size = 3, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))
+
 
 
 #make a tile plot to show the coef value for each variable by fish
@@ -1406,13 +1539,35 @@ results2 <- results %>%
 
 pres_abs_fish_mdl_results <- results2
 save(pres_abs_fish_mdl_results, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_results/pres_abs_fish_mdl_results.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_results/pres_abs_fish_mdl_results.RData")
+
+#rename variables to make more interpretable
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "annual_mean_summer_temp"] <- "mean summer temp"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "huc12_damden_sqkm"] <- "dam density"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "BFI_HIST"] <- "baseflow index"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "LO7Q1DT_HIST"] <- "low flow date"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "W95_HIST"] <- "number of winter floods"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "logMJJA_HIST"] <- "summer flow"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "lat"] <- "latitude"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "long"] <- "longitude"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "ElevCat"] <- "elevation"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "logWsAreaSqKm"] <- "watershed area"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "huc8_damcount"] <- "dam count"
+
+#order the variables so they occurr in the correct/ same order for all figures
+pres_abs_fish_mdl_results$variable <- factor(pres_abs_fish_mdl_results$variable, levels = c("mean summer temp", "baseflow index", "summer flow", "low flow date", 
+                                                          "number of winter floods", 
+                                                          "BFIWs", "WtDepWs", "PctImp_Ws", "pctAg_Ws", 
+                                                          "pctWetland_Cat", "dam density",
+                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "logPctOw_Cat", 
+                                                          "latitude", "longitude", "elevation", "watershed area"))
 
 
 #dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
 
-for (i in 1:length(unique(results2$common_name))) {
+for (i in 1:length(unique(pres_abs_fish_mdl_results$common_name))) {
 
-ggplot(data = results2[results2$common_name == unique(results2$common_name)[i],], aes(x = variable, y = OR))+
+ggplot(data = pres_abs_fish_mdl_results[pres_abs_fish_mdl_results$common_name == unique(pres_abs_fish_mdl_results$common_name)[i],], aes(x = variable, y = OR))+
   geom_point(size = 3)+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), linewidth = .2)+
   coord_flip()+
@@ -1425,10 +1580,10 @@ ggplot(data = results2[results2$common_name == unique(results2$common_name)[i],]
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-    ggtitle(label = unique(results2$common_name)[i])
+    ggtitle(label = unique(pres_abs_fish_mdl_results$common_name)[i])
 
 ggsave(
-    filename = paste("C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/fish_log_odd_plots/pres_", unique(results2$common_name)[i],  ".png", sep = ""),
+    filename = paste("C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/fish_log_odd_plots/pres_", unique(pres_abs_fish_mdl_results$common_name)[i],  ".png", sep = ""),
     plot = last_plot(),
     width = 14,
     height = 9,
@@ -1437,6 +1592,109 @@ ggsave(
   )
 
 }
+
+
+
+#make composite OR plots to show how different temperature or origin groups respond to the variables on average
+#fish traits
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp") %>% 
+  filter(!is.na(tmp),
+         !tmp == "eury",
+         !(common_name %in% c("american brook lamprey") & tmp == "cold"),
+         !(common_name %in% c("common shiner", "white sucker", "smallmouth bass", "fallfish") & tmp == "warm")) %>% 
+  select(-state) %>% 
+  unique()
+
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin") %>% 
+  filter(!is.na(origin),
+         !(common_name == "spottail shiner" & origin == "introduced"),
+         !origin == "unk") %>% 
+  select(-state) %>%  
+  unique()
+
+#compoisit OR figures by cluster - can change the cluster csv to _byclimate, _bygeography, or just fish clusters
+clusters <- read.csv("tmpfigures/fishclusters_bygeography.csv")
+clusters <- clusters %>% 
+  select(-1) %>% 
+  rename(cluster = final.cluster)
+
+composit_OR_figs <- left_join(pres_abs_fish_mdl_results, clusters, by = "common_name") %>% 
+  left_join(temperature, by  = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20,
+         !is.na(cluster),
+         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+  group_by(cluster, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T))
+
+ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(cluster)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "cluster")
+
+ggsave(
+    filename = paste("tmpfigures/ORcomposit_bygeography.png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+#compostit OR plots by temperature guild
+composit_OR_figs <- left_join(pres_abs_fish_mdl_results, temperature, by = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20,
+         !is.na(tmp),
+         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+  group_by(tmp, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T))
+
+ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tmp)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "Temp")
+
+ggsave(
+    filename = paste("tmpfigures/ORcomposit_bytemp.png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
 
 
 #make a tile plot to show the coef value for each variable by fish
