@@ -1553,13 +1553,18 @@ pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "long"]
 pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "ElevCat"] <- "elevation"
 pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "logWsAreaSqKm"] <- "watershed area"
 pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "huc8_damcount"] <- "dam count"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "pctWetland_Cat"] <- "wetland"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "pctAg_Ws"] <- "agriculture"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "PctImp_Ws"] <- "impervious"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "WtDepWs"] <- "water table depth"
+pres_abs_fish_mdl_results$variable[pres_abs_fish_mdl_results$variable == "logPctOw_Cat"] <- "open water"
 
 #order the variables so they occurr in the correct/ same order for all figures
 pres_abs_fish_mdl_results$variable <- factor(pres_abs_fish_mdl_results$variable, levels = c("mean summer temp", "baseflow index", "summer flow", "low flow date", 
                                                           "number of winter floods", 
-                                                          "BFIWs", "WtDepWs", "PctImp_Ws", "pctAg_Ws", 
-                                                          "pctWetland_Cat", "dam density",
-                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "logPctOw_Cat", 
+                                                          "BFIWs", "water table depth", "impervious", "agriculture", 
+                                                          "wetland", "dam density",
+                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "open water", 
                                                           "latitude", "longitude", "elevation", "watershed area"))
 
 
