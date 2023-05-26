@@ -73,6 +73,15 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
   select(-state) %>%  
   unique()
 
+#load fish clusters
+geogclust <- read.csv("tmpfigures/fishclusters_bygeography.csv")
+geogclust <- geogclust %>% 
+  select(-1) %>% 
+  rename(geogclust = final.cluster)
+climclust <- read.csv("tmpfigures/fishclusters_byclimate.csv")
+climclust <- climclust %>% 
+  select(-1) %>% 
+  rename(climclust = final.cluster)
 
 #proportional abundance predictions
 
@@ -124,28 +133,34 @@ pred$common_name <- gsub(".rds", "", pred$common_name)
 pred$common_name <- gsub("\\.", " ", pred$common_name)
 
 
-#join to trait data so we can filter for certain temperature groups or origin
+#join to trait data and clusters so we can filter for certain temperature groups or origin
 pred <- pred %>% 
   left_join(temperature, by = "common_name") %>% 
-  left_join(origin, by = "common_name")
+  left_join(origin, by = "common_name") %>% 
+  left_join(geogclust, by = "common_name") %>% 
+  left_join(climclust, by = "common_name") %>% 
+  left_join(final_traits, by = "common_name")
 
 #plot cold water native species proportional abundance
 coldnat_1 <- pred %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
   unique() %>% 
-  filter(tmp == "cold" & origin == "native",
-         propabun > .1) %>%
+  filter(tmp == "cold") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(coldnatpropabund = sum(propabun, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(coldnatpropabund = mean(propabun, na.rm = T))
+  summarise(coldnatpropabund = mean(coldnatpropabund, na.rm = T))
 coldnat_1 <- left_join(huc12, coldnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+coldnat_1$coldnatpropabund <- ifelse(coldnat_1$coldnatpropabund > 1, 1, coldnat_1$coldnatpropabund)
 
 cldnprob <- ggplot(data = coldnat_1)+
   geom_sf(aes(fill = coldnatpropabund), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = .35,
-                       limits = c(0,.7))+
+                        midpoint = .5,
+                       limits = c(0,1), 
+                       breaks = c(0,1))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -154,25 +169,30 @@ cldnprob <- ggplot(data = coldnat_1)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Cold Native",x=-72.5,y=47, color = "black", size = 5)+
-  labs(fill = "Prop abun")
+  ggtitle("proportional abundance")+
+    geom_text(label = "Cold",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
 
 #plot cool water native species proportional abundance
 coolnat_1 <- pred %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
   unique() %>% 
-  filter(tmp == "cool" & origin == "native",
-         propabun > .1) %>%
+  filter(tmp == "cool") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(coolnatpropabund = sum(propabun, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(coolnatpropabund = mean(propabun, na.rm = T))
+  summarise(coolnatpropabund = mean(coolnatpropabund, na.rm = T))
 coolnat_1 <- left_join(huc12, coolnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+coolnat_1$coolnatpropabund <- ifelse(coolnat_1$coolnatpropabund > 1, 1, coolnat_1$coolnatpropabund)
+
 coolnprob <- ggplot(data = coolnat_1)+
   geom_sf(aes(fill = coolnatpropabund), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = .25,
-                       limits = c(0,.5))+
+                        midpoint = 0.5,
+                       limits = c(0,1), 
+                       breaks = c(0,1))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -181,25 +201,29 @@ coolnprob <- ggplot(data = coolnat_1)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Cool Native",x=-72.5,y=47, color = "black", size = 5)+
+    geom_text(label = "Cool",x=-72.5,y=47, color = "black", size = 5)+
   labs(fill = NULL)
 
 #plot warm water native species proportional abundance
 warmnat_1 <- pred %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
   unique() %>% 
-  filter(tmp == "warm" & origin == "native",
-         propabun > .1) %>%
+  filter(tmp == "warm") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(warmnatpropabund = sum(propabun, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(warmnatpropabund = mean(propabun, na.rm = T))
+  summarise(warmnatpropabund = mean(warmnatpropabund, na.rm = T))
 warmnat_1 <- left_join(huc12, warmnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+warmnat_1$warmnatpropabund <- ifelse(warmnat_1$warmnatpropabund > 1, 1, warmnat_1$warmnatpropabund)
+
 wnprob <- ggplot(data = warmnat_1)+
   geom_sf(aes(fill = warmnatpropabund), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = .4,
-                       limits = c(0,.8))+
+                        midpoint = 0.5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -208,25 +232,61 @@ wnprob <- ggplot(data = warmnat_1)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Warm Native",x=-72.5,y=47, color = "black", size = 5)+
+    geom_text(label = "Warm",x=-72.5,y=47, color = "black", size = 5)+
   labs(fill = NULL)
 
 #plot warm water nonnative species proportional abundance
-warmnonnat_1 <- pred %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+# warmnonnat_1 <- pred %>% 
+#   select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, propabun) %>% 
+#   unique() %>% 
+#   filter(tmp == "warm" & origin == "introduced")  %>%
+#   group_by(COMID, huc12_name, huc12_tnmid) %>% 
+#   summarise(warmnonnatpropabund = sum(propabun, na.rm = T)) %>% 
+#   group_by(huc12_name, huc12_tnmid) %>% 
+#   summarise(warmnonnatpropabund = mean(warmnonnatpropabund))
+# warmnonnat_1 <- left_join(huc12, warmnonnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+# wnnprob <- ggplot(data = warmnonnat_1)+
+#   geom_sf(aes(fill = warmnonnatpropabund), color = NA)+
+#   scale_fill_gradient2(low = "grey60",
+#                         mid = "yellow",
+#                         high = "green3",
+#                         midpoint = 0.7,
+#                        limits = c(0,1.318778),
+#                        breaks = c(0,1.3))+
+#     theme(panel.border = element_rect(colour = "black", fill = NA),
+#           panel.grid.major = element_blank(),
+#           panel.grid.minor = element_blank(),
+#           panel.background = element_blank(),
+#         axis.text = element_blank(),
+#         axis.ticks = element_blank(),
+#         legend.text = element_text(size = 12),
+#         legend.title = element_text(size = 15))+
+#     geom_text(label = "WNN",x=-72.5,y=47, color = "black", size = 5)+
+#   labs(fill = NULL)
+
+
+
+
+#plot fluvial specialist species proportional abundance
+specialist_1 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, propabun) %>% 
   unique() %>% 
-  filter(tmp == "warm" & origin == "introduced",
-         propabun > .1) %>%
+  filter(tolerance == "fluvial specialist") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(spenatpropabund = sum(propabun, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(warmnonnatpropabund = mean(propabun, na.rm = T))
-warmnonnat_1 <- left_join(huc12, warmnonnat_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
-wnnprob <- ggplot(data = warmnonnat_1)+
-  geom_sf(aes(fill = warmnonnatpropabund), color = NA)+
+  summarise(spenatpropabund = mean(spenatpropabund, na.rm = T))
+specialist_1 <- left_join(huc12, specialist_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+specialist_1$spenatpropabund <- ifelse(specialist_1$spenatpropabund > 1, 1, specialist_1$spenatpropabund)
+
+specprob_1 <- ggplot(data = specialist_1)+
+  geom_sf(aes(fill = spenatpropabund), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
                         midpoint = .5,
-                       limits = c(0,1))+
+                       limits = c(0,1), 
+                       breaks = c(0,1))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -235,10 +295,284 @@ wnnprob <- ggplot(data = warmnonnat_1)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Warm Non-native",x=-72.5,y=47, color = "black", size = 5)+
+  ggtitle("proportional abundance")+
+    geom_text(label = "FS",x=-72.5,y=47, color = "black", size = 5)+
   labs(fill = NULL)
 
-#plot native species shannon index
+#plot cool water native species proportional abundance
+dependant_1 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, propabun) %>% 
+  unique() %>% 
+  filter(tolerance == "fluvial dependent") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(deppropabund = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(deppropabund = mean(deppropabund, na.rm = T))
+dependant_1 <- left_join(huc12, dependant_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+dependant_1$deppropabund <- ifelse(dependant_1$deppropabund > 1, 1, dependant_1$deppropabund)
+
+depprop_1 <- ggplot(data = dependant_1)+
+  geom_sf(aes(fill = deppropabund), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 0.5,
+                       limits = c(0,1), 
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "FD",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot warm water native species proportional abundance
+generalist_1 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, propabun) %>% 
+  unique() %>% 
+  filter(tolerance == "generalist") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(genpropabund = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(genpropabund = mean(genpropabund, na.rm = T))
+generalist_1 <- left_join(huc12, generalist_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+generalist_1$genpropabund <- ifelse(generalist_1$genpropabund > 1, 1, generalist_1$genpropabund)
+
+genprob_1 <- ggplot(data = generalist_1)+
+  geom_sf(aes(fill = genpropabund), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 0.5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Gen",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+
+#plot from geog clusters 
+geog_1 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, geogclust, propabun) %>% 
+  unique() %>% 
+  filter(geogclust == 1)  %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(geog_1 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(geog_1 = mean(geog_1))
+geog_1 <- left_join(huc12, geog_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+geog_1prob <- ggplot(data = geog_1)+
+  geom_sf(aes(fill = geog_1), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 0.08,
+                       limits = c(0,0.17),
+                       breaks = c(0,0.17))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+  ggtitle("proportional abundance")+
+    geom_text(label = "geo 1",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from geog clusters 
+geog_2 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, geogclust, propabun) %>% 
+  unique() %>% 
+  filter(geogclust == 2)  %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(geog_2 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(geog_2 = mean(geog_2))
+geog_2 <- left_join(huc12, geog_2, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+geog_2prob <- ggplot(data = geog_2)+
+  geom_sf(aes(fill = geog_2), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 1.4,
+                       limits = c(0,2.8),
+                       breaks = c(0,2.8))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "geo 2",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from geog clusters 
+geog_3 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, geogclust, propabun) %>% 
+  unique() %>% 
+  filter(geogclust == 3)  %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(geog_3 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(geog_3 = mean(geog_3))
+geog_3 <- left_join(huc12, geog_3, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+geog_3prob <- ggplot(data = geog_3)+
+  geom_sf(aes(fill = geog_3), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .75,
+                       limits = c(0,1.5),
+                       breaks = c(0,1.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "geo 3",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from climate clusters 
+clim_1 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, propabun) %>% 
+  unique() %>% 
+  filter(climclust == 1)  %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_1 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_1 = mean(clim_1))
+clim_1 <- left_join(huc12, clim_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+
+
+clim_1prob <- ggplot(data = clim_1)+
+  geom_sf(aes(fill = clim_1), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+  ggtitle("proportional abundance")+
+    geom_text(label = "cli 1",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from climate clusters 
+clim_2 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, propabun) %>% 
+  unique() %>% 
+  filter(climclust == 2) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_2 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_2 = mean(clim_2))
+clim_2 <- left_join(huc12, clim_2, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_2prob <- ggplot(data = clim_2)+
+  geom_sf(aes(fill = clim_2), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 2",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+#plot from climate clusters 
+clim_3 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, propabun) %>% 
+  unique() %>% 
+  filter(climclust == 3) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_3 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_3 = mean(clim_3))
+clim_3 <- left_join(huc12, clim_3, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_3prob <- ggplot(data = clim_3)+
+  geom_sf(aes(fill = clim_3), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 3",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from climate clusters 
+clim_4 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, propabun) %>% 
+  unique() %>% 
+  filter(climclust == 4) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_4 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_4 = mean(clim_4))
+clim_4 <- left_join(huc12, clim_4, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_4$clim_4 <- ifelse(clim_4$clim_4 > 1, 1, clim_4$clim_4)
+
+clim_4prob <- ggplot(data = clim_4)+
+  geom_sf(aes(fill = clim_4), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 4",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
 
 #plot brook trout propabun
 brktrt_1 <- pred %>% 
@@ -350,19 +684,22 @@ pred_zero$common_name <- gsub("\\.", " ", pred_zero$common_name)
 #join to trait data so we can filter for certain temperature groups or origin
 pred_zero <- pred_zero %>% 
   left_join(temperature, by = "common_name") %>% 
-  left_join(origin, by = "common_name")
+  left_join(origin, by = "common_name") %>% 
+  left_join(geogclust, by = "common_name") %>% 
+  left_join(climclust, by = "common_name") %>% 
+  left_join(final_traits, by = "common_name")
 
 
 #plot cold water native species richness
 coldnat <- pred_zero %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>% 
   unique() %>% 
-  filter(tmp == "cold" & origin == "native",
-         probZero < .9) %>%
-  select(huc12_name, huc12_tnmid, common_name) %>% 
-  unique() %>% 
+  filter(tmp == "cold") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(coldnatrich = sum(probOcc, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(coldnatrich = n())
+  summarise(coldnatrich = mean(coldnatrich))
 coldnat <- left_join(huc12, coldnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
 
 cldnrich <- ggplot(data = coldnat)+
@@ -370,8 +707,9 @@ cldnrich <- ggplot(data = coldnat)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = 3.5,
-                       limits = c(0,7))+
+                        midpoint = 1.5,
+                       limits = c(0,3),
+                       breaks = c(0,3))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -380,27 +718,29 @@ cldnrich <- ggplot(data = coldnat)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Cold Native",x=-72.5,y=47, color = "black", size = 5)+
-  labs(fill = "richness")
+  ggtitle("richness")+
+    geom_text(label = "Cold",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
 
 #plot cool water native species richness
 coolnat <- pred_zero %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>% 
   unique() %>% 
-  filter(tmp == "cool" & origin == "native",
-         probZero < .9) %>%
-  select(huc12_name, huc12_tnmid, common_name) %>% 
-  unique() %>% 
+  filter(tmp == "cool") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(coolnatrich = sum(probOcc, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(coolnatrich = n())
+  summarise(coolnatrich = mean(coolnatrich))
 coolnat <- left_join(huc12, coolnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
 coolnrich <- ggplot(data = coolnat)+
   geom_sf(aes(fill = coolnatrich), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = 5,
-                       limits = c(0,10))+
+                        midpoint = 3,
+                       limits = c(0,6),
+                       breaks = c(0,6))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -409,27 +749,28 @@ coolnrich <- ggplot(data = coolnat)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Cool Native",x=-72.5,y=47, color = "black", size = 5)+
-  labs(fill = "richness")
+    geom_text(label = "Cool",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
 
 #plot warm water native species richness
 warmnat <- pred_zero %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
   unique() %>% 
-  filter(tmp == "warm" & origin == "native",
-         probZero < .9) %>%
-  select(huc12_name, huc12_tnmid, common_name) %>% 
-  unique() %>% 
+  filter(tmp == "warm") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(warmnatrich = sum(probOcc, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(warmnatrich = n())
+  summarise(warmnatrich = mean(warmnatrich))
 warmnat <- left_join(huc12, warmnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
 wnrich <- ggplot(data = warmnat)+
   geom_sf(aes(fill = warmnatrich), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = 6,
-                       limits = c(0,12))+
+                        midpoint = 3,
+                       limits = c(0,6),
+                       breaks = c(0,6))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -438,27 +779,59 @@ wnrich <- ggplot(data = warmnat)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Warm Native",x=-72.5,y=47, color = "black", size = 5)+
-  labs(fill = "richness")
+    geom_text(label = "Warm",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
 
 #plot warm water nonnative species richness
-warmnonnat <- pred_zero %>% 
-  select(huc12_name, huc12_tnmid, common_name, tmp, origin, probZero) %>% 
+# warmnonnat <- pred_zero %>% 
+#   select(COMID, huc12_name, huc12_tnmid, common_name, tmp, origin, probZero)  %>% 
+#   mutate(probOcc = 1 - probZero) %>%   
+#   unique() %>% 
+#   filter(tmp == "warm" & origin == "introduced") %>%
+#   group_by(COMID, huc12_name, huc12_tnmid) %>% 
+#   summarise(warmnonnatrich = sum(probOcc, na.rm = T)) %>% 
+#   group_by(huc12_name, huc12_tnmid) %>% 
+#   summarise(warmnonnatrich = mean(warmnonnatrich))
+# warmnonnat <- left_join(huc12, warmnonnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+# wnnrich <- ggplot(data = warmnonnat)+
+#   geom_sf(aes(fill = warmnonnatrich), color = NA)+
+#   scale_fill_gradient2(low = "grey60",
+#                         mid = "yellow",
+#                         high = "green3",
+#                         midpoint = 3.06,
+#                        limits = c(0,6.2),
+#                        breaks = c(0,6))+
+#     theme(panel.border = element_rect(colour = "black", fill = NA),
+#           panel.grid.major = element_blank(),
+#           panel.grid.minor = element_blank(),
+#           panel.background = element_blank(),
+#         axis.text = element_blank(),
+#         axis.ticks = element_blank(),
+#         legend.text = element_text(size = 12),
+#         legend.title = element_text(size = 15))+
+#     geom_text(label = "WNN",x=-72.5,y=47, color = "black", size = 5)+
+#   labs(fill = NULL)
+
+
+#plot from geog clusters 
+geog_rich1 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, geogclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
   unique() %>% 
-  filter(tmp == "warm" & origin == "introduced",
-         probZero < .9) %>%
-  select(huc12_name, huc12_tnmid, common_name) %>% 
-  unique() %>% 
+  filter(geogclust == 1) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(geog_rich1 = sum(probOcc, na.rm = T)) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(warmnonnatrich = n())
-warmnonnat <- left_join(huc12, warmnonnat, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
-wnnrich <- ggplot(data = warmnonnat)+
-  geom_sf(aes(fill = warmnonnatrich), color = NA)+
+  summarise(geog_rich1 = mean(geog_rich1))
+geog_rich1 <- left_join(huc12, geog_rich1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+geog_1rich <- ggplot(data = geog_rich1)+
+  geom_sf(aes(fill = geog_rich1), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
-                        midpoint = 7,
-                       limits = c(0,14))+
+                        midpoint = .3,
+                       limits = c(0,.6),
+                       breaks = c(0,.6))+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -467,10 +840,290 @@ wnnrich <- ggplot(data = warmnonnat)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    geom_text(label = "Warm Non-native",x=-72.5,y=47, color = "black", size = 5)+
-  labs(fill = "richness")
+  ggtitle("richness")+
+    geom_text(label = "geo 1",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
 
-#plot native species shannon index
+#plot from geog clusters 
+geog_rich2 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, geogclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(geogclust == 2) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(geog_rich2 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(geog_rich2 = mean(geog_rich2))
+geog_rich2 <- left_join(huc12, geog_rich2, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+geog_2rich <- ggplot(data = geog_rich2)+
+  geom_sf(aes(fill = geog_rich2), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2.6,
+                       limits = c(0,5.2),
+                       breaks = c(0,5.2))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "geo 2",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from geog clusters 
+geog_rich3 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, geogclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(geogclust == 3) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(geog_rich3 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(geog_rich3 = mean(geog_rich3))
+geog_rich_3 <- left_join(huc12, geog_rich3, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+geog_rich3 <- ggplot(data = geog_rich_3)+
+  geom_sf(aes(fill = geog_rich3), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 4.25,
+                       limits = c(0,8.5),
+                       breaks = c(0, 8.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "geo 3",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+
+
+#plot from fluvial dependence clusters 
+specialist_rich1 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(tolerance == "fluvial specialist") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(specialist_rich1 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(specialist_rich1 = mean(specialist_rich1))
+specialist_rich1 <- left_join(huc12, specialist_rich1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+specialist_rich1 <- ggplot(data = specialist_rich1)+
+  geom_sf(aes(fill = specialist_rich1), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 3,
+                       limits = c(0,6),
+                       breaks = c(0,6))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+  ggtitle("richness")+
+    geom_text(label = "FS",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from geog clusters 
+dependent_rich2 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(tolerance == "fluvial dependent") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(dependent_rich2 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(dependent_rich2 = mean(dependent_rich2))
+dependent_rich2 <- left_join(huc12, dependent_rich2, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+dependent_2rich <- ggplot(data = dependent_rich2)+
+  geom_sf(aes(fill = dependent_rich2), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 1,
+                       limits = c(0,2),
+                       breaks = c(0,2))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "FD",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from geog clusters 
+generalist_rich3 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(tolerance == "generalist") %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(generalist_rich3 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(generalist_rich3 = mean(generalist_rich3))
+generalist_rich3 <- left_join(huc12, generalist_rich3, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+generalist_rich3 <- ggplot(data = generalist_rich3)+
+  geom_sf(aes(fill = generalist_rich3), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2.5,
+                       limits = c(0,5.1),
+                       breaks = c(0, 5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Gen",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+#plot from climate clusters 
+clim_rich1 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(climclust == 1) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich1 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich1 = mean(clim_rich1))
+clim_rich1 <- left_join(huc12, clim_rich1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_rich1 <- ggplot(data = clim_rich1)+
+  geom_sf(aes(fill = clim_rich1), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2.25,
+                       limits = c(0,4.5),
+                       breaks = c(0, 4.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+  ggtitle("richness")+
+    geom_text(label = "cli 1",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from climate clusters 
+clim_rich2 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(climclust == 2) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich2 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich2 = mean(clim_rich2))
+clim_rich_2 <- left_join(huc12, clim_rich2, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_rich2 <- ggplot(data = clim_rich_2)+
+  geom_sf(aes(fill = clim_rich2), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 1.75,
+                       limits = c(0, 3.5),
+                       breaks = c(0, 3.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 2",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+#plot from climate clusters 
+clim_rich3 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(climclust == 3) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich3 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich3 = mean(clim_rich3))
+clim_rich_3 <- left_join(huc12, clim_rich3, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_rich3 <- ggplot(data = clim_rich_3)+
+  geom_sf(aes(fill = clim_rich3), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2,
+                       limits = c(0, 4),
+                       breaks = c(0, 4))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 3",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+#plot from climate clusters 
+clim_rich4 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(climclust == 4) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich4 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich4 = mean(clim_rich4))
+clim_rich4 <- left_join(huc12, clim_rich4, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_rich4 <- ggplot(data = clim_rich4)+
+  geom_sf(aes(fill = clim_rich4), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2,
+                       limits = c(0, 4),
+                       breaks = c(0, 4))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 4",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+
 
 #plot probability of brook trout probZero
 brktrt <- pred_zero %>% 
@@ -515,39 +1168,78 @@ pmprich <- ggplot(data = pmpk)+
 
 c <- arrangeGrob(cldnprob, cldnrich, 
                  coolnprob, coolnrich, 
-                 wnprob, wnrich, 
-                 wnnprob, wnnrich, 
-                 brkprop, brkrich,
-             ncol=2, nrow =5)
-ggsave(c, file = "tmpfigures/testing123.png", 
+                 wnprob, wnrich,
+             ncol=2, nrow =3)
+ggsave(c, file = "tmpfigures/paper1/BaselineFishTempDist.png", 
+    width = 12,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+cc <- arrangeGrob(specprob_1, specialist_rich1, 
+                 depprop_1, dependent_2rich, 
+                 genprob_1, generalist_rich3,
+             ncol=2, nrow =3)
+ggsave(cc, file = "tmpfigures/paper1/BaselineFishToleranceDist.png", 
+    width = 12,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+
+
+d <- arrangeGrob(clim_1prob, clim_rich1, 
+                 clim_2prob, clim_rich2, 
+                 clim_3prob, clim_rich3,
+                 clim_4prob, clim_rich4,
+             ncol=2, nrow =4)
+ggsave(d, file = "tmpfigures/paper1/BaselineFishClimDist.png", 
     width = 12,
     height = 20,
+    units = "cm",
+    dpi = 300)
+
+e <- arrangeGrob(geog_1prob, geog_1rich, 
+                 geog_2prob, geog_2rich, 
+                 geog_3prob, geog_rich3,
+             ncol=2, nrow =3)
+ggsave(e, file = "tmpfigures/BaselineFishGeoDist.png", 
+    width = 12,
+    height = 15,
     units = "cm",
     dpi = 300)
 
 
 
 
-
-
-
-#plot each proportional abundance variable versus its richness counterpart
+#plot each variable calcuated above against all the others in the ggpairs plot
 
 compare <- data.frame(
   coldnat_propabund = coldnat_1$coldnatpropabund,
   coolnat_propabund = coolnat_1$coolnatpropabund,
   warmnat_propabund = warmnat_1$warmnatpropabund,
   warmnonnat_propabund = warmnonnat_1$warmnonnatpropabund,
-  brktrt_propabun = brktrt_1$brktrt,
   coldnat_rich = coldnat$coldnatrich,
   coolnat_rich = coolnat$coolnatrich,
   warmnat_rich = warmnat$warmnatrich,
   warmnonnat_rich = warmnonnat$warmnonnatrich,
-  brktrt_prob = brktrt$brktrtprob
+  geog_1_propabund = geog_1$geog_1,
+  geog_2_propabund = geog_2$geog_2,
+  geog_3_propabund = geog_3$geog_3,
+  clim_1_propabund = clim_1$clim_1,
+  clim_2_propabund = clim_2$clim_2,
+  clim_3_propabund = clim_3$clim_3,
+  geog_1_rich = geog_rich1$geog_rich1,
+  geog_2_rich = geog_rich2$geog_rich2,
+  geog_3_rich = geog_rich_3$geog_rich3,
+  clim_1_rich = clim_rich_1$clim_rich1,
+  clim_2_rich = clim_rich_2$clim_rich2,
+  clim_3_rich = clim_rich_3$clim_rich3
   
 )
 
-
+library(GGally)
+ggpairs(compare)
 
 
 

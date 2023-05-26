@@ -675,9 +675,7 @@ results2 <- cond %>%
   mutate(OR = ifelse(p_val<0.001, paste(OR, "***", sep = ""),
                      ifelse(p_val < 0.01 & p_val > 0.001, paste(OR, "**", sep = ""),
                             ifelse(p_val < 0.1 & p_val > 0.01, paste(OR, "*", sep = ""),
-                                   OR)))) %>% 
-  filter(p_val <0.1) %>% 
-  select(-p_val)
+                                   OR))))
   
 rownames(results2) <- NULL
 
@@ -785,6 +783,7 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
   select(-state) %>%  
   unique()
 
+#compoisit OR figures by cluster - can change the cluster csv to _byclimate, _bygeography, or just fish clusters
 clusters <- read.csv("tmpfigures/fishclusters_byclimate.csv")
 clusters <- clusters %>% 
   select(-1) %>% 
@@ -794,14 +793,15 @@ composit_OR_figs <- left_join(results2, clusters, by = "common_name") %>%
   left_join(temperature, by  = "common_name") %>% 
   filter(! OR > 20,
          ! ORCIhigh > 20,
-         !is.na(cluster)) %>%
+         !is.na(cluster),
+         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
   group_by(cluster, variable) %>% 
   summarise(OR = median(OR, na.rm = T),
             ORCIlow = median(ORCIlow, na.rm = T),
             ORCIhigh = median(ORCIhigh, na.rm = T))
 
 ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(cluster)))+
-  geom_point(size = 3, position=position_dodge(width=0.5))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
   coord_flip()+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
@@ -812,7 +812,87 @@ ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(clus
         axis.text = element_text(size = 10),
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
-        title = element_text(size = 15))
+        title = element_text(size = 15))+
+  labs(color = "cluster")
+
+ggsave(
+    filename = paste("tmpfigures/paper1/ORcomposit_prop_abun_byclimate.png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+#compostit OR plots by temperature guild
+composit_OR_figs <- left_join(results2, temperature, by = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20,
+         !is.na(tmp),
+         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+  group_by(tmp, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T))
+
+ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tmp)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "Temp")
+
+ggsave(
+    filename = paste("tmpfigures/paper1/ORcomposit_prop_abun_bytemp.png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+#compostit OR plots by flucial dependence guild
+composit_OR_figs <- left_join(results2, final_traits, by = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20,
+         !is.na(tolerance),
+         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+  group_by(tolerance, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T))
+
+ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tolerance)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "tolerance")
+
+ggsave(
+    filename = paste("tmpfigures/paper1/ORcomposit_prop_abun_bytolerance.png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
 
 
 
@@ -1625,7 +1705,7 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
   unique()
 
 #compoisit OR figures by cluster - can change the cluster csv to _byclimate, _bygeography, or just fish clusters
-clusters <- read.csv("tmpfigures/fishclusters_bygeography.csv")
+clusters <- read.csv("tmpfigures/fishclusters_byclimate.csv")
 clusters <- clusters %>% 
   select(-1) %>% 
   rename(cluster = final.cluster)
@@ -1657,7 +1737,7 @@ ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(clus
   labs(color = "cluster")
 
 ggsave(
-    filename = paste("tmpfigures/ORcomposit_bygeography.png", sep = ""),
+    filename = paste("tmpfigures/paper1/ORcomposit_pres_abs_byclimate.png", sep = ""),
     plot = last_plot(),
     width = 14,
     height = 9,
@@ -1692,7 +1772,42 @@ ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tmp)
   labs(color = "Temp")
 
 ggsave(
-    filename = paste("tmpfigures/ORcomposit_bytemp.png", sep = ""),
+    filename = paste("tmpfigures/paper1/ORcomposit_pres_abs_bytemp.png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 200
+  )
+
+#compostit OR plots by flucial dependence guild
+composit_OR_figs <- left_join(pres_abs_fish_mdl_results, final_traits, by = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20,
+         !is.na(tolerance),
+         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+  group_by(tolerance, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T))
+
+ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tolerance)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "tolerance")
+
+ggsave(
+    filename = paste("tmpfigures/paper1/ORcomposit_pres_abs_bytolerance.png", sep = ""),
     plot = last_plot(),
     width = 14,
     height = 9,
