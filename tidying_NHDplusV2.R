@@ -337,3 +337,119 @@ ggplot(data = NHDplusV2_NewEngCrop, mapping = aes(color = annual_mean_summer_tem
        color = "m")
 
 
+
+
+
+
+
+
+
+
+
+
+
+#make a datafile that joins all the COMIDS, with the HUCs, and the states, so that we can discuss our results both by HUC and by state.
+
+library(sf)
+library(sp)
+library(maptools)
+library(rgeos)
+
+
+
+# assigns every COMID a covariate in the model and a HUC8,10,12 name 
+#this is the file we will use to predict the fish and mussels current and future biodiversity
+
+
+#watersheds and states
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+NHDplusV2_NewEngCrop <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+
+#prepare the huc files - select the attributes we want and remove the duplicated rows
+#21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
+
+sf_use_s2(FALSE)
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc12 <- huc12 %>% 
+  select(tnmid, areasqkm , name) %>% 
+  rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
+huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
+
+states <- states %>% 
+  select(-FIPS, -SHAPE_LEN) %>% 
+  rename(state = NAME, state_acres = ACRES, state_area = SHAPE_AREA,)
+#this df needs aditional editting
+#Outlet Missisquoi River - HUc12_name this is the same shape, but it actually has two separate tnmid
+#Outlet Sutton River and Riviere Sutton are the same shape, but have different HUC 12 names and have different tnmid
+#Ruiss Coslett-Riviere Aux Brochets vs Groat Creek are the same shape with different names and tmnid
+
+huc12 <- huc12 %>% 
+  filter(huc12_tnmid != "{7964F492-75EA-4AA7-8E77-A96D99348771}",
+         huc12_name != "Riviere Sutton",
+         huc12_name != "Ruiss Coslett-Riviere Aux Brochets")
+
+
+
+
+
+
+
+#convert the NHD to points so we can join to the HUC
+#convert the lines to midpoints
+NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop %>% st_zm() %>% 
+  filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
+  select(COMID)
+#read in this dataset because its a projection that works with the spatiallinesmidpoints function
+lines04 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/sheds/spatial_04/truncatedFlowlines04.shp")
+
+NHDplusV2_NewEngCrop <- st_transform(NHDplusV2_NewEngCrop, st_crs(lines04))
+rm(lines04)
+
+lines_spatial <- as(NHDplusV2_NewEngCrop, "Spatial") #make a spatial data file
+lines_midpoints <- SpatialLinesMidPoints(lines_spatial) #get the midpoints
+lines_midpoints <- as(lines_midpoints, "sf") #convert back to an sf object
+
+st_crs(huc8) == st_crs(lines_midpoints) #check to see if they are the same projection - they are not
+lines_midpoints <- st_transform(lines_midpoints, st_crs(huc8)) #transform the lines to match the nhd data files
+st_crs(huc8) == st_crs(lines_midpoints) #confirm they are correctly projected.. they now are
+names(lines_midpoints)[1] <- "COMID"
+
+states <- st_transform(states, st_crs(huc8)) #transform the states to match the nhd data files
+
+lines_midpoints <- lines_midpoints%>% 
+  mutate(long = unlist(map(lines_midpoints$geometry,1)),
+         lat = unlist(map(lines_midpoints$geometry,2)))
+
+#get the lat and long from the geography column
+
+sf_use_s2(FALSE)
+NHDv2_huc_state_join <- st_join(lines_midpoints, huc8, left = FALSE)
+NHDv2_huc_state_join <- st_join(NHDv2_huc_state_join, huc10, left = FALSE)
+NHDv2_huc_state_join <- st_join(NHDv2_huc_state_join, huc12, left = FALSE)
+NHDv2_huc_state_join <- st_join(NHDv2_huc_state_join, states, left = FALSE)
+
+
+
+
+save(NHDv2_huc_state_join, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDv2_huc_state_join.RData")
+
+
+

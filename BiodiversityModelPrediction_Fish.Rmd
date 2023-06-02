@@ -1215,26 +1215,23 @@ ggsave(e, file = "tmpfigures/BaselineFishGeoDist.png",
 #plot each variable calcuated above against all the others in the ggpairs plot
 
 compare <- data.frame(
-  coldnat_propabund = coldnat_1$coldnatpropabund,
-  coolnat_propabund = coolnat_1$coolnatpropabund,
-  warmnat_propabund = warmnat_1$warmnatpropabund,
-  warmnonnat_propabund = warmnonnat_1$warmnonnatpropabund,
-  coldnat_rich = coldnat$coldnatrich,
-  coolnat_rich = coolnat$coolnatrich,
-  warmnat_rich = warmnat$warmnatrich,
-  warmnonnat_rich = warmnonnat$warmnonnatrich,
-  geog_1_propabund = geog_1$geog_1,
-  geog_2_propabund = geog_2$geog_2,
-  geog_3_propabund = geog_3$geog_3,
-  clim_1_propabund = clim_1$clim_1,
-  clim_2_propabund = clim_2$clim_2,
-  clim_3_propabund = clim_3$clim_3,
-  geog_1_rich = geog_rich1$geog_rich1,
-  geog_2_rich = geog_rich2$geog_rich2,
-  geog_3_rich = geog_rich_3$geog_rich3,
-  clim_1_rich = clim_rich_1$clim_rich1,
-  clim_2_rich = clim_rich_2$clim_rich2,
-  clim_3_rich = clim_rich_3$clim_rich3
+  cold_pa = coldnat_1$coldnatpropabund,
+  cool_pa = coolnat_1$coolnatpropabund,
+  warm_pa = warmnat_1$warmnatpropabund,
+  cold_ri = coldnat$coldnatrich,
+  cool_ri = coolnat$coolnatrich,
+  warm_ri = warmnat$warmnatrich,
+  brktrt_pa = brktrt_1$brktrt_propabun,
+  clim_1_pa = clim_1$clim_1,
+  clim_2_pa = clim_2$clim_2,
+  clim_3_pa = clim_3$clim_3,
+  clim_4_pa = clim_4$clim_4,
+  clim_1_ri = clim_rich1$clim_rich1,
+  clim_2_ri = clim_rich_2$clim_rich2,
+  clim_3_ri = clim_rich_3$clim_rich3,
+  clim_4_ri = clim_rich4$clim_rich4,
+  brktrt_ri = brktrt$brktrtprob
+  
   
 )
 
@@ -1243,6 +1240,114 @@ ggpairs(compare)
 
 
 
+
+
+#calcuate the percentage of each metric within each state
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDv2_huc_state_join.RData")
+
+#join the predictions_zero to the list of comids
+bystate <- cbind(NHDplusV2_NewEngCrop, predictions_zero) 
+bystate <- data.frame(bystate) %>% 
+  select(-geometry) %>% 
+  pivot_longer(2:58, values_to = "ZeroProb", names_to = "common_name") 
+bystate$common_name <- gsub("probZero_", "", pred$common_name)
+bystate$common_name <- gsub(".rds", "", pred$common_name)
+bystate$common_name <- gsub("\\.", " ", pred$common_name)
+
+
+#join to trait data and clusters so we can filter for certain temperature groups or origin
+bystate <- bystate %>% 
+  left_join(temperature, by = "common_name") %>% 
+  left_join(origin, by = "common_name") %>% 
+  left_join(geogclust, by = "common_name") %>% 
+  left_join(climclust, by = "common_name") %>% 
+  left_join(final_traits, by = "common_name")
+
+
+bystate <- left_join(NHDv2_huc_state_join, bystate, by = "COMID")
+
+
+temp <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(tmp)) %>% 
+  select(COMID, state, tmp, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>% 
+  group_by(COMID, state, tmp) %>% 
+  summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
+  ungroup %>% 
+  group_by(state, tmp) %>% 
+  summarise(tmp_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
+            tmp_total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+
+tol <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(tolerance)) %>% 
+  select(COMID, state, tolerance, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>% 
+  group_by(COMID, state, tolerance) %>% 
+  summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
+  ungroup %>% 
+  group_by(state, tolerance) %>% 
+  summarise(tol_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
+            tol_total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+
+clust <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(climclust)) %>% 
+  select(COMID, state, climclust, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>% 
+  group_by(COMID, state, climclust) %>% 
+  summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
+  ungroup %>% 
+  group_by(state, climclust) %>% 
+  summarise(clust_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
+            clust_total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+
+
+ggplot(data = temp, mapping = aes(y = state, x = tmp_avg_prob, fill = tmp))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  geom_text(aes(label = tmp_avg_prob), position=position_dodge(width=0.9),hjust = 1.2)
+
+ggplot(data = temp, mapping = aes(y = state, x = tmp_total_prob, fill = tmp))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  geom_text(aes(label = tmp_total_prob), position=position_dodge(width=0.9),hjust = 1.2)
+
+ggplot(data = tol, mapping = aes(y = state, x = tol_avg_prob, fill = tolerance))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  geom_text(aes(label = tol_avg_prob), position=position_dodge(width=0.9),hjust = 1.2)
+
+ggplot(data = tol, mapping = aes(y = state, x = tol_total_prob, fill = tolerance))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  geom_text(aes(label = tol_total_prob), position=position_dodge(width=0.9),hjust = 1.2)
+
+ggplot(data = clust, mapping = aes(y = state, x = clust_total_prob, fill = as.factor(climclust)))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  geom_text(aes(label = clust_total_prob), position=position_dodge(width=0.9),hjust = -.1)
+
+
+test <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(tmp)) %>% 
+  select(COMID, huc8_name, tmp, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>% 
+  group_by(COMID, huc8_name, tmp) %>% 
+  summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
+  ungroup %>% 
+  group_by(huc8_name, tmp) %>% 
+  summarise(avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
+            total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+
+ggplot(data = test, mapping = aes(y = huc8_name, x = avg_prob, fill = tmp))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")
+
+ggplot(data = test, mapping = aes(y = huc8_name, x = total_prob, fill = tmp))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")
+
+#calcuate correlations between each metric and the richness vs proportional abundance variation
 
 r2 <- summary(lm(data = compare, coldnat_propabund ~ coldnat_rich)) #this is the better fit
 #summary(lm(data = compare, coldnat_propabund ~ I(coldnat_rich^2)))
