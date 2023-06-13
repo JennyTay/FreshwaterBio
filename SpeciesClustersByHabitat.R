@@ -580,11 +580,12 @@ k2 <- kmeans(distance, centers = 2, nstart = 25)
 k3 <- kmeans(distance, centers = 3, nstart = 25)
 k4 <- kmeans(distance, centers = 4, nstart = 25)
 k5 <- kmeans(distance, centers = 5, nstart = 25)
+k6 <- kmeans(distance, centers = 6, nstart = 25)
 str(k2)
 k2
 
 #view clusters. Plotted along the two most influential compoents according to PCA
-fviz_cluster(k4, data = distance)
+fviz_cluster(k5, data = distance)
 
 #make plots of the clusters using 2-5 centroids
 p1 <- fviz_cluster(k2, geom = "point", data = distance) + ggtitle("k = 2")
@@ -640,10 +641,10 @@ plot(k.values, avg_sil_values,
      ylab = "Average Silhouettes")
 
 
-#well use 4 as our final cluster number
+#well use 6 as our final cluster number
 
 set.seed(123)
-final <- kmeans(distance, 4, nstart = 25)
+final <- kmeans(distance, 6, nstart = 25)
 print(final)
 finalclust <- data.frame(final$cluster)
 finalclust$common_name <- rownames(finalclust)

@@ -574,6 +574,70 @@ clim_4prob <- ggplot(data = clim_4)+
   labs(fill = NULL)
 
 
+#plot from climate clusters 
+clim_5 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, propabun) %>% 
+  unique() %>% 
+  filter(climclust == 5) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_5 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_5 = mean(clim_5))
+clim_5 <- left_join(huc12, clim_5, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_5$clim_5 <- ifelse(clim_5$clim_5 > 1, 1, clim_5$clim_5)
+
+clim_5prob <- ggplot(data = clim_5)+
+  geom_sf(aes(fill = clim_5), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 5",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+#plot from climate clusters 
+clim_6 <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, propabun) %>% 
+  unique() %>% 
+  filter(climclust == 6) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_6 = sum(propabun, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_6 = mean(clim_6))
+clim_6 <- left_join(huc12, clim_6, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_6$clim_6 <- ifelse(clim_6$clim_6 > 1, 1, clim_6$clim_6)
+
+clim_6prob <- ggplot(data = clim_6)+
+  geom_sf(aes(fill = clim_6), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1),
+                       breaks = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 6",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
 #plot brook trout propabun
 brktrt_1 <- pred %>% 
   select(huc12_name, huc12_tnmid, common_name, propabun) %>% 
@@ -602,16 +666,31 @@ brkprop <- ggplot(data = brktrt_1)+
   labs(fill = NULL)
 
 #plot pumpkinseed propabun
-pmpk_1 <- pred %>% 
+pumpkin_1 <- pred %>% 
   select(huc12_name, huc12_tnmid, common_name, propabun) %>% 
   unique() %>% 
   filter(common_name == "pumpkinseed",
-         propabun > .1) %>%
+         propabun > .01) %>%
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(pmpk_propabun = mean(propabun, na.rm = T))
-pmpk_1 <- left_join(huc12, pmpk_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
-pmpprop <- ggplot(data = pmpk_1)+
-  geom_sf(aes(fill = pmpk_propabun, color = pmpk_propabun))
+  summarise(pmk_propabun = mean(propabun, na.rm = T))
+pumpkin_1 <- left_join(huc12, pumpkin_1, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+pmkprop <- ggplot(data = pumpkin_1)+
+  geom_sf(aes(fill = pmk_propabun), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .06,
+                       limits = c(0,.12))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Pumpkinseed",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
 
 
 
@@ -688,6 +767,13 @@ pred_zero <- pred_zero %>%
   left_join(geogclust, by = "common_name") %>% 
   left_join(climclust, by = "common_name") %>% 
   left_join(final_traits, by = "common_name")
+
+#write csv with final spp groupings
+sppgroups <- pred_zero %>% 
+  select(common_name, tmp, tolerance, climclust) %>% 
+  unique() %>% 
+  arrange(tmp)
+write.csv(sppgroups, "tmpfigures/paper1/sppgroups.csv")
 
 
 #plot cold water native species richness
@@ -1122,6 +1208,68 @@ clim_rich4 <- ggplot(data = clim_rich4)+
     geom_text(label = "cli 4",x=-72.5,y=47, color = "black", size = 5)+
   labs(fill = NULL)
 
+#plot from climate clusters 
+clim_rich5 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(climclust == 5) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich5 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich5 = mean(clim_rich5))
+clim_rich5 <- left_join(huc12, clim_rich5, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_rich5 <- ggplot(data = clim_rich5)+
+  geom_sf(aes(fill = clim_rich5), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2,
+                       limits = c(0, 4),
+                       breaks = c(0, 4))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 5",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+#plot from climate clusters 
+clim_rich6 <- pred_zero %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, climclust, probZero) %>% 
+  mutate(probOcc = 1 - probZero) %>%  
+  unique() %>% 
+  filter(climclust == 6) %>%
+  group_by(COMID, huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich6 = sum(probOcc, na.rm = T)) %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(clim_rich6 = mean(clim_rich6))
+clim_rich6 <- left_join(huc12, clim_rich6, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+clim_rich6 <- ggplot(data = clim_rich6)+
+  geom_sf(aes(fill = clim_rich6), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = 2,
+                       limits = c(0, 4),
+                       breaks = c(0, 4))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "cli 6",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = NULL)
+
+
+
 
 
 
@@ -1153,17 +1301,31 @@ brkrich <- ggplot(data = brktrt)+
   labs(fill = "Prob")
 
 #plot probability of pumpkinseed probZero
-pmpk <- pred_zero %>% 
+pumpkin <- pred_zero %>% 
   select(huc12_name, huc12_tnmid, common_name, probZero) %>% 
   unique() %>% 
   filter(common_name == "pumpkinseed",
-         probZero < .9) %>% 
+         probZero < .99) %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
-  summarise(pmpkprob = 1 - (mean(probZero)))
-pmpk <- left_join(huc12, pmpk, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
-pmprich <- ggplot(data = pmpk)+
-  geom_sf(aes(fill = pmpkprob, color = pmpkprob))
-
+  summarise(pmkprob = 1 - (mean(probZero)))
+pumpkin <- left_join(huc12, pumpkin, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+pmkrich <- ggplot(data = pumpkin)+
+  geom_sf(aes(fill = pmkprob), color = NA)+
+  scale_fill_gradient2(low = "grey60",
+                        mid = "yellow",
+                        high = "green3",
+                        midpoint = .5,
+                       limits = c(0,1))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    geom_text(label = "Pumpkinseed",x=-72.5,y=47, color = "black", size = 5)+
+  labs(fill = "Prob")
 
 
 c <- arrangeGrob(cldnprob, cldnrich, 
@@ -1176,11 +1338,13 @@ ggsave(c, file = "tmpfigures/paper1/BaselineFishTempDist.png",
     units = "cm",
     dpi = 300)
 
-cc <- arrangeGrob(specprob_1, specialist_rich1, 
-                 depprop_1, dependent_2rich, 
-                 genprob_1, generalist_rich3,
+
+
+cc <- arrangeGrob(specprob_1, cldnprob, 
+                 depprop_1, coolnprob, 
+                 genprob_1, wnprob,
              ncol=2, nrow =3)
-ggsave(cc, file = "tmpfigures/paper1/BaselineFishToleranceDist.png", 
+ggsave(cc, file = "tmpfigures/paper1/BaselineFishTmpTolerance.png", 
     width = 12,
     height = 15,
     units = "cm",
@@ -1188,16 +1352,18 @@ ggsave(cc, file = "tmpfigures/paper1/BaselineFishToleranceDist.png",
 
 
 
-d <- arrangeGrob(clim_1prob, clim_rich1, 
-                 clim_2prob, clim_rich2, 
-                 clim_3prob, clim_rich3,
-                 clim_4prob, clim_rich4,
-             ncol=2, nrow =4)
+d <- arrangeGrob(clim_1prob, 
+                 clim_2prob, 
+                 clim_3prob,
+                 clim_4prob,
+                 clim_5prob, 
+                 clim_6prob,
+             ncol=2, nrow =3)
 ggsave(d, file = "tmpfigures/paper1/BaselineFishClimDist.png", 
     width = 12,
     height = 20,
     units = "cm",
-    dpi = 300)
+    dpi = 100)
 
 e <- arrangeGrob(geog_1prob, geog_1rich, 
                  geog_2prob, geog_2rich, 
@@ -1226,19 +1392,54 @@ compare <- data.frame(
   clim_2_pa = clim_2$clim_2,
   clim_3_pa = clim_3$clim_3,
   clim_4_pa = clim_4$clim_4,
+  clim_5_pa = clim_5$clim_5,
+  clim_6_pa = clim_6$clim_6,
   clim_1_ri = clim_rich1$clim_rich1,
   clim_2_ri = clim_rich_2$clim_rich2,
   clim_3_ri = clim_rich_3$clim_rich3,
   clim_4_ri = clim_rich4$clim_rich4,
-  brktrt_ri = brktrt$brktrtprob
+  clim_5_ri = clim_rich5$clim_rich5,
+  clim_6_ri = clim_rich6$clim_rich6,
+  brktrt_ri = brktrt$brktrtprob,
+  dependant_pa = dependant_1$deppropabund,
+  generalist_pa = generalist_1$genpropabund,
+  specialist_pa = specialist_1$spenatpropabund,
+  dependant_ri = dependent_rich2$dependent_rich2,
+  generalist_ri = generalist_rich3$generalist_rich3,
+  specialist_ri = specialist_rich1$specialist_rich1,
+  pmk_ri = pumpkin$pmkprob,
+  pmk_pa = pumpkin_1$pmk_propabun
   
   
 )
 
+
+compare <- compare[complete.cases(compare),]
+
 library(GGally)
 ggpairs(compare)
+names(compare)
 
+test <- cor(compare)
+test <- test %>% 
+  data.frame() %>% 
+  select(contains("pa") & !contains("clim")) %>% 
+  filter(rownames(test) %in% c("clim_1_pa", "clim_2_pa", "clim_3_pa", "clim_4_pa", "clim_5_pa", "clim_6_pa"))
+write.csv(test, file = "tmpfigures/paper1/correlationmatrix.csv")
 
+cor.test(compare$cold_pa, compare$cold_ri, use = "complete.obs") #0.8708906
+cor.test(compare$cool_pa, compare$cool_ri, use = "complete.obs") #0.9331168 
+cor.test(compare$warm_pa, compare$warm_ri, use = "complete.obs") #0.9120983 
+cor.test(compare$clim_1_pa, compare$clim_1_ri, use = "complete.obs") #0.9557679 
+cor.test(compare$clim_2_pa, compare$clim_2_ri, use = "complete.obs") #0.9213403 
+cor.test(compare$clim_3_pa, compare$clim_3_ri, use = "complete.obs") #0.905495 
+cor.test(compare$clim_4_pa, compare$clim_4_ri, use = "complete.obs") #0.805493
+cor.test(compare$clim_5_pa, compare$clim_5_ri, use = "complete.obs") #0.9370384
+cor.test(compare$clim_6_pa, compare$clim_6_ri, use = "complete.obs") #0.9471381
+cor.test(compare$dependant_pa, compare$dependant_ri, use = "complete.obs") #0.8623393
+cor.test(compare$generalist_pa, compare$generalist_ri, use = "complete.obs") #0.924191 
+cor.test(compare$specialist_pa, compare$specialist_ri, use = "complete.obs") #0.7481394
+cor.test(compare$brktrt_pa, compare$brktrt_ri, use = "complete.obs") #0.8138806
 
 
 
@@ -1246,6 +1447,8 @@ ggpairs(compare)
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDv2_huc_state_join.RData")
 
 #join the predictions_zero to the list of comids
+NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop %>% 
+  select(COMID)
 bystate <- cbind(NHDplusV2_NewEngCrop, predictions_zero) 
 bystate <- data.frame(bystate) %>% 
   select(-geometry) %>% 
@@ -1266,86 +1469,320 @@ bystate <- bystate %>%
 
 bystate <- left_join(NHDv2_huc_state_join, bystate, by = "COMID")
 
-
+#calcuate the average prob, total prob, and proportional probabilty of each temperature group across the states
 temp <- bystate %>% 
   data.frame() %>% 
   filter(!is.na(tmp)) %>% 
   select(COMID, state, tmp, ZeroProb) %>% 
   mutate(probOcc = 1 - ZeroProb) %>% 
   unique() %>% 
+  group_by(tmp) %>% 
+  summarise(prob = sum(probOcc, na.rm = T))
+
+temp2 <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(tmp)) %>% 
+  select(COMID, state, tmp, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>%
   group_by(COMID, state, tmp) %>% 
   summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
   ungroup %>% 
   group_by(state, tmp) %>% 
   summarise(tmp_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
-            tmp_total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+            tmp_total_prob = round(sum(total_prob, na.rm = T), 0)) %>% #total prob zero within each COMID across the state
+  left_join(temp, by = "tmp") %>% 
+  mutate(prop_prob = round(tmp_total_prob/prob , 2)) %>%  # proportional prob zero across the state
+  select(-prob) %>% 
+  pivot_longer(3:5, names_to = "variable", values_to = "value") %>% 
+  filter(variable != "tmp_total_prob")
 
+temp2$tmp <- factor(temp2$tmp, levels = c("cold", "cool", "warm"))
+temp2$variable <- factor(temp2$variable, levels = c("tmp_avg_prob", "prop_prob"))
+
+
+tmpbystate <- ggplot(data = temp2, mapping = aes(y = tolower(state), x = value, fill = tmp))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  scale_fill_manual(values=c("royalblue3", "yellowgreen", "chocolate2"))+
+  facet_wrap(~variable, scales = "free", labeller = as_labeller(c("prop_prob" = "Proportion", "tmp_avg_prob" = "Average")))+
+  labs(x = NULL, y = NULL)+
+  theme(strip.text = element_text(size = 12, color = "black"),
+        strip.background = element_rect(color = "black", fill = "grey80", linewidth = 1.5))
+ggsave(tmpbystate, file = "tmpfigures/paper1/tempbystate.png", 
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)
+
+
+#calcuate the average prob, total prob, and proportional probabilty of each tolerance group across the states
 tol <- bystate %>% 
   data.frame() %>% 
   filter(!is.na(tolerance)) %>% 
   select(COMID, state, tolerance, ZeroProb) %>% 
   mutate(probOcc = 1 - ZeroProb) %>% 
   unique() %>% 
+  group_by(tolerance) %>% 
+  summarise(prob = sum(probOcc, na.rm = T))
+
+tol2 <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(tolerance)) %>% 
+  select(COMID, state, tolerance, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>%
   group_by(COMID, state, tolerance) %>% 
   summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
   ungroup %>% 
   group_by(state, tolerance) %>% 
   summarise(tol_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
-            tol_total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+            tol_total_prob = round(sum(total_prob, na.rm = T), 0)) %>% #total prob zero within each COMID across the state
+  left_join(tol, by = "tolerance") %>% 
+  mutate(prop_prob = round(tol_total_prob/prob , 2)) %>%  # proportional prob zero across the state
+  select(-prob) %>% 
+  pivot_longer(3:5, names_to = "variable", values_to = "value") %>% 
+  filter(variable != "tol_total_prob")
 
+tol2$tolerance <- factor(tol2$tolerance, levels = c("fluvial specialist", "fluvial dependent", "generalist"))
+tol2$variable <- factor(tol2$variable, levels = c("tol_avg_prob", "prop_prob"))
+
+tolbystate <- ggplot(data = tol2, mapping = aes(y = tolower(state), x = value, fill = tolerance))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  scale_fill_manual(values=c("royalblue3", "yellowgreen", "chocolate2"))+
+  facet_wrap(~variable, scales = "free", labeller = as_labeller(c("prop_prob" = "Proportion", "tol_avg_prob" = "Average")))+
+  labs(x = NULL, y = NULL)+
+  theme(strip.text = element_text(size = 12, color = "black"),
+        strip.background = element_rect(color = "black", fill = "grey80", linewidth = 1.5))
+ggsave(tolbystate, file = "tmpfigures/paper1/tolbystate.png", 
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)
+
+
+
+  #calcuate the average prob, total prob, and proportional probabilty of each cluster group across the states
 clust <- bystate %>% 
   data.frame() %>% 
   filter(!is.na(climclust)) %>% 
   select(COMID, state, climclust, ZeroProb) %>% 
   mutate(probOcc = 1 - ZeroProb) %>% 
   unique() %>% 
+  group_by(climclust) %>% 
+  summarise(prob = sum(probOcc, na.rm = T))
+
+clust2 <- bystate %>% 
+  data.frame() %>% 
+  filter(!is.na(climclust)) %>% 
+  select(COMID, state, climclust, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>%
   group_by(COMID, state, climclust) %>% 
   summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
   ungroup %>% 
   group_by(state, climclust) %>% 
-  summarise(clust_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
-            clust_total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+  summarise(clu_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
+            clu_total_prob = round(sum(total_prob, na.rm = T), 0)) %>% #total prob zero within each COMID across the state
+  left_join(clust, by = "climclust") %>% 
+  mutate(prop_prob = round(clu_total_prob/prob , 2)) %>%  # proportional prob zero across the state
+  select(-prob) %>% 
+  pivot_longer(3:5, names_to = "variable", values_to = "value") %>% 
+  filter(variable != "clu_total_prob")
 
+clust2$climclust <- factor(clust2$climclust, levels = c(4, 3, 2, 1))
+clust2$variable <- factor(clust2$variable, levels = c("clu_avg_prob", "prop_prob"))
 
-ggplot(data = temp, mapping = aes(y = state, x = tmp_avg_prob, fill = tmp))+
+clubystate <- ggplot(data = clust2, mapping = aes(y = tolower(state), x = value, fill = as.factor(climclust)))+
   geom_bar(stat = "identity", position = "dodge", color = "black")+
-  geom_text(aes(label = tmp_avg_prob), position=position_dodge(width=0.9),hjust = 1.2)
-
-ggplot(data = temp, mapping = aes(y = state, x = tmp_total_prob, fill = tmp))+
-  geom_bar(stat = "identity", position = "dodge", color = "black")+
-  geom_text(aes(label = tmp_total_prob), position=position_dodge(width=0.9),hjust = 1.2)
-
-ggplot(data = tol, mapping = aes(y = state, x = tol_avg_prob, fill = tolerance))+
-  geom_bar(stat = "identity", position = "dodge", color = "black")+
-  geom_text(aes(label = tol_avg_prob), position=position_dodge(width=0.9),hjust = 1.2)
-
-ggplot(data = tol, mapping = aes(y = state, x = tol_total_prob, fill = tolerance))+
-  geom_bar(stat = "identity", position = "dodge", color = "black")+
-  geom_text(aes(label = tol_total_prob), position=position_dodge(width=0.9),hjust = 1.2)
-
-ggplot(data = clust, mapping = aes(y = state, x = clust_total_prob, fill = as.factor(climclust)))+
-  geom_bar(stat = "identity", position = "dodge", color = "black")+
-  geom_text(aes(label = clust_total_prob), position=position_dodge(width=0.9),hjust = -.1)
+  scale_fill_manual(values=c("royalblue3","orchid3" , "yellowgreen", "chocolate2"))+
+  facet_wrap(~variable, scales = "free", labeller = as_labeller(c("prop_prob" = "Proportion", "clu_avg_prob" = "Average")))+
+  labs(x = NULL, y = NULL, fill = "cluster")+
+  theme(strip.text = element_text(size = 12, color = "black"),
+        strip.background = element_rect(color = "black", fill = "grey80", linewidth = 1.5))
+ggsave(clubystate, file = "tmpfigures/paper1/clubystate.png", 
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)
 
 
-test <- bystate %>% 
+
+  #calcuate the average prob, total prob, and proportional probabilty of brook trout across the states
+spp <- bystate %>% 
   data.frame() %>% 
-  filter(!is.na(tmp)) %>% 
-  select(COMID, huc8_name, tmp, ZeroProb) %>% 
+  filter(common_name %in% c("brook trout", "pumpkinseed", "common shiner")) %>% 
+  filter(!is.na(ZeroProb)) %>% 
+  select(COMID, state, common_name, ZeroProb) %>% 
   mutate(probOcc = 1 - ZeroProb) %>% 
   unique() %>% 
-  group_by(COMID, huc8_name, tmp) %>% 
+  group_by(common_name) %>% 
+  summarise(prob = sum(probOcc, na.rm = T))
+
+spp2 <- bystate %>% 
+  data.frame() %>% 
+  filter(common_name %in% c("brook trout", "pumpkinseed", "common shiner")) %>% 
+  filter(!is.na(ZeroProb)) %>% 
+  select(COMID, state, common_name, ZeroProb) %>% 
+  mutate(probOcc = 1 - ZeroProb) %>% 
+  unique() %>%
+  group_by(COMID, state, common_name) %>% 
   summarise(total_prob = sum(probOcc, na.rm = T)) %>% 
   ungroup %>% 
-  group_by(huc8_name, tmp) %>% 
-  summarise(avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
-            total_prob = round(sum(total_prob, na.rm = T), 0))  #total prob zero within each COMID across the state
+  group_by(state, common_name) %>% 
+  summarise(spp_avg_prob = round(mean(total_prob, na.rm = T),2), #average prob zero within each COMID across the state
+            spp_total_prob = round(sum(total_prob, na.rm = T), 0)) %>% #total prob zero within each COMID across the state
+  left_join(spp, by = "common_name") %>% 
+  mutate(prop_prob = round(spp_total_prob/prob , 2)) %>%  # proportional prob zero across the state
+  select(-prob) %>% 
+  pivot_longer(3:5, names_to = "variable", values_to = "value") %>% 
+  filter(variable != "spp_total_prob")
 
-ggplot(data = test, mapping = aes(y = huc8_name, x = avg_prob, fill = tmp))+
-  geom_bar(stat = "identity", position = "dodge", color = "black")
+spp2$common_name <- factor(spp2$common_name, levels= c("brook trout", "common shiner", "pumpkinseed"))
+spp2$variable <- factor(spp2$variable, levels = c("spp_avg_prob", "prop_prob"))
 
-ggplot(data = test, mapping = aes(y = huc8_name, x = total_prob, fill = tmp))+
-  geom_bar(stat = "identity", position = "dodge", color = "black")
+
+
+sppbystate <- ggplot(data = spp2, mapping = aes(y = tolower(state), x = value, fill = common_name))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  scale_fill_manual(values=c("royalblue3", "yellowgreen", "chocolate2"))+
+  facet_wrap(~variable, scales = "free", labeller = as_labeller(c("prop_prob" = "Proportion", "spp_avg_prob" = "Average")))+
+  labs(x = NULL, y = NULL, fill = "cluster")+
+  theme(strip.text = element_text(size = 12, color = "black"),
+        strip.background = element_rect(color = "black", fill = "grey80", linewidth = 1.5))
+ggsave(sppbystate, file = "tmpfigures/paper1/sppbystate.png", 
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)
+
+
+
+
+test <- temp2 %>% 
+  filter(variable == "tmp_avg_prob") %>% 
+  select(-variable) %>% 
+  mutate(group = "Temperature") %>% 
+  rename(trait = tmp)
+test2 <- tol2 %>% 
+  filter(variable == "tol_avg_prob") %>% 
+  select(-variable) %>% 
+  mutate(group = "Tolerance") %>% 
+  rename(trait = tolerance)
+test3 <- spp2 %>% 
+  filter(variable == "spp_avg_prob") %>% 
+  select(-variable) %>% 
+  mutate(group = "Species") %>% 
+  rename(trait = common_name)
+test4 <- clust2 %>% 
+  filter(variable == "clu_avg_prob") %>% 
+  select(-variable) %>% 
+  mutate(group = "cluster") %>% 
+  rename(trait = climclust )
+
+test5 <- rbind(test, test2, test3, test4)
+
+test5$trait <- factor(test5$trait, levels = c("cold", "fluvial specialist", "4", "brook trout",
+                                              "warm", "generalist", "1", "pumpkinseed",
+                                              "cool", "fluvial dependent",  "common shiner",
+                                              "2" , "3"))
+
+ggplot(data = test5, mapping = aes(y = trait, x = value))+
+  geom_bar(stat = "identity", position = "dodge", color = "black")+
+  facet_wrap(~state)+
+  labs(x = "Average proportional abundance", y = NULL, fill = "trait")+
+  theme(strip.text = element_text(size = 12, color = "black"),
+        strip.background = element_rect(color = "black", fill = "grey80", linewidth = 1.5))
+
+
+
+
+#make violin plots with the distrubiton of each trait by lat and long
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDv2_huc_state_join.RData")
+
+#join the predictions_zero to the list of comids
+NHDplusV2_NewEngCrop <- NHDplusV2_NewEngCrop %>% 
+  select(COMID)
+bylat <- cbind(NHDplusV2_NewEngCrop, predictions) 
+bylat <- data.frame(bylat) %>% 
+  select(-geometry) %>% 
+  pivot_longer(2:58, values_to = "propabun", names_to = "common_name") 
+bylat$common_name <- gsub("propabun_", "", pred$common_name)
+bylat$common_name <- gsub(".rds", "", pred$common_name)
+bylat$common_name <- gsub("\\.", " ", pred$common_name)
+
+
+#join to trait data and clusters so we can filter for certain temperature groups or origin
+bylat <- bylat %>% 
+  left_join(temperature, by = "common_name") %>% 
+  left_join(origin, by = "common_name") %>% 
+  left_join(geogclust, by = "common_name") %>% 
+  left_join(climclust, by = "common_name") %>% 
+  left_join(final_traits, by = "common_name")
+bylat <- left_join(NHDv2_huc_state_join, bylat, by = "COMID")
+
+df1 <- bylat %>% 
+  data.frame() %>% 
+  group_by(COMID, tmp) %>% 
+  summarize(propabun = sum(propabun, na.rm = T)) %>% 
+  rename(trait = tmp)
+df2 <- bylat %>% 
+  data.frame() %>% 
+  group_by(COMID, tolerance) %>% 
+  summarize(propabun = sum(propabun, na.rm = T)) %>% 
+  rename(trait = tolerance)
+df3 <- bylat %>% 
+  data.frame() %>% 
+  group_by(COMID, climclust) %>% 
+  summarize(propabun = sum(propabun, na.rm = T)) %>% 
+  rename(trait = climclust) %>% 
+  mutate(trait = as.character(trait) )
+df4 <- bylat %>% 
+  data.frame() %>% 
+  filter(common_name == "brook trout") %>% 
+  select(COMID, common_name, propabun) %>% 
+  rename(trait = common_name)
+df5 <- bylat %>% 
+  data.frame() %>% 
+  filter(common_name == "pumpkindseed") %>% 
+  select(COMID, common_name, propabun) %>% 
+  rename(trait = common_name)
+
+latlong <- NHDv2_huc_state_join %>%
+  data.frame() %>% 
+  select(COMID, lat, long) %>% 
+  unique()
+
+df6 <- rbind(df1, df2, df3, df4, df5)
+df6 <- left_join(df6, latlong, by = "COMID") %>% 
+  filter(!is.na(trait)) %>% 
+  mutate(latitude  = ifelse(lat > 44.51944, "high lat",
+                            ifelse(lat < 42.97004, "low lat", "mid lat"))) %>% 
+  mutate(longitude  = ifelse(long > -71.27307, "East", "West")) %>% 
+  filter(propabun < 1.25)
+
+
+df7 <- df6 %>% 
+  filter(trait %in% c("1","2","3","4","5", "6"))
+df8 <- df6 %>% 
+  filter(trait %in% c("cold", "cool", "warm", "fluvial specialist", "fluvial dependent", "generalist", "brook trout", "pumpkinseed"))
+ggplot(data = df7, mapping = aes(x = trait, y = propabun))+
+  geom_boxplot()+
+  facet_grid(rows = vars(longitude), cols = vars(latitude))
+
+df8$trait <- factor(df8$trait, levels = c("cold", "cool", "warm", 
+                                          "fluvial specialist", "fluvial dependent","generalist",
+                                          "brook trout", "pumpkinseed"))
+ggplot(data = df8, mapping = aes(x = trait, y = propabun))+
+  geom_boxplot()+
+  facet_grid(rows = vars(longitude), cols = vars(latitude))
+
+
+  ungroup() %>% 
+  group_by(COMID, tolerance) %>% 
+  mutate(tol_sum = sum(propabun, na.rm = T)) %>% 
+  select(COMID, lat, long, tmp, tolerance, tol_sum, tmp_sum) %>% 
+  unique()
+
 
 #calcuate correlations between each metric and the richness vs proportional abundance variation
 
