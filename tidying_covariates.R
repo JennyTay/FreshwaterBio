@@ -426,7 +426,7 @@ corrplot(cor, type = "lower") #plot
 
 #average each covariate by HUC10 (either take the max or mean value)
 
-dat <- dat %>% 
+dat_huc10 <- dat %>% 
   data.frame() %>% 
   group_by(huc10_name, huc10_tnmid) %>% 
   summarise(lat = mean(lat, na.rm = T),
@@ -459,14 +459,70 @@ dat <- dat %>%
             nitWs = mean(nitWs, na.rm = T))
 
 #save the mussel covariate datafile that has all of the HUC10 inclued
-NHDplusV2_NewEngCrop_mussel_covariates_HUC10 <- dat
+NHDplusV2_NewEngCrop_mussel_covariates_HUC10 <- dat_huc10
 save(NHDplusV2_NewEngCrop_mussel_covariates_HUC10, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC10.RData")
 
 
 #join to the mussel_event_huc_join so we can get the UIDs of each sampling event that occurred in that watershed
-dat <- left_join(mussel_event_huc_join, dat, by = c("huc10_name", "huc10_tnmid"))
-mussel_covariates_huc10 <- dat
+dat_huc10 <- left_join(mussel_event_huc_join, dat_huc10, by = c("huc10_name", "huc10_tnmid"))
+mussel_covariates_huc10 <- dat_huc10
 
 #save the mussel covariate datafile that is linked to the mussel observation data
 save(mussel_covariates_huc10, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc10.RData")
+
+
+
+
+
+#update July 5, 2023 - instead of modeling mussels at the huc10 scle, we want to model them at the stream reach scale, 
+#and then average the results to the HUC10 scale - this is because 
+# Actually - we will try modeling at the HUC12 scale as a compromise, it turns out the mussel event flowline file losing a lot of the mussel data
+#because the mussel surveys are too far from the flow lines to join them properly.
+
+#average each covariate by HUC10 (either take the max or mean value)
+
+dat_huc12 <- dat %>% 
+  data.frame() %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(lat = mean(lat, na.rm = T),
+            long = mean(long, na.rm = T),
+            annual_mean_summer_temp = mean(annual_mean_summer_temp, na.rm = T),
+            BFI_HIST = mean(BFI_HIST, na.rm = T),
+            LO7Q1DT_HIST = mean(LO7Q1DT_HIST, na.rm = T), 
+            CFM_HIST = mean(CFM_HIST, na.rm = T), 
+            W95_HIST = mean(W95_HIST, na.rm = T),
+            ElevCat = mean(ElevCat, na.rm = T),
+            RdCrsWs = mean(RdCrsWs, na.rm = T),
+            WtDepWs = mean(WtDepWs, na.rm = T),
+            PctOw_Ws = mean(PctOw_Ws, na.rm = T),
+            PctImp_WsRp100 = mean(PctImp_WsRp100, na.rm = T),
+            pctForest_ws = mean(pctForest_ws, na.rm = T),
+            pctAg_Ws = mean(pctAg_Ws, na.rm = T),
+            pctWetland_Ws = mean(pctWetland_Ws, na.rm = T),
+            huc12_damden_sqkm = mean(huc12_damden_sqkm, na.rm = T),
+            huc8_damcount = mean(huc8_damcount, na.rm = T),
+            logWsAreaSqKm = mean(logWsAreaSqKm, na.rm = T),
+            logMJJA_HIST = mean(logMJJA_HIST, na.rm = T),
+            logRdCrsCat = mean(logRdCrsCat, na.rm = T),
+            logPctOw_Cat = mean(logPctOw_Cat, na.rm = T),
+            CaOWs = mean(CaOWs, na.rm = T),
+            KffactWs = mean(KffactWs, na.rm = T),
+            RunoffWs = mean(RunoffWs, na.rm = T),
+            WWTPMajorDensWs = mean(WWTPMajorDensWs, na.rm = T),
+            WWTPMinorDensWs = mean(WWTPMinorDensWs, na.rm = T),
+            pollutionWs = mean(pollutionWs, na.rm = T),
+            nitWs = mean(nitWs, na.rm = T))
+
+#save the mussel covariate datafile that has all of the HUC12 inclued
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12 <- dat_huc12
+save(NHDplusV2_NewEngCrop_mussel_covariates_HUC12, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC12.RData")
+
+
+#join to the mussel_event_huc_join so we can get the UIDs of each sampling event that occurred in that watershed
+dat_huc12 <- left_join(mussel_event_huc_join, dat_huc12, by = c("huc12_name", "huc12_tnmid"))
+mussel_covariates_huc12 <- dat_huc12
+
+#save the mussel covariate datafile that is linked to the mussel observation data
+save(mussel_covariates_huc12, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc12.RData")
+
 

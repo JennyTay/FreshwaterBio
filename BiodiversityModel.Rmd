@@ -627,6 +627,8 @@ print(unique(fish_count_with_zeros_filtered$common_name)[i])
 
 }
 
+
+
 #cbind the two validation dfs so we can write a single csv
 prop_abun_validation <- cbind(val_zero_prob, val_prop_abun)
 prop_abun_validation <- prop_abun_validation %>% 
@@ -636,22 +638,7 @@ prop_abun_validation <- prop_abun_validation %>%
 write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob.csv")
 write.csv(prop_abun_validation, file = "tmpfigures/prop_abun_validation.csv")
 
-#filter to remove spp that did not converge, these include:
-#bowfin, white catfish, channel catfish, round whitefish, 
-
-results <- results %>% 
-  filter(common_name %in% c("common carp", "northern pike", "eastern silvery minnow", "rosyside dace", "mimic shiner",
-                            "rosyface shiner", "brook stickleback", "spotfin shiner",
-                            "american eel", "white perch", "finescale dace", "american brook lamprey", 
-                            "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
-                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
-                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
-                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
-                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
-                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
-                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
-                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
-
+#all the species models (53 total) had model convergence
 
 cond <- results %>% 
   filter(model == "conditional")
@@ -659,10 +646,11 @@ cond <- results %>%
 
 
 zer <- results %>% 
-  filter(model == "zeroinfla")
+  filter(model == "zeroinfla") %>% 
+  mutate(estimate = -estimate)
 
 
-#calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+#conditional results: calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
 results2 <- cond %>% 
   mutate(CIlow = estimate - (1.96*std_er),
          CIhigh = estimate + (1.96*std_er),
@@ -675,7 +663,8 @@ results2 <- cond %>%
   mutate(OR = ifelse(p_val<0.001, paste(OR, "***", sep = ""),
                      ifelse(p_val < 0.01 & p_val > 0.001, paste(OR, "**", sep = ""),
                             ifelse(p_val < 0.1 & p_val > 0.01, paste(OR, "*", sep = ""),
-                                   OR))))
+                                   OR)))) %>% 
+  filter(p_val <0.1)
   
 rownames(results2) <- NULL
 
@@ -695,6 +684,109 @@ results2$variable[results2$variable == "huc8_damcount"] <- "dam count"
 
 write.csv(results2, file = "tmpfigures/propabun_results.csv")
 prop_abun_results <- read.csv("tmpfigures/propabun_results.csv")
+
+
+#zero inflation results: calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results_zer <- zer %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, OR, ORCIlow, ORCIhigh, p_val) %>% 
+  mutate(OR = ifelse(p_val<0.001, paste(OR, "***", sep = ""),
+                     ifelse(p_val < 0.01 & p_val > 0.001, paste(OR, "**", sep = ""),
+                            ifelse(p_val < 0.1 & p_val > 0.01, paste(OR, "*", sep = ""),
+                                   OR)))) %>% 
+  filter(p_val <0.1)
+  
+rownames(results_zer) <- NULL
+
+#rename variables to make more interpretable
+results_zer$variable[results_zer$variable == "annual_mean_summer_temp"] <- "mean summer temp"
+results_zer$variable[results_zer$variable == "huc12_damden_sqkm"] <- "dam density"
+results_zer$variable[results_zer$variable == "BFI_HIST"] <- "baseflow index"
+results_zer$variable[results_zer$variable == "LO7Q1DT_HIST"] <- "low flow date"
+results_zer$variable[results_zer$variable == "W95_HIST"] <- "number of winter floods"
+results_zer$variable[results_zer$variable == "logMJJA_HIST"] <- "summer flow"
+results_zer$variable[results_zer$variable == "lat"] <- "latitude"
+results_zer$variable[results_zer$variable == "long"] <- "longitude"
+results_zer$variable[results_zer$variable == "ElevCat"] <- "elevation"
+results_zer$variable[results_zer$variable == "logWsAreaSqKm"] <- "watershed area"
+results_zer$variable[results_zer$variable == "huc8_damcount"] <- "dam count"
+
+
+write.csv(results_zer, file = "tmpfigures/zeroinfla_results.csv")
+
+
+
+
+#make plots for manuscript one that show the model performance: a series of histograms that show the counts of accuracy, sensitivity, specificity
+df <- prop_abun_validation %>% 
+  select(common_name, accuracy, sensitivity, Specificity) %>% 
+  rename("Accuracy" = "accuracy", "Sensitivity" = "sensitivity") %>% 
+  pivot_longer(2:4, names_to = "metric", values_to = "value") 
+ggplot(data = df, aes(x = value))+
+  geom_histogram(bins = 10, fill = "grey", color = "black")+
+  facet_wrap(~metric)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", linewidth = 0.1),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15))+
+  labs(x = "Proportion", y = "Count")
+ggsave(
+    filename = "tmpfigures/paper1/validationhistogram_zero.png",
+    plot = last_plot(),
+    width = 14,
+    height = 5,
+    units = "cm",
+    dpi = 300)
+
+#histogram of the ranked prop abund correlations
+ggplot(data = prop_abun_validation, aes(x = r2_rank_propabun))+
+  geom_histogram(bins = 15, fill = "grey", color = "black")+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", linewidth = 0.1),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15))+
+  labs(x = "Correlation", y = "Count")+
+  scale_y_continuous(limits = c(0,10), breaks = c(2, 4, 6, 8, 10))
+ggsave(
+    filename = "tmpfigures/paper1/validationhistogram_propabun.png",
+    plot = last_plot(),
+    width = 14,
+    height = 5,
+    units = "cm",
+    dpi = 300)
+
+#bar plot of the ratio of spp presnce points to absnece points in the training data
+df <- prop_abun_validation %>% 
+  select(common_name, test_dat_pres, test_dat_abs) %>% 
+  mutate(perc_pres = test_dat_pres/test_dat_abs)
+ggplot(data = df, aes(x = reorder(common_name, -perc_pres), y = perc_pres))+
+  geom_bar(stat = "identity", fill = "grey", color = "black")+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 6),
+        axis.title = element_text(size = 10),
+        axis.text.x = element_text(angle=45, hjust=1))+
+  labs(x = NULL, y = "Ratio")+
+  coord_cartesian(ylim = c(0, .6)) 
+ggsave(
+    filename = "tmpfigures/paper1/testingdataratio.png",
+    plot = last_plot(),
+    width = 14,
+    height = 5,
+    units = "cm",
+    dpi = 300)
 
 #dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
 #need to remake the results df because when we added the asterisks to the OR column for the table, it is not longer a numeric varialbe
@@ -759,7 +851,24 @@ ggsave(
 
 
 
-#make composite OR plots to show how different temperature or origin groups respond to the variables on average
+
+
+
+# make composite OR plots to show how different temperature, tolerance, origin,  groups respond to the variables on average
+# do this using the zero inflated model component
+
+#prepare the zero inflation results file
+results_zer <- zer %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, OR, ORCIlow, ORCIhigh, p_val)
+
+
 #fish traits
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
 temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
@@ -783,126 +892,189 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
   select(-state) %>%  
   unique()
 
-#compoisit OR figures by cluster - can change the cluster csv to _byclimate, _bygeography, or just fish clusters
-clusters <- read.csv("tmpfigures/fishclusters_byclimate.csv")
+tolerance <- final_traits %>% 
+  select(common_name, tolerance) %>% 
+  unique()
+
+#composite OR figures by cluster - can change the cluster csv to _bytemperature, _bystreamflow, or just fish clusters
+clusters <- read.csv("tmpfigures/fishclusters_bytemperature.csv")
 clusters <- clusters %>% 
   select(-1) %>% 
-  rename(cluster = final.cluster)
+  rename(cluster_TP = final.cluster)
 
-composit_OR_figs <- left_join(results2, clusters, by = "common_name") %>% 
+clusters2 <- read.csv("tmpfigures/fishclusters_bystreamflow.csv")
+clusters2 <- clusters2 %>% 
+  select(-1) %>% 
+  rename(cluster_SF = final.cluster)
+
+composit_OR_figs <- left_join(results_zer, clusters, by = "common_name") %>% 
   left_join(temperature, by  = "common_name") %>% 
+  left_join(clusters2, by  = "common_name") %>% 
+  left_join(origin, by = "common_name") %>% 
+  left_join(tolerance, by = "common_name") %>% 
   filter(! OR > 20,
-         ! ORCIhigh > 20,
-         !is.na(cluster),
-         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
-  group_by(cluster, variable) %>% 
+         ! ORCIhigh > 20)
+
+#rename variables to make more interpret able
+composit_OR_figs$variable[composit_OR_figs$variable == "annual_mean_summer_temp"] <- "mean summer T"
+composit_OR_figs$variable[composit_OR_figs$variable == "huc12_damden_sqkm"] <- "dam density"
+composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "baseflow index"
+composit_OR_figs$variable[composit_OR_figs$variable == "LO7Q1DT_HIST"] <- "low flow date"
+composit_OR_figs$variable[composit_OR_figs$variable == "W95_HIST"] <- "winter floods"
+composit_OR_figs$variable[composit_OR_figs$variable == "logMJJA_HIST"] <- "summer flow"
+composit_OR_figs$variable[composit_OR_figs$variable == "lat"] <- "latitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "long"] <- "longitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "ElevCat"] <- "elevation"
+composit_OR_figs$variable[composit_OR_figs$variable == "logWsAreaSqKm"] <- "watershed area"
+composit_OR_figs$variable[composit_OR_figs$variable == "huc8_damcount"] <- "dam count"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctWetland_Cat"] <- "wetland"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctAg_Ws"] <- "agriculture"
+composit_OR_figs$variable[composit_OR_figs$variable == "PctImp_Ws"] <- "impervious"
+composit_OR_figs$variable[composit_OR_figs$variable == "WtDepWs"] <- "water table dep"
+composit_OR_figs$variable[composit_OR_figs$variable == "logPctOw_Cat"] <- "open water"
+
+#order the variables so they occurr in the correct/ same order for all figures
+composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("mean summer T", "baseflow index", "summer flow", "low flow date", "winter floods", 
+                                                          "BFIWs", "water table dep", "impervious", "agriculture", 
+                                                          "wetland", "dam density",
+                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "open water", 
+                                                          "latitude", "longitude", "elevation", "watershed area"))
+
+composit_OR_figs <- composit_OR_figs %>% 
+  filter(variable %in% c("mean summer T", "baseflow index", "summer flow", "low flow date", "winter floods", 
+                                                          "water table dep", "impervious", "agriculture", 
+                                                          "wetland", "dam density","open water", 
+                                                          "latitude", "elevation", "watershed area"))
+
+composit_OR_fig_tmpclust <- composit_OR_figs%>% 
+  filter(!is.na(cluster_TP),
+         common_name !="brook trout") %>%
+  group_by(cluster_TP, variable) %>% 
   summarise(OR = median(OR, na.rm = T),
             ORCIlow = median(ORCIlow, na.rm = T),
-            ORCIhigh = median(ORCIhigh, na.rm = T))
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
 
-ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(cluster)))+
-  geom_point(size = 1.5, position=position_dodge(width=0.5))+
-  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
-  coord_flip()+
-  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
-  theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(),
-        axis.text = element_text(size = 10),
-        axis.title = element_text(size = 15),
-        axis.title.y = element_blank(),
-        title = element_text(size = 15))+
-  labs(color = "cluster")
+composit_OR_fig_flowclust <- composit_OR_figs%>% 
+  filter(!is.na(cluster_SF),
+         common_name !="brook trout") %>%
+  group_by(cluster_SF, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
 
-ggsave(
-    filename = paste("tmpfigures/paper1/ORcomposit_prop_abun_byclimate.png", sep = ""),
-    plot = last_plot(),
-    width = 14,
-    height = 9,
-    units = "cm",
-    dpi = 200
-  )
-
-#compostit OR plots by temperature guild
-composit_OR_figs <- left_join(results2, temperature, by = "common_name") %>% 
-  filter(! OR > 20,
-         ! ORCIhigh > 20,
-         !is.na(tmp),
-         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+composit_OR_fig_tempGrops <- composit_OR_figs%>% 
+  filter(!is.na(tmp),
+         common_name !="brook trout") %>%
   group_by(tmp, variable) %>% 
   summarise(OR = median(OR, na.rm = T),
             ORCIlow = median(ORCIlow, na.rm = T),
-            ORCIhigh = median(ORCIhigh, na.rm = T))
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
 
-ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tmp)))+
-  geom_point(size = 1.5, position=position_dodge(width=0.5))+
-  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
-  coord_flip()+
-  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
-  theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(),
-        axis.text = element_text(size = 10),
-        axis.title = element_text(size = 15),
-        axis.title.y = element_blank(),
-        title = element_text(size = 15))+
-  labs(color = "Temp")
-
-ggsave(
-    filename = paste("tmpfigures/paper1/ORcomposit_prop_abun_bytemp.png", sep = ""),
-    plot = last_plot(),
-    width = 14,
-    height = 9,
-    units = "cm",
-    dpi = 200
-  )
-
-#compostit OR plots by flucial dependence guild
-composit_OR_figs <- left_join(results2, final_traits, by = "common_name") %>% 
-  filter(! OR > 20,
-         ! ORCIhigh > 20,
-         !is.na(tolerance),
-         !variable %in% c("latitude", "longitude", "elevation", "watershed area", "BFIWs", "PctOw_Ws", "logRdCrsCat")) %>%
+composit_OR_fig_tol <- composit_OR_figs%>% 
+  filter(!is.na(tolerance),
+         common_name !="brook trout") %>%
   group_by(tolerance, variable) %>% 
   summarise(OR = median(OR, na.rm = T),
             ORCIlow = median(ORCIlow, na.rm = T),
-            ORCIhigh = median(ORCIhigh, na.rm = T))
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
 
-ggplot(data = composit_OR_figs, aes(x = variable, y = OR, color = as.factor(tolerance)))+
+composit_OR_fig_origin <- composit_OR_figs%>% 
+  filter(!is.na(origin)) %>%
+  group_by(origin, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+
+composit_OR_fig_BT <- composit_OR_figs%>% 
+  filter(common_name == "brook trout",
+         !is.na(common_name)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+
+
+a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR, color = as.factor(cluster_TP)))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
   coord_flip()+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
           panel.background = element_blank(),
         axis.text = element_text(size = 10),
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(color = "tolerance")
+  labs(color = "Temp clust", y = "odds ratio")
+b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR, color = as.factor(cluster_SF)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "Flow clust", y = NULL)
+c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR, color = as.factor(tmp)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "Temp Guild", y = NULL)
+d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR, color = as.factor(tolerance)))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "Hab Guild", y = NULL)
 
-ggsave(
-    filename = paste("tmpfigures/paper1/ORcomposit_prop_abun_bytolerance.png", sep = ""),
-    plot = last_plot(),
-    width = 14,
-    height = 9,
+e <- ggplot(data = composit_OR_fig_BT, aes(x = variable, y = OR, color = common_name))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(color = "Species", y = NULL)
+
+g <- arrangeGrob(a, b, 
+                 c, d, 
+                 e,
+             ncol=2, nrow =3)
+ggsave(g, file = "tmpfigures/paper1/CompositORPlots.png", 
+    width = 25,
+    height = 25,
     units = "cm",
-    dpi = 200
-  )
+    dpi = 300)
+
+
 
 
 
 #make a tile plot to show the coef value for each variable by fish
 
 #set outliers to more similar values so the color scale works
-results3 <- prop_abun_results
+results3 <- results_zer
 results3$OR[results3$OR>10] <- 10
 results3$OR[results3$OR < 0.00001] <- 0.00001
-results3$estimate[results3$estimate < -5] <- -5
 results3$estimate[results3$p_val > 0.05] <- NA
 results3$OR[results3$p_val > 0.05] <- NA
 
@@ -925,7 +1097,7 @@ ggsave(
   )
 
 #counts the number of significant variables (ie how many species is each variable significant for?)
- results4 <- results3 %>% 
+ results4 <- results_zer %>% 
    select(variable, estimate) %>% 
    filter(!is.na(estimate)) %>% 
    group_by(variable) %>% 
@@ -958,266 +1130,6 @@ str(k2)
 k2
 fviz_cluster(k2, data = distance)
   
-
-
-
-
-
-
-
-
-#####  cluster spp based on the variable values in locations the spp occurrs
-##### in this code we are using weighted means for each species.
-##### for each species, we calucated the weighted mean of each variable (weighted by the proportional abundance at a survey site)
-##### then we are using K-means clusting, following a tutorial from this website https://uc-r.github.io/kmeans_clustering
-
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
-
-#calculate proportional abundance and then join to the covariate data
-test <- fish_count_with_zeros %>% 
-  filter(count >0) %>% 
-  group_by(UID) %>% 
-  mutate(totalcount = sum(count)) %>% 
-  ungroup() %>% 
-  mutate(propabun = (count / totalcount)) %>% 
-  select(UID, common_name, propabun) %>% 
-  left_join(fishcovariates, by = "UID")
-
-#remove rows with incomplete data
-test <- test[complete.cases(test),]
-
-#select only the variables used in the model, calcuate weighted means of each varaible by species, filter for the species that the proportional abunance model converged for.
-test <- test %>% 
-  select(common_name, 
-         propabun, 
-         annual_mean_summer_temp, 
-                 BFI_HIST, 
-                 LO7Q1DT_HIST,
-                 W95_HIST, 
-                 BFIWs,  
-                 WtDepWs, 
-                 PctOw_Ws,  
-                 PctImp_Ws,  
-                 pctAg_Ws, 
-                 pctWetland_Cat, 
-                 logMJJA_HIST, 
-                 logRdCrsCat, 
-                 logPctOw_Cat,
-                 huc12_damden_sqkm,
-                 huc8_damcount) %>% 
-  mutate(annual_mean_summer_temp_2 = annual_mean_summer_temp*propabun, 
-                 BFI_HIST_2 = BFI_HIST*propabun, 
-                 LO7Q1DT_HIST_2 = LO7Q1DT_HIST*propabun,
-                 W95_HIST_2 = W95_HIST*propabun, 
-                 BFIWs_2 =  BFIWs*propabun,  
-                 WtDepWs_2 = WtDepWs*propabun, 
-                 PctOw_Ws_2 = PctOw_Ws*propabun,  
-                 PctImp_Ws_2 = PctImp_Ws*propabun,  
-                 pctAg_Ws_2 = pctAg_Ws*propabun, 
-                 pctWetland_Cat_2 = pctWetland_Cat*propabun, 
-                 logMJJA_HIST_2 = logMJJA_HIST*propabun, 
-                 logRdCrsCat_2 = logRdCrsCat*propabun, 
-                 logPctOw_Cat_2 = logPctOw_Cat*propabun,
-                 huc12_damden_sqkm_2 = huc12_damden_sqkm*propabun,
-                 huc8_damcount_2 = huc8_damcount*propabun) %>% 
-  group_by(common_name) %>% 
-  summarise(sum_propabun = sum(propabun),
-            sum_annual_mean_summer_temp_2 = sum(annual_mean_summer_temp_2), 
-                 sum_BFI_HIST_2 = sum(BFI_HIST_2), 
-                 sum_LO7Q1DT_HIST_2 = sum(LO7Q1DT_HIST_2),
-                 sum_W95_HIST_2 = sum(W95_HIST_2), 
-                 sum_BFIWs_2 =  sum(BFIWs_2),  
-                 sum_WtDepWs_2 = sum(WtDepWs_2), 
-                 sum_PctOw_Ws_2 = sum(PctOw_Ws_2),  
-                 sum_PctImp_Ws_2 = sum(PctImp_Ws_2),  
-                 sum_pctAg_Ws_2 = sum(pctAg_Ws_2), 
-                 sum_pctWetland_Cat_2 = sum(pctWetland_Cat_2), 
-                 sum_logMJJA_HIST_2 = sum(logMJJA_HIST_2), 
-                 sum_logRdCrsCat_2 = sum(logRdCrsCat_2), 
-                 sum_logPctOw_Cat_2 = sum(logPctOw_Cat_2),
-                 sum_huc12_damden_sqkm_2 = sum(huc12_damden_sqkm_2),
-                 sum_huc8_damcount_2 = sum(huc8_damcount_2)) %>% 
-  ungroup() %>% 
-  mutate(annual_mean_summer_temp_wm = sum_annual_mean_summer_temp_2/sum_propabun, 
-                 BFI_HIST_wm = sum_BFI_HIST_2/sum_propabun, 
-                 LO7Q1DT_HIST_wm = sum_LO7Q1DT_HIST_2/sum_propabun,
-                 W95_HIST_wm = sum_W95_HIST_2/sum_propabun, 
-                 BFIWs_wm =  sum_BFIWs_2/sum_propabun,  
-                 WtDepWs_wm = sum_WtDepWs_2/sum_propabun, 
-                 PctOw_Ws_wm = sum_PctOw_Ws_2/sum_propabun,  
-                 PctImp_Ws_wm = sum_PctImp_Ws_2/sum_propabun,  
-                 pctAg_Ws_wm = sum_pctAg_Ws_2/sum_propabun, 
-                 pctWetland_Cat_wm = sum_pctWetland_Cat_2/sum_propabun, 
-                 logMJJA_HIST_wm = sum_logMJJA_HIST_2/sum_propabun, 
-                 logRdCrsCat_wm = sum_logRdCrsCat_2/sum_propabun, 
-                 logPctOw_Cat_wm = sum_logPctOw_Cat_2/sum_propabun,
-                 huc12_damden_sqkm_wm = sum_huc12_damden_sqkm_2/sum_propabun,
-                 huc8_damcount_wm = sum_huc8_damcount_2/sum_propabun) %>% 
-  filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
-                            "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
-                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
-                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
-                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
-                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
-                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
-                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
-                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
-  data.frame()
-
-#make the common names column into row names so we can cluster and keep only the final weighted mean values
-test2 <- test[,-1]
-rownames(test2) <- test[,1]
-test2 <- test2[,17:31]
-
-#scale the variables
-cluster2 <- scale(test2)
-
-#make distance matrix using the factoexta package
-#default distance computed is the Euclidean
-distance <- get_dist(cluster2)
- 
-# visualize distance matrix
-fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
-
-#compute k-means into 2-5 clusters
-k2 <- kmeans(distance, centers = 2, nstart = 25)
-k3 <- kmeans(distance, centers = 3, nstart = 25)
-k4 <- kmeans(distance, centers = 4, nstart = 25)
-k5 <- kmeans(distance, centers = 5, nstart = 25)
-str(k2)
-k2
-
-#view clusters. Plotted along the two most influential compoents according to PCA
-fviz_cluster(k4, data = distance)
-
-#make plots of the clusters using 2-5 centroids
-p1 <- fviz_cluster(k2, geom = "point", data = distance) + ggtitle("k = 2")
-p2 <- fviz_cluster(k3, geom = "point",  data = distance) + ggtitle("k = 3")
-p3 <- fviz_cluster(k4, geom = "point",  data = distance) + ggtitle("k = 4")
-p4 <- fviz_cluster(k5, geom = "point",  data = distance) + ggtitle("k = 5")
-
-library(gridExtra)
-grid.arrange(p1, p2, p3, p4, nrow = 2)
-
-
-#determine optimal number of clusters
-# function to compute total within-cluster sum of square 
-# elbow method
-# plot the within cluster variation, when it stops dropping much (the elbow) after adding an adidtional cluster than you can use that numbmer
-set.seed(123)
-
-wss <- function(k) {
-  kmeans(distance, k, nstart = 10 )$tot.withinss
-}
-
-# Compute and plot wss for k = 1 to k = 15
-k.values <- 1:15
-
-# extract wss for 2-15 clusters
-wss_values <- map_dbl(k.values, wss)
-
-plot(k.values, wss_values,
-       type="b", pch = 19, frame = FALSE, 
-       xlab="Number of clusters K",
-       ylab="Total within-clusters sum of squares")
-
-
-
-# Another method to determine best number of clusters (the highest point is the best)
-# function to compute average silhouette for k clusters
-library(cluster)
-avg_sil <- function(k) {
-  km.res <- kmeans(distance, centers = k, nstart = 25)
-  ss <- silhouette(km.res$cluster, dist(distance))
-  mean(ss[, 3])
-}
-
-# Compute and plot wss for k = 2 to k = 15
-k.values <- 2:15
-
-# extract avg silhouette for 2-15 clusters
-avg_sil_values <- map_dbl(k.values, avg_sil)
-
-plot(k.values, avg_sil_values,
-       type = "b", pch = 19, frame = FALSE, 
-       xlab = "Number of clusters K",
-       ylab = "Average Silhouettes")
-
-
-#well use 5 as our final cluster number
-
-set.seed(123)
-final <- kmeans(distance, 5, nstart = 25)
-print(final)
-finalclust <- data.frame(final$cluster)
-finalclust$common_name <- rownames(finalclust)
-rownames(finalclust) <- NULL
-finalclust <- finalclust %>% 
-  arrange(final.cluster)
-write.csv(finalclust, "tmpfigures/fishclusters.csv")
-
-png(height = 15, width = 15, file = "tmpfigures/kmeanscluster.png", units = "in", res = 150, type = "cairo")
-
-fviz_cluster(final, data = distance,
-             pointsize = 3,
-             labelsize = 15,
-             main = NULL)+
-  theme(legend.key.height= unit(2, 'cm'),
-        legend.key.width= unit(2, 'cm'),
-        legend.text = element_text(size=30),
-        legend.title = element_text(size=30),
-        axis.text = element_text(size = 30),
-        axis.title = element_text(size = 30),
-        panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank())
-
-dev.off()
-
-stats <- test2 %>% 
-  mutate(cluster = final$cluster) %>% 
-  group_by(cluster) %>% 
-  summarise_all("mean") %>% 
-  pivot_longer(cols = 2:16, names_to = "variable") %>% 
-  mutate(mean = round(value, 2)) %>% 
-  select(cluster, variable, mean) %>% 
-  pivot_wider(names_from = variable, values_from = mean)
-write.csv(stats, "tmpfigures/fishclusters_stats_mean.csv")
-stats2 <- test2 %>% 
-  mutate(cluster = final$cluster) %>% 
-  group_by(cluster) %>% 
-  summarise_all("sd") %>% 
-  pivot_longer(cols = 2:16, names_to = "variable") %>% 
-  mutate(sd = round(value, 2)) %>% 
-  select(cluster, variable, sd)%>% 
-  pivot_wider(names_from = variable, values_from = sd)
-write.csv(stats2, "tmpfigures/fishclusters_stats_sd.csv")
-
-stats <- test2 %>% 
-  mutate(cluster = final$cluster)
-names(stats) <- gsub(pattern = "_wm", replacement = "", x = names(stats))
-
-for (i in 1:15) {
-ggplot(data = stats, aes(x = cluster, y = stats[,i], group = cluster))+
-  geom_boxplot()+
-    labs(y = names(stats)[i],
-         x = "cluster")+
-    theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank())
-    
-
-ggsave(
-    filename = paste("tmpfigures/fish_cluster_stats/", names(stats)[i], ".png", sep = ""),
-    plot = last_plot(),
-    width = 11,
-    height = 9,
-    units = "cm",
-    dpi = 150)
-}
 
 
 #NMDS
