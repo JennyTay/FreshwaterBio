@@ -645,6 +645,8 @@ Calcuate some stats for the biodiversity paper
 4. Percentage of all fish surveying events that used backback efish
 5. Percentage of all fish surveying events that were total pick up
 6. percentgae of surveys left after making the exclusions 3-5
+7. Of the included surveys (lotic, backack efish, total pick up) - how many surveys per agency
+8. of the included surveys, the date range by agency
 ```{r}
 
 load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
@@ -680,5 +682,37 @@ test <- left_join(df3, method, by = "UID")
 table(test$waterbody)
 table(test$goal)
 table(test$gear)
+
+#7
+head(test)
+table(test$source)
+#8
+test <- test %>% 
+  group_by(source) %>% 
+  summarise(min = min(date),
+            max = max(date))
+#9
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData") 
+#filter for the fish species that we included in the analysis
+
+fish_count_with_zeros_filtered <- fish_count_with_zeros %>% 
+  filter(common_name %in% c("american eel", "white perch", "rosyside dace",  
+                            "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "cutlips minnow", "green sunfish", 
+                            "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
+df2 <- fish_count_with_zeros_filtered %>% 
+  left_join(fish_event, by = "UID") %>% 
+  filter(count>0) %>% 
+  select(source, common_name) %>% 
+  unique() %>% 
+  group_by(source) %>% 
+  summarize(count = n())
 
 ```

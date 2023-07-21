@@ -954,6 +954,12 @@ composit_OR_fig_tmpclust <- composit_OR_figs%>%
             ORCIlow = median(ORCIlow, na.rm = T),
             ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
   filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 1] <- "1-cold, mid elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 2] <- "2-warm, sm watersheds"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 3] <- "3-cool, low elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 4] <- "4-cool, mid elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 5] <- "5-cold, high elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 6] <- "6-warm, lg watersheds"
 
 composit_OR_fig_flowclust <- composit_OR_figs%>% 
   filter(!is.na(cluster_SF),
@@ -963,6 +969,13 @@ composit_OR_fig_flowclust <- composit_OR_figs%>%
             ORCIlow = median(ORCIlow, na.rm = T),
             ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
   filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 1] <- "1-Many floods, med Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 2] <- "2-Mod floods, low Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 3] <- "3-Many floods, low Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 4] <- "4-mod floods, med Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 5] <- "5-Many floods, high Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 6] <- "6-Few floods, med Su Q"
+
 
 composit_OR_fig_tempGrops <- composit_OR_figs%>% 
   filter(!is.na(tmp),
@@ -996,10 +1009,11 @@ composit_OR_fig_BT <- composit_OR_figs%>%
   filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
 
 
-a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR, color = as.factor(cluster_TP)))+
+a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
   coord_flip()+
+  facet_wrap(~as.factor(cluster_TP), nrow = 2)+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.background = element_blank(),
@@ -1007,22 +1021,26 @@ a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR, color = a
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(color = "Temp clust", y = "odds ratio")
-b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR, color = as.factor(cluster_SF)))+
+  labs(y = "odds ratio", title = "Temperature Clusters")
+
+b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
   coord_flip()+
+  facet_wrap(~as.factor(cluster_SF), nrow = 2)+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.background = element_blank(),
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(color = "Flow clust", y = NULL)
-c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR, color = as.factor(tmp)))+
+  labs(y = NULL, title = "Streamflow Clusters")
+
+c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
   coord_flip()+
+  facet_wrap(~as.factor(tmp), nrow = 6)+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.background = element_blank(),
@@ -1030,8 +1048,21 @@ c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR, color = 
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(color = "Temp Guild", y = NULL)
-d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR, color = as.factor(tolerance)))+
+  labs(y = NULL, title = "Temp Guilds")
+d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  facet_wrap(~as.factor(tolerance), nrow = 6)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "Habitat Guilds")
+
+e <- ggplot(data = composit_OR_fig_BT, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
   coord_flip()+
@@ -1041,29 +1072,90 @@ d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR, color = as.fac
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(color = "Hab Guild", y = NULL)
+  labs(y = NULL, title = "Brook Trout")
 
-e <- ggplot(data = composit_OR_fig_BT, aes(x = variable, y = OR, color = common_name))+
-  geom_point(size = 1.5, position=position_dodge(width=0.5))+
-  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
-  coord_flip()+
-  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
-  theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.background = element_blank(),
-        axis.title = element_text(size = 15),
-        axis.title.y = element_blank(),
-        title = element_text(size = 15))+
-  labs(color = "Species", y = NULL)
+ggsave(e, file = "tmpfigures/paper1/CompositORPlotsBT.png", 
+    width = 15,
+    height = 10,
+    units = "cm",
+    dpi = 300)
 
-g <- arrangeGrob(a, b, 
-                 c, d, 
-                 e,
-             ncol=2, nrow =3)
-ggsave(g, file = "tmpfigures/paper1/CompositORPlots.png", 
+library(cowplot)
+g <- plot_grid(a,c, align = "h", nrow = 1, rel_widths = c(2/3, 1/3))
+ggsave(g, file = "tmpfigures/paper1/CompositORPlots3.png", 
     width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+g <- plot_grid(b,d, align = "h", nrow = 1, rel_widths = c(2/3, 1/3))
+ggsave(g, file = "tmpfigures/paper1/CompositORPlots4.png", 
+    width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+
+
+#try showing the plots differentlyfor the temperature guilds/clusters so we can clearly see how the guilds compare to the cluster counterparsk
+#facet by cold cool and warm and brook trout, color by the cluster/guild
+
+names(composit_OR_fig_BT)
+names(composit_OR_fig_tempGrops)
+names(composit_OR_fig_tmpclust)
+
+composit_OR_fig_tempGrops$group <- "guild"
+names(composit_OR_fig_tmpclust)[1] <- "group"
+composit_OR_fig_tmpclust$tmp <- ifelse(composit_OR_fig_tmpclust$group %in% c("1-cold, mid elevation", "5-cold, high elevation"), "cold",
+                                       if_else(composit_OR_fig_tmpclust$group %in% c("2-warm, sm watersheds", "6-warm, lg watersheds"), "warm", "cool"))
+composit_OR_fig_BT <- composit_OR_fig_BT %>% 
+  rename(group = common_name) %>% 
+  select(group, tmp, variable, OR, ORCIlow, ORCIhigh)
+
+tempgrps <- rbind(composit_OR_fig_tempGrops, composit_OR_fig_tmpclust, composit_OR_fig_BT)
+
+a <- ggplot(data = tempgrps[tempgrps$tmp == "cold",], aes(x = variable, y = OR, color = group))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "Cold")
+b <- ggplot(data = tempgrps[tempgrps$tmp == "cool",], aes(x = variable, y = OR, color = group))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "Cool")
+c <- ggplot(data = tempgrps[tempgrps$tmp == "warm",], aes(x = variable, y = OR, color = group))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "Warm")
+
+g <- plot_grid(a,b,c, align = "v", nrow = 3, rel_widths = c(1/3, 1/3, 1/3))
+ggsave(g, file = "tmpfigures/paper1/CompositORPlot_TemperatureGrp.png", 
+    width = 20,
     height = 25,
     units = "cm",
     dpi = 300)
+
+
 
 
 

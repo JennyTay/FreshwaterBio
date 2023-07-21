@@ -14,7 +14,7 @@ library(lme4)
 
 ```
 
-In this script we model the probability of freshwater mussel occurrence at the HUC10 scale 
+In this script we model the probability of freshwater mussel occurrence at the HUC12 scale - I copied the script from "BiodiversityModel_Mussel.Rmd and just made changes so that everything was at the HUC12 scale instead of the HUC10 scale.  I was originally planning on redoing the mussel model to be at the stream reach scale (by COMID), but when I went back to the musselanalysis file, I remembered that the spatial join of each mussel sampling event to the stream reach excluded too many surveys because many surveys were too far from a stream reach to be successfully joined to a line, so were able to use a lot more data if we use them at the HUC12 scale. 
 
 In the first chunk, we prepare the host fish covariate data by reading in the fish model and predicting in the baseline for presence/absence and proportional abundance
 
@@ -161,6 +161,18 @@ fish_host_propabun <- fish_host_propabun %>%
   summarise(propabun = sum(propabun)) %>% 
   pivot_wider(names_from = family, values_from = propabun) %>% 
   select(-Gasterosteidae) #its zero in every observation
+
+
+
+
+
+
+
+
+#fish host covariates for the fish that we did not model due to being estuarine - for these, we will simply use the raw fish occurrence data and make a variable for whether the fish has been observed in a given HUC12 (0/1 binary variable)
+#white perch for the tidewater mucket
+#diadromous fish for the alewife floater
+#threespined stickleback for the eastern pond mussel
 
 ```
 
