@@ -71,97 +71,97 @@ Then model relative abundance with a zero-inflated binomial model from the glmmT
 # will need to average the proporation abundance by the huc12tnmid
 # will need to average all the covariates (except the Temperautre and dams which are already at the huc12 scale, by huc12tnmid)
 
-library(glmmTMB)
-countsbyhuc <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>% 
-  group_by(huc12_tnmid, huc12_name) %>% 
-  mutate(totalcount = sum(count)) %>% 
-  ungroup()  %>% 
-  group_by(huc12_tnmid, huc12_name, common_name) %>% 
-  mutate(huc12sppcount = sum(count),
-         propabun = (huc12sppcount / totalcount)) %>%
-  ungroup() %>% 
-  select(huc12_tnmid, huc12_name, huc12sppcount, totalcount, propabun, common_name, gear)%>% 
-  unique() %>% 
-  filter(common_name == "redfin pickerel") 
-
-hist(countsbyhuc$propabun)
-
-# the observed proportional abundance
-fish_shp <- left_join(fish_shp, data.frame(fish_event_huc_join), 
-                      by = c("UID", "state", "date", "year", "month", "waterbody", "project", "source"))
-
-shp <- left_join(fish_shp, countsbyhuc, by = c("huc12_tnmid", "huc12_name")) %>%
-  filter(!is.na(propabun)) %>%
-  mutate(occurrence = ifelse(huc12sppcount>0, 1, 0))
-ggplot(data = shp)+
-  geom_sf(aes(fill = as.factor(propabun), size = propabun), pch = 21, col = "black")
-
-fishcovariates_byhuc12 <- fishcovariates_byhuc12[complete.cases(fishcovariates_byhuc12),]
-test <- fishcovariates_byhuc12[,c(3:34)]
-test <- data.frame(scale(test))
-
-fishcovariates_byhuc12 <- cbind((fishcovariates_byhuc12)[,c(1,2)], test)
-
-
-#join the countsbyhuc to the tidying covariates, fishcovariates
-dat <- left_join(countsbyhuc, fishcovariates_byhuc12, by = c("huc12_tnmid", "huc12_name"))
-
-
-dat <- dat %>% 
-  mutate(occurrence = ifelse(huc12sppcount>0, 1, 0)) %>% 
-  select(huc12_tnmid, huc12_name, common_name, occurrence, propabun, lat, long, 8:39)
-
-
-#plot of variables vs proportional abundance
-dat$occurrence <- as.factor(dat$occurrence)
-ggplot(data = dat, mapping = aes(x = occurrence, y = pctForest_ws))+
-  geom_violin()+
-  geom_boxplot(width = 0.1)+
-  geom_smooth(method = "lm")+
-    theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank())+
-  labs(title = "brook trout")
-
-
-#histogram of relative abundance
-ggplot(data = dat, mapping = aes(x = propabun))+
-  geom_histogram()
-#histogram of relative abundance without the zeros so we can see the other data
-ggplot(data = dat[dat$occurrence ==1,], mapping = aes(x = propabun))+
-  geom_histogram()
-
-# #map of observed relative abundance - need to join to the shapefile with UID
-rel_abundance <- left_join(fish_shp, dat, by = c("huc12_tnmid", "huc12_name"))
-ggplot(data = rel_abundance)+
-  geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
-
-
-
-#global model
-mdl <- glmmTMB(propabun ~
-                 annual_mean_summer_temp + 
-                 BFI_HIST + 
-                 LO7Q1DT_HIST +
-                 W95_HIST + 
-                 BFIWs +   
-                 WtDepWs + 
-                 PctOw_Ws +  
-                 PctImp_Ws +  
-                 pctAg_Ws + 
-                 pctWetland_Cat + 
-                 logMJJA_HIST + 
-                 logRdCrsCat + 
-                 logPctOw_Cat +
-                 huc12_damden_sqkm +
-                 huc8_damcount,
-               data = dat,
-               ziformula = ~lat + long + ElevCat + logWsAreaSqKm,
-               family = beta_family())
-summary(mdl)
-saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/propabun_", unique(dat$common_name), ".rds", sep = ""))
-
+# library(glmmTMB)
+# countsbyhuc <- left_join(fish_count_with_zeros, fish_event_huc_join, by = "UID") %>% 
+#   group_by(huc12_tnmid, huc12_name) %>% 
+#   mutate(totalcount = sum(count)) %>% 
+#   ungroup()  %>% 
+#   group_by(huc12_tnmid, huc12_name, common_name) %>% 
+#   mutate(huc12sppcount = sum(count),
+#          propabun = (huc12sppcount / totalcount)) %>%
+#   ungroup() %>% 
+#   select(huc12_tnmid, huc12_name, huc12sppcount, totalcount, propabun, common_name, gear)%>% 
+#   unique() %>% 
+#   filter(common_name == "redfin pickerel") 
+# 
+# hist(countsbyhuc$propabun)
+# 
+# # the observed proportional abundance
+# fish_shp <- left_join(fish_shp, data.frame(fish_event_huc_join), 
+#                       by = c("UID", "state", "date", "year", "month", "waterbody", "project", "source"))
+# 
+# shp <- left_join(fish_shp, countsbyhuc, by = c("huc12_tnmid", "huc12_name")) %>%
+#   filter(!is.na(propabun)) %>%
+#   mutate(occurrence = ifelse(huc12sppcount>0, 1, 0))
+# ggplot(data = shp)+
+#   geom_sf(aes(fill = as.factor(propabun), size = propabun), pch = 21, col = "black")
+# 
+# fishcovariates_byhuc12 <- fishcovariates_byhuc12[complete.cases(fishcovariates_byhuc12),]
+# test <- fishcovariates_byhuc12[,c(3:34)]
+# test <- data.frame(scale(test))
+# 
+# fishcovariates_byhuc12 <- cbind((fishcovariates_byhuc12)[,c(1,2)], test)
+# 
+# 
+# #join the countsbyhuc to the tidying covariates, fishcovariates
+# dat <- left_join(countsbyhuc, fishcovariates_byhuc12, by = c("huc12_tnmid", "huc12_name"))
+# 
+# 
+# dat <- dat %>% 
+#   mutate(occurrence = ifelse(huc12sppcount>0, 1, 0)) %>% 
+#   select(huc12_tnmid, huc12_name, common_name, occurrence, propabun, lat, long, 8:39)
+# 
+# 
+# #plot of variables vs proportional abundance
+# dat$occurrence <- as.factor(dat$occurrence)
+# ggplot(data = dat, mapping = aes(x = occurrence, y = pctForest_ws))+
+#   geom_violin()+
+#   geom_boxplot(width = 0.1)+
+#   geom_smooth(method = "lm")+
+#     theme(panel.border = element_rect(colour = "black", fill = NA),
+#           panel.grid.major = element_blank(),
+#           panel.grid.minor = element_blank(),
+#           panel.background = element_blank())+
+#   labs(title = "brook trout")
+# 
+# 
+# #histogram of relative abundance
+# ggplot(data = dat, mapping = aes(x = propabun))+
+#   geom_histogram()
+# #histogram of relative abundance without the zeros so we can see the other data
+# ggplot(data = dat[dat$occurrence ==1,], mapping = aes(x = propabun))+
+#   geom_histogram()
+# 
+# # #map of observed relative abundance - need to join to the shapefile with UID
+# rel_abundance <- left_join(fish_shp, dat, by = c("huc12_tnmid", "huc12_name"))
+# ggplot(data = rel_abundance)+
+#   geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
+# 
+# 
+# 
+# #global model
+# mdl <- glmmTMB(propabun ~
+#                  annual_mean_summer_temp + 
+#                  BFI_HIST + 
+#                  LO7Q1DT_HIST +
+#                  W95_HIST + 
+#                  BFIWs +   
+#                  WtDepWs + 
+#                  PctOw_Ws +  
+#                  PctImp_Ws +  
+#                  pctAg_Ws + 
+#                  pctWetland_Cat + 
+#                  logMJJA_HIST + 
+#                  logRdCrsCat + 
+#                  logPctOw_Cat +
+#                  huc12_damden_sqkm +
+#                  huc8_damcount,
+#                data = dat,
+#                ziformula = ~lat + long + ElevCat + logWsAreaSqKm,
+#                family = beta_family())
+# summary(mdl)
+# saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/propabun_", unique(dat$common_name), ".rds", sep = ""))
+# 
 
 
 ```
@@ -724,6 +724,7 @@ write.csv(results_zer, file = "tmpfigures/zeroinfla_results.csv")
 
 
 #make plots for manuscript one that show the model performance: a series of histograms that show the counts of accuracy, sensitivity, specificity
+prop_abun_validation <- read.csv("tmpfigures/prop_abun_validation.csv")
 df <- prop_abun_validation %>% 
   select(common_name, accuracy, sensitivity, Specificity) %>% 
   rename("Accuracy" = "accuracy", "Sensitivity" = "sensitivity") %>% 
@@ -736,8 +737,10 @@ ggplot(data = df, aes(x = value))+
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
         axis.text = element_text(size = 10),
-        axis.title = element_text(size = 15))+
-  labs(x = "Proportion", y = "Count")
+        axis.title = element_text(size = 12),
+        title = element_text(size = 12))+
+  labs(x = "Proportion", y = "Count")+
+  ggtitle("A")
 ggsave(
     filename = "tmpfigures/paper1/validationhistogram_zero.png",
     plot = last_plot(),
@@ -754,9 +757,11 @@ ggplot(data = prop_abun_validation, aes(x = r2_rank_propabun))+
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
         axis.text = element_text(size = 10),
-        axis.title = element_text(size = 15))+
+        axis.title = element_text(size = 12),
+        title = element_text(size = 12))+
   labs(x = "Correlation", y = "Count")+
-  scale_y_continuous(limits = c(0,10), breaks = c(2, 4, 6, 8, 10))
+  scale_y_continuous(limits = c(0,10), breaks = c(2, 4, 6, 8, 10))+
+  ggtitle("B")
 ggsave(
     filename = "tmpfigures/paper1/validationhistogram_propabun.png",
     plot = last_plot(),
@@ -768,23 +773,27 @@ ggsave(
 #bar plot of the ratio of spp presnce points to absnece points in the training data
 df <- prop_abun_validation %>% 
   select(common_name, test_dat_pres, test_dat_abs) %>% 
-  mutate(perc_pres = test_dat_pres/test_dat_abs)
+  mutate(perc_pres = test_dat_pres/test_dat_abs) %>% 
+  filter(perc_pres>0.05)
+df$common_name <- str_to_title(df$common_name)
 ggplot(data = df, aes(x = reorder(common_name, -perc_pres), y = perc_pres))+
   geom_bar(stat = "identity", fill = "grey", color = "black")+
   theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
-        axis.text = element_text(size = 6),
-        axis.title = element_text(size = 10),
-        axis.text.x = element_text(angle=45, hjust=1))+
+        axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        axis.text.x = element_text(angle=45, hjust=1),
+        title = element_text(size = 20))+
   labs(x = NULL, y = "Ratio")+
-  coord_cartesian(ylim = c(0, .6)) 
+  coord_cartesian(ylim = c(0, .6)) +
+  ggtitle("C")
 ggsave(
     filename = "tmpfigures/paper1/testingdataratio.png",
     plot = last_plot(),
-    width = 14,
-    height = 5,
+    width = 25,
+    height = 10,
     units = "cm",
     dpi = 300)
 
@@ -1198,134 +1207,134 @@ ggsave(
  write.csv(results4, "tmpfigures/propabund_sigvaraibles.csv")
 
 
-
-#cluster spp based on their coef values
-
-library(factoextra)
-
-cluster <- results2 %>% 
-  select(variable, common_name, OR) %>% 
-  pivot_wider(names_from = variable, values_from = OR) %>% 
-  data.frame()
-cluster2 <- cluster[,-1]
-rownames(cluster2) <- cluster[,1]
-
-cluster2 <- scale(cluster2)
-
-distance <- get_dist(cluster2)
- 
-fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
-
-
-k2 <- kmeans(distance, centers = 7, nstart = 25)
-str(k2)
-k2
-fviz_cluster(k2, data = distance)
-  
-
-
-#NMDS
-library(vegan)
-library(tidyverse)
-
-#fish data
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
-
-#tidied covariates (this is called fishcovariates)
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
-
-
-
-
-counts <- fish_count_with_zeros %>%
-  filter(gear == "efish_backpack",
-         run_num ==1,
-         stock == "natural") %>% 
-  group_by(UID) %>% 
-  mutate(totalcount = sum(count)) %>% 
-  ungroup() %>% 
-  filter(totalcount>0) %>% 
-  mutate(propabun = (count / totalcount))
-
-
-#join the counts to the tidying covariates, fishcovariates
-
-#There are some duplicated UIDs so we want to remove them
-test <- left_join(counts, fishcovariates, by = "UID") %>% 
-  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
-  select(1, 4,  15,16, 17, 23:52) %>% 
-  group_by(UID, lat, long, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, BFIWs, ElevCat, RdDensCatRp100, RdDensWsRp100, RdCrsWs, WtDepWs, PopDen_Ws, PctOw_Ws, PctImp_Cat, PctImp_Ws, PctImp_CatRp100, PctImp_WsRp100, pctForest_Cat, pctForest_ws, pctUrban_Cat, pctUrban_ws, pctAg_Ws, pctWetland_Cat, pctWetland_Ws, huc12_damden_sqkm, huc8_damcount, logWsAreaSqKm, logMJJA_HIST, logRdCrsCat, logPctOw_Cat, common_name) %>%
-  summarise(n = n()) %>%
-  filter(n > 1)
-unique(test$UID)
-#[1] "RI_3_1_16_1170509"  "RI_4_1_4_1170810"   "RI_9_NA_60_1100709"
-
-counts <- counts %>% 
-  filter(!UID == "RI_3_1_16_1170509" & !UID == "RI_4_1_4_1170810" & !UID == "RI_9_NA_60_1100709")
-
-test <- left_join(counts, fishcovariates, by = "UID") %>% 
-  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
-  select(1, 4,  15,16, 17, annual_mean_summer_temp, 
-                 BFI_HIST, 
-                 LO7Q1DT_HIST,
-                 W95_HIST, 
-                 BFIWs,  
-                 WtDepWs, 
-                 PctOw_Ws,  
-                 PctImp_Ws,  
-                 pctAg_Ws, 
-                 pctWetland_Cat, 
-                 logMJJA_HIST, 
-                 logRdCrsCat, 
-                 logPctOw_Cat,
-                 huc12_damden_sqkm,
-                 huc8_damcount) %>%  
-  filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
-                            "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
-                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
-                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
-                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
-                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
-                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
-                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
-                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
-  pivot_wider(names_from = "common_name", values_from = "propabun")
-
-sapply(test, function(x) sum(is.na(x)))
-
-test <- test[complete.cases(test),]
-
-#com <-  test[,25:102] #Takes a really long time.. maybe do a few at a time
-com <-  test[,19:62]
-env <-  test[,2:18]
-
-#count NAs in each spreadsheed
-sapply(com, function(x) sum(is.na(x)))
-sapply(env, function(x) sum(is.na(x)))
-
-
-
-
-m_com <-  as.matrix(com)
-
-#nmds code
-set.seed(4352)
-nmds <-   metaMDS(m_com, distance = "gower")
-nmds
-save(nmds, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/fishNMDS.rda")
-
-en <- envfit(nmds, env, permutations = 999, na.rm = TRUE)
-plot(nmds, type='t', display=c('species'))
-
-
-
-png(height = 15, width = 15, file = "tmpfigures/nmds.png", units = "in", res = 150, type = "cairo")
-
-
-plot(nmds, type='t', display=c('species'), cex = 1.5)
-plot(en)
-
-dev.off()
+# 
+# #cluster spp based on their coef values
+# 
+# library(factoextra)
+# 
+# cluster <- results2 %>% 
+#   select(variable, common_name, OR) %>% 
+#   pivot_wider(names_from = variable, values_from = OR) %>% 
+#   data.frame()
+# cluster2 <- cluster[,-1]
+# rownames(cluster2) <- cluster[,1]
+# 
+# cluster2 <- scale(cluster2)
+# 
+# distance <- get_dist(cluster2)
+#  
+# fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+# 
+# 
+# k2 <- kmeans(distance, centers = 7, nstart = 25)
+# str(k2)
+# k2
+# fviz_cluster(k2, data = distance)
+#   
+# 
+# 
+# #NMDS
+# library(vegan)
+# library(tidyverse)
+# 
+# #fish data
+# load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+# 
+# #tidied covariates (this is called fishcovariates)
+# load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+# 
+# 
+# 
+# 
+# counts <- fish_count_with_zeros %>%
+#   filter(gear == "efish_backpack",
+#          run_num ==1,
+#          stock == "natural") %>% 
+#   group_by(UID) %>% 
+#   mutate(totalcount = sum(count)) %>% 
+#   ungroup() %>% 
+#   filter(totalcount>0) %>% 
+#   mutate(propabun = (count / totalcount))
+# 
+# 
+# #join the counts to the tidying covariates, fishcovariates
+# 
+# #There are some duplicated UIDs so we want to remove them
+# test <- left_join(counts, fishcovariates, by = "UID") %>% 
+#   mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+#   select(1, 4,  15,16, 17, 23:52) %>% 
+#   group_by(UID, lat, long, annual_mean_summer_temp, BFI_HIST, LO7Q1DT_HIST, CFM_HIST, W95_HIST, BFIWs, ElevCat, RdDensCatRp100, RdDensWsRp100, RdCrsWs, WtDepWs, PopDen_Ws, PctOw_Ws, PctImp_Cat, PctImp_Ws, PctImp_CatRp100, PctImp_WsRp100, pctForest_Cat, pctForest_ws, pctUrban_Cat, pctUrban_ws, pctAg_Ws, pctWetland_Cat, pctWetland_Ws, huc12_damden_sqkm, huc8_damcount, logWsAreaSqKm, logMJJA_HIST, logRdCrsCat, logPctOw_Cat, common_name) %>%
+#   summarise(n = n()) %>%
+#   filter(n > 1)
+# unique(test$UID)
+# #[1] "RI_3_1_16_1170509"  "RI_4_1_4_1170810"   "RI_9_NA_60_1100709"
+# 
+# counts <- counts %>% 
+#   filter(!UID == "RI_3_1_16_1170509" & !UID == "RI_4_1_4_1170810" & !UID == "RI_9_NA_60_1100709")
+# 
+# test <- left_join(counts, fishcovariates, by = "UID") %>% 
+#   mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+#   select(1, 4,  15,16, 17, annual_mean_summer_temp, 
+#                  BFI_HIST, 
+#                  LO7Q1DT_HIST,
+#                  W95_HIST, 
+#                  BFIWs,  
+#                  WtDepWs, 
+#                  PctOw_Ws,  
+#                  PctImp_Ws,  
+#                  pctAg_Ws, 
+#                  pctWetland_Cat, 
+#                  logMJJA_HIST, 
+#                  logRdCrsCat, 
+#                  logPctOw_Cat,
+#                  huc12_damden_sqkm,
+#                  huc8_damcount) %>%  
+#   filter(common_name %in% c("american eel", "white perch", "finescale dace", "american brook lamprey", 
+#                             "cutlips minnow", "green sunfish", "central mudminnow", "bridle shiner", 
+#                             "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+#                             "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+#                             "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+#                             "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+#                             "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+#                             "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+#                             "longnose dace", "white sucker", "eastern blacknose dace", "brook trout")) %>% 
+#   pivot_wider(names_from = "common_name", values_from = "propabun")
+# 
+# sapply(test, function(x) sum(is.na(x)))
+# 
+# test <- test[complete.cases(test),]
+# 
+# #com <-  test[,25:102] #Takes a really long time.. maybe do a few at a time
+# com <-  test[,19:62]
+# env <-  test[,2:18]
+# 
+# #count NAs in each spreadsheed
+# sapply(com, function(x) sum(is.na(x)))
+# sapply(env, function(x) sum(is.na(x)))
+# 
+# 
+# 
+# 
+# m_com <-  as.matrix(com)
+# 
+# #nmds code
+# set.seed(4352)
+# nmds <-   metaMDS(m_com, distance = "gower")
+# nmds
+# save(nmds, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/fishNMDS.rda")
+# 
+# en <- envfit(nmds, env, permutations = 999, na.rm = TRUE)
+# plot(nmds, type='t', display=c('species'))
+# 
+# 
+# 
+# png(height = 15, width = 15, file = "tmpfigures/nmds.png", units = "in", res = 150, type = "cairo")
+# 
+# 
+# plot(nmds, type='t', display=c('species'), cex = 1.5)
+# plot(en)
+# 
+# dev.off()
 
 ```
 
