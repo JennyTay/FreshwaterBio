@@ -130,6 +130,7 @@ ggplot(data = NHDplusV2_NewEngCrop_baseline)+
                         midpoint = 0.5)
 
 
+
 #align prediction results with the unscaled covariates and make plots
 load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_covariates.RData")
 pred <- cbind(NHDplusV2_NewEngCrop, predictions)
@@ -153,16 +154,24 @@ pred <- pred %>%
 
 #write csv with final spp groupings
 sppgroups <- pred %>% 
-  select(common_name, origin, tmp, tolerance, tempclust, flowclust) %>% 
+  select(common_name, tmp, tolerance, tempclust, flowclust, origin) %>% 
   unique() %>% 
-  arrange(origin, tmp, tolerance, tempclust, flowclust)
+  arrange(tmp, tolerance, tempclust, flowclust, origin)
 sppgroups$origin[sppgroups$origin == "introduced"] <- "I"
 sppgroups$origin[sppgroups$origin == "native"] <- "N"
 sppgroups$tolerance[sppgroups$tolerance == "fluvial specialist"] <- "FS"
 sppgroups$tolerance[sppgroups$tolerance == "fluvial dependent"] <- "FD"
 sppgroups$tolerance[sppgroups$tolerance == "generalist"] <- "MG"
+#add in scienfific names
+names <- read_excel("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/fishspp_lookup_rq_comments.xlsx") %>% 
+  select(scientific_name, common_name) 
+sppgroups <- left_join(sppgroups, names, by = "common_name")%>% 
+  select(common_name, scientific_name, tmp, tolerance, tempclust, flowclust, origin)
 sppgroups$common_name <- str_to_title(sppgroups$common_name)
+sppgroups$scientific_name <- str_to_sentence(sppgroups$scientific_name)
 write.csv(sppgroups, "tmpfigures/paper1/sppgroups.csv")
+
+
 
 
 #ratio of native to non-native species
@@ -183,9 +192,9 @@ OR <- left_join(huc12, OR, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"
  
 aa <- ggplot(data = OR)+
   geom_sf(aes(fill = NatIntRatio), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = 50,
                        limits = c(1,100), 
                        breaks = c(1,100))+
@@ -193,11 +202,12 @@ aa <- ggplot(data = OR)+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        title = element_text(size = 10),
         axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 15))+
-  ggtitle("Native to Introduced Proportional Abundance")+
+        axis.ticks = element_blank())+
+  ggtitle("A) Native to Introduced")+
   labs(fill = "Ratio")
 
 ggsave(aa, file = "tmpfigures/paper1/NatIntRatio.png", 
@@ -226,9 +236,9 @@ SP <- left_join(huc12, SP, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"
  
 bb <- ggplot(data = SP)+
   geom_sf(aes(fill = speGenRatio), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = 330,
                        limits = c(0,665), 
                        breaks = c(0,665))+
@@ -236,11 +246,12 @@ bb <- ggplot(data = SP)+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        title = element_text(size = 10),
         axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 15))+
-  ggtitle("Specialist to Generalist Proportional Abundance")+
+        axis.ticks = element_blank())+
+  ggtitle("B) Specialist to Generalist")+
   labs(fill = "Ratio")
 
 ggsave(bb, file = "tmpfigures/paper1/SpeGenRatio.png", 
@@ -248,6 +259,10 @@ ggsave(bb, file = "tmpfigures/paper1/SpeGenRatio.png",
     height = 15,
     units = "cm",
     dpi = 300)
+
+fig4 <- gridExtra::grid.arrange(aa,bb, nrow = 1, ncol = 2)
+ggsave(fig4, file = "tmpfigures/paper1/fig4.png")
+
 
 
 
@@ -265,13 +280,18 @@ TC <- pred %>%
 TC <- left_join(huc12, TC, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
   filter(!is.na(tempclust))
 TC$propabun <- ifelse(TC$propabun > 1, 1, TC$propabun)  
-
+TC$tempclust[TC$tempclust == "1"] <- "1-cold, mid elev"
+TC$tempclust[TC$tempclust == "2"] <- "2-warm, sm sheds"
+TC$tempclust[TC$tempclust == "3"] <- "3-cool, low elev"
+TC$tempclust[TC$tempclust == "4"] <- "4-cool, mid elev"
+TC$tempclust[TC$tempclust == "5"] <- "5-cold, high elev"
+TC$tempclust[TC$tempclust == "6"] <- "6-warm, lg sheds"
 
 a <- ggplot(data = TC)+
   geom_sf(aes(fill = propabun), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = .5,
                        limits = c(0,1), 
                        breaks = c(0,1))+
@@ -282,10 +302,12 @@ a <- ggplot(data = TC)+
           panel.background = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 15))+
-  ggtitle("Proportional Abundance: Temperature Clusters")+
-  labs(fill = "PA")
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.position = c(0.93, 0.10),
+        legend.key.size = unit(.15, "cm"))+
+  ggtitle("A) Temperature Clusters")+
+  labs(fill = "P.Abun.")
 
 ggsave(a, file = "tmpfigures/paper1/TempClusters.png", 
     width = 18,
@@ -306,13 +328,19 @@ FC <- pred %>%
   summarise(propabun = mean(propabun, na.rm = T))
 FC <- left_join(huc12, FC, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
   filter(!is.na(flowclust))
-FC$propabun <- ifelse(FC$propabun > 1, 1, FC$propabun)  
+FC$propabun <- ifelse(FC$propabun > 1, 1, FC$propabun)
+FC$flowclust[FC$flowclust == "1"] <- "1-Hi flood, Med Q"
+FC$flowclust[FC$flowclust == "2"] <- "2-Mod flood, Lo Q"
+FC$flowclust[FC$flowclust == "3"] <- "3-Hi flood, Low Q"
+FC$flowclust[FC$flowclust == "4"] <- "4-Mod flood, Med Q"
+FC$flowclust[FC$flowclust == "5"] <- "5-Hi flood, Hi Q"
+FC$flowclust[FC$flowclust == "6"] <- "6-Lo flood, Med Q"
 
 b <- ggplot(data = FC)+
   geom_sf(aes(fill = propabun), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = .5,
                        limits = c(0,1), 
                        breaks = c(0,1))+
@@ -323,16 +351,23 @@ b <- ggplot(data = FC)+
           panel.background = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 15))+
-  ggtitle("Proportional Abundance: Streamflow Clusters")+
-  labs(fill = "PA")
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size = 7),
+        legend.position = c(0.93, 0.10),
+        legend.key.size = unit(.15, "cm"))+
+  ggtitle("B) Streamflow Clusters")+
+  labs(fill = "P.Abun.")
 
 ggsave(b, file = "tmpfigures/paper1/FlowClusters.png", 
     width = 18,
     height = 15,
     units = "cm",
     dpi = 300)
+
+
+fig7 <- gridExtra::grid.arrange(a,b, nrow = 1, ncol = 2)
+ggsave(fig7, file = "tmpfigures/paper1/fig7.png")
+
 
 #Temperature Guilds
 TA <- pred %>% 
@@ -352,9 +387,9 @@ TA$propabun <- ifelse(TA$propabun > 1, 1, TA$propabun)
 
 c <- ggplot(data = TA)+
   geom_sf(aes(fill = propabun), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = .5,
                        limits = c(0,1), 
                        breaks = c(0,1))+
@@ -363,12 +398,13 @@ c <- ggplot(data = TA)+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 15))+
-  ggtitle("Proportional Abundance: Temperature Guilds")+
-  labs(fill = "PA")
+        legend.text = element_text(size = 5),
+        strip.text = element_text(size = 10),
+        axis.text = element_text(size = 7),
+        legend.position = c(0.90, 0.25),
+        legend.key.size = unit(.15, "cm"))+
+  ggtitle("A) Temperature Guilds")+
+  labs(fill = NULL)
 
 ggsave(c, file = "tmpfigures/paper1/TempGuilds.png", 
     width = 18,
@@ -394,9 +430,9 @@ FA$propabun <- ifelse(FA$propabun > 1, 1, FA$propabun)
 
 d <- ggplot(data = FA)+
   geom_sf(aes(fill = propabun), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = .5,
                        limits = c(0,1), 
                        breaks = c(0,1))+
@@ -405,12 +441,14 @@ d <- ggplot(data = FA)+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
+        legend.text = element_text(size = 5),
+        strip.text = element_text(size = 10),
+        legend.position = c(0.90, 0.25),
+        legend.key.size = unit(.15, "cm"),
         axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.text = element_text(size = 12),
-        legend.title = element_text(size = 15))+
-  ggtitle("Proportional Abundance: Habitat Guilds")+
-  labs(fill = "PA")
+        axis.ticks = element_blank())+
+  ggtitle("C) Habitat Guilds")+
+  labs(fill = NULL)
 
 ggsave(d, file = "tmpfigures/paper1/FlowGuilds.png", 
     width = 18,
@@ -431,9 +469,9 @@ BT$propabun <- ifelse(BT$propabun > 1, 1, BT$propabun)
 
 e <- ggplot(data = BT)+
   geom_sf(aes(fill = propabun), color = NA)+
-  scale_fill_gradient2(low = "grey60",
-                        mid = "yellow",
-                        high = "green3",
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
                         midpoint = .5,
                        limits = c(0,1), 
                        breaks = c(0,1))+
@@ -444,10 +482,12 @@ e <- ggplot(data = BT)+
         axis.text = element_blank(),
         axis.ticks = element_blank(),
         legend.text = element_text(size = 5),
-        legend.title = element_text(size = 7),
-        title = element_text(size = 8))+
-  ggtitle("Proportional Abundance: Brook Trout")+
-  labs(fill = "PA")
+        legend.title = element_text(size = 5),
+        legend.position = c(0.78, 0.21),
+        legend.key.size = unit(.25, "cm"),
+        title = element_text(size = 10))+
+  ggtitle("B) Brook Trout")+
+  labs(fill = "Prop. Abun.")
 
 ggsave(e, file = "tmpfigures/paper1/BrookTrout.png", 
     width = 8,
@@ -455,6 +495,38 @@ ggsave(e, file = "tmpfigures/paper1/BrookTrout.png",
     units = "cm",
     dpi = 300)
 
+#add a locational map of new england in the uS for figure 2 in paper 1
+#watershed shape files
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+#load new england state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+#load USA states
+US <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USstates/cb_2018_us_state_5m.shp")
+US <- US %>% 
+  filter(!STUSPS %in% c("HI", "GU", "AK", "VI", "MP", "PR", "AS"))
+st_crs(huc8) == st_crs(US)
+states <- st_transform(states, crs = st_crs(huc8))
+st_crs(huc8) == st_crs(states)
+
+
+locationalMap <- ggplot(data = US)+
+  geom_sf(color = "black", fill = "grey90")+
+  geom_sf(data = states, fill = "red2")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.position = "none",
+        title = element_text(size = 10))+
+  ggtitle("D) Study Location")
+
+
+
+
+fig2 <- gridExtra::grid.arrange(c,e,d,locationalMap, nrow = 2, ncol = 2, widths = c(3/4 , 1/4))
+ggsave(fig2, file = "tmpfigures/paper1/fig2.png")
 
 
 
@@ -638,6 +710,8 @@ df7$elevation <- factor(df7$elevation, levels = c("Low elevation", "Mid elevatio
 df8 <- df7 %>% 
   filter(trait %in% c("TC_1", "TC_2", "TC_3", "TC_4", "TC_5", "TC_6", 
                       "FC_1", "FC_2", "FC_3", "FC_4", "FC_5", "FC_6","native", "introduced" ))
+df8$trait[df8$trait == "native"] <- "Native"
+df8$trait[df8$trait == "introduced"] <- "Introduced"
 df9 <- df7 %>% 
   filter(trait %in% c("cold", "cool", "warm", "fluvial specialist", "fluvial dependent", "generalist", "brook trout"))
 
@@ -645,7 +719,7 @@ ggplot(data = df8, mapping = aes(x = trait, y = propabun))+
   geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
   facet_grid(rows = vars(elevation), cols = vars(latitude))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
-  labs(x = "Cluster", y = "Average Proportional Abundance")+
+  labs(x = "Grouping", y = "Average Proportional Abundance")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
@@ -662,14 +736,16 @@ ggsave(plot = last_plot(),
     units = "cm",
     dpi = 300)
 
-df9$trait <- factor(df9$trait, levels = c("cold", "cool", "warm", 
-                                          "fluvial specialist", "fluvial dependent","generalist",
-                                          "brook trout"))
+df9$trait <- str_to_title(df9$trait)
+df9$trait <- factor(df9$trait, levels = c("Cold", "Cool", "Warm", 
+                                          "Fluvial Specialist", "Fluvial Dependent","Generalist",
+                                          "Brook Trout"))
+
 ggplot(data = df9, mapping = aes(x = trait, y = propabun))+
   geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+
   facet_grid(rows = vars(elevation), cols = vars(latitude))+
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
-  labs(x = "Metric", y = "Average Proportional Abundance")+
+  labs(x = "Grouping", y = "Average Proportional Abundance")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),

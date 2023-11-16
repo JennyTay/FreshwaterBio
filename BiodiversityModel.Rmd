@@ -705,17 +705,17 @@ results_zer <- zer %>%
 rownames(results_zer) <- NULL
 
 #rename variables to make more interpretable
-results_zer$variable[results_zer$variable == "annual_mean_summer_temp"] <- "mean summer temp"
-results_zer$variable[results_zer$variable == "huc12_damden_sqkm"] <- "dam density"
-results_zer$variable[results_zer$variable == "BFI_HIST"] <- "baseflow index"
-results_zer$variable[results_zer$variable == "LO7Q1DT_HIST"] <- "low flow date"
-results_zer$variable[results_zer$variable == "W95_HIST"] <- "number of winter floods"
-results_zer$variable[results_zer$variable == "logMJJA_HIST"] <- "summer flow"
-results_zer$variable[results_zer$variable == "lat"] <- "latitude"
-results_zer$variable[results_zer$variable == "long"] <- "longitude"
-results_zer$variable[results_zer$variable == "ElevCat"] <- "elevation"
-results_zer$variable[results_zer$variable == "logWsAreaSqKm"] <- "watershed area"
-results_zer$variable[results_zer$variable == "huc8_damcount"] <- "dam count"
+results_zer$variable[results_zer$variable == "annual_mean_summer_temp"] <- "Mean summer temp"
+results_zer$variable[results_zer$variable == "huc12_damden_sqkm"] <- "Dam density"
+results_zer$variable[results_zer$variable == "BFI_HIST"] <- "Baseflow index"
+results_zer$variable[results_zer$variable == "LO7Q1DT_HIST"] <- "Low flow date"
+results_zer$variable[results_zer$variable == "W95_HIST"] <- "Number of winter floods"
+results_zer$variable[results_zer$variable == "logMJJA_HIST"] <- "Summer flow"
+results_zer$variable[results_zer$variable == "lat"] <- "Latitude"
+results_zer$variable[results_zer$variable == "long"] <- "Longitude"
+results_zer$variable[results_zer$variable == "ElevCat"] <- "Elevation"
+results_zer$variable[results_zer$variable == "logWsAreaSqKm"] <- "Watershed area"
+results_zer$variable[results_zer$variable == "huc8_damcount"] <- "Dam count"
 
 
 write.csv(results_zer, file = "tmpfigures/zeroinfla_results.csv")
@@ -809,25 +809,25 @@ results2 <- cond %>%
   filter(variable != "(Intercept)") 
 
 #rename variables to make more interpretable
-results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean summer temp"
-results2$variable[results2$variable == "huc12_damden_sqkm"] <- "dam density"
-results2$variable[results2$variable == "BFI_HIST"] <- "baseflow index"
-results2$variable[results2$variable == "LO7Q1DT_HIST"] <- "low flow date"
-results2$variable[results2$variable == "W95_HIST"] <- "number of winter floods"
-results2$variable[results2$variable == "logMJJA_HIST"] <- "summer flow"
-results2$variable[results2$variable == "lat"] <- "latitude"
-results2$variable[results2$variable == "long"] <- "longitude"
-results2$variable[results2$variable == "ElevCat"] <- "elevation"
-results2$variable[results2$variable == "logWsAreaSqKm"] <- "watershed area"
-results2$variable[results2$variable == "huc8_damcount"] <- "dam count"
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "Mean summer temp"
+results2$variable[results2$variable == "huc12_damden_sqkm"] <- "Dam density"
+results2$variable[results2$variable == "BFI_HIST"] <- "Baseflow index"
+results2$variable[results2$variable == "LO7Q1DT_HIST"] <- "Low flow date"
+results2$variable[results2$variable == "W95_HIST"] <- "Number of winter floods"
+results2$variable[results2$variable == "logMJJA_HIST"] <- "Summer flow"
+results2$variable[results2$variable == "lat"] <- "Latitude"
+results2$variable[results2$variable == "long"] <- "Longitude"
+results2$variable[results2$variable == "ElevCat"] <- "Elevation"
+results2$variable[results2$variable == "logWsAreaSqKm"] <- "Watershed area"
+results2$variable[results2$variable == "huc8_damcount"] <- "Dam count"
 
 #order the variables so they occurr in the correct/ same order for all figures
-results2$variable <- factor(results2$variable, levels = c("mean summer temp", "baseflow index", "summer flow", "low flow date", 
-                                                          "number of winter floods", 
+results2$variable <- factor(results2$variable, levels = c("Mean summer temp", "Baseflow index", "Summer flow", "Low flow date", 
+                                                          "Number of winter floods", 
                                                           "BFIWs", "WtDepWs", "PctImp_Ws", "pctAg_Ws", 
                                                           "pctWetland_Cat", "dam density",
-                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "logPctOw_Cat", 
-                                                          "latitude", "longitude", "elevation", "watershed area"))
+                                                          "Dam count", "logRdCrsCat", "PctOw_Ws", "logPctOw_Cat", 
+                                                          "Latitude", "Longitude", "Elevation", "Watershed area"))
 
 for (i in 1:length(unique(results2$common_name))) {
 
@@ -865,6 +865,7 @@ ggsave(
 
 # make composite OR plots to show how different temperature, tolerance, origin,  groups respond to the variables on average
 # do this using the zero inflated model component
+
 
 #prepare the zero inflation results file
 results_zer <- zer %>% 
@@ -925,35 +926,35 @@ composit_OR_figs <- left_join(results_zer, clusters, by = "common_name") %>%
          ! ORCIhigh > 20)
 
 #rename variables to make more interpret able
-composit_OR_figs$variable[composit_OR_figs$variable == "annual_mean_summer_temp"] <- "mean summer T"
-composit_OR_figs$variable[composit_OR_figs$variable == "huc12_damden_sqkm"] <- "dam density"
-composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "baseflow index"
-composit_OR_figs$variable[composit_OR_figs$variable == "LO7Q1DT_HIST"] <- "low flow date"
-composit_OR_figs$variable[composit_OR_figs$variable == "W95_HIST"] <- "winter floods"
-composit_OR_figs$variable[composit_OR_figs$variable == "logMJJA_HIST"] <- "summer flow"
-composit_OR_figs$variable[composit_OR_figs$variable == "lat"] <- "latitude"
-composit_OR_figs$variable[composit_OR_figs$variable == "long"] <- "longitude"
-composit_OR_figs$variable[composit_OR_figs$variable == "ElevCat"] <- "elevation"
-composit_OR_figs$variable[composit_OR_figs$variable == "logWsAreaSqKm"] <- "watershed area"
-composit_OR_figs$variable[composit_OR_figs$variable == "huc8_damcount"] <- "dam count"
-composit_OR_figs$variable[composit_OR_figs$variable == "pctWetland_Cat"] <- "wetland"
-composit_OR_figs$variable[composit_OR_figs$variable == "pctAg_Ws"] <- "agriculture"
-composit_OR_figs$variable[composit_OR_figs$variable == "PctImp_Ws"] <- "impervious"
-composit_OR_figs$variable[composit_OR_figs$variable == "WtDepWs"] <- "water table dep"
-composit_OR_figs$variable[composit_OR_figs$variable == "logPctOw_Cat"] <- "open water"
+composit_OR_figs$variable[composit_OR_figs$variable == "annual_mean_summer_temp"] <- "Mean summer T"
+composit_OR_figs$variable[composit_OR_figs$variable == "huc12_damden_sqkm"] <- "Dam density"
+composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "Baseflow index"
+composit_OR_figs$variable[composit_OR_figs$variable == "LO7Q1DT_HIST"] <- "Low flow date"
+composit_OR_figs$variable[composit_OR_figs$variable == "W95_HIST"] <- "Winter floods"
+composit_OR_figs$variable[composit_OR_figs$variable == "logMJJA_HIST"] <- "Summer flow"
+composit_OR_figs$variable[composit_OR_figs$variable == "lat"] <- "Latitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "long"] <- "Longitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "ElevCat"] <- "Elevation"
+composit_OR_figs$variable[composit_OR_figs$variable == "logWsAreaSqKm"] <- "Watershed area"
+composit_OR_figs$variable[composit_OR_figs$variable == "huc8_damcount"] <- "Dam count"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctWetland_Cat"] <- "Wetland"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctAg_Ws"] <- "Agriculture"
+composit_OR_figs$variable[composit_OR_figs$variable == "PctImp_Ws"] <- "Impervious"
+composit_OR_figs$variable[composit_OR_figs$variable == "WtDepWs"] <- "Water table dep"
+composit_OR_figs$variable[composit_OR_figs$variable == "logPctOw_Cat"] <- "Open water"
 
 #order the variables so they occurr in the correct/ same order for all figures
-composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("mean summer T", "baseflow index", "summer flow", "low flow date", "winter floods", 
-                                                          "BFIWs", "water table dep", "impervious", "agriculture", 
-                                                          "wetland", "dam density",
-                                                          "dam count", "logRdCrsCat", "PctOw_Ws", "open water", 
-                                                          "latitude", "longitude", "elevation", "watershed area"))
+composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("Mean summer T", "Baseflow index", "Summer flow", "Low flow date", "Winter floods", 
+                                                          "BFIWs", "Water table dep", "Impervious", "Agriculture", 
+                                                          "Wetland", "Dam density",
+                                                          "Dam count", "LogRdCrsCat", "PctOw_Ws", "Open water", 
+                                                          "Latitude", "Longitude", "Elevation", "Watershed area"))
 
 composit_OR_figs <- composit_OR_figs %>% 
-  filter(variable %in% c("mean summer T", "baseflow index", "summer flow", "low flow date", "winter floods", 
-                                                          "water table dep", "impervious", "agriculture", 
-                                                          "wetland", "dam density","open water", 
-                                                          "latitude", "elevation", "watershed area"))
+  filter(variable %in% c("Mean summer T", "Baseflow index", "Summer flow", "Low flow date", "Winter floods", 
+                                                          "Water table dep", "Impervious", "Agriculture", 
+                                                          "Wetland", "Dam density","Open water", 
+                                                          "Latitude", "Elevation", "Watershed area"))
 
 composit_OR_fig_tmpclust <- composit_OR_figs%>% 
   filter(!is.na(cluster_TP),
@@ -1030,7 +1031,7 @@ a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR))+
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(y = "odds ratio", title = "Temperature Clusters")
+  labs(y = "Odds ratio", title = "A) Temperature Clusters")
 
 b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
@@ -1043,7 +1044,7 @@ b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR))+
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(y = NULL, title = "Streamflow Clusters")
+  labs(y = "Odds ratio", title = "A) Streamflow Clusters")
 
 c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
@@ -1057,7 +1058,7 @@ c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR))+
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(y = NULL, title = "Temp Guilds")
+  labs(y = NULL, title = "B) Temp Guilds")
 d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
@@ -1069,7 +1070,7 @@ d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR))+
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
         title = element_text(size = 15))+
-  labs(y = NULL, title = "Habitat Guilds")
+  labs(y = NULL, title = "B) Habitat Guilds")
 
 e <- ggplot(data = composit_OR_fig_BT, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
@@ -1080,8 +1081,9 @@ e <- ggplot(data = composit_OR_fig_BT, aes(x = variable, y = OR))+
           panel.background = element_blank(),
         axis.title = element_text(size = 15),
         axis.title.y = element_blank(),
-        title = element_text(size = 15))+
-  labs(y = NULL, title = "Brook Trout")
+        title = element_text(size = 18),
+        axis.text = element_text(size = 15))+
+  labs(y = NULL, title = "C) Brook Trout")
 
 ggsave(e, file = "tmpfigures/paper1/CompositORPlotsBT.png", 
     width = 15,

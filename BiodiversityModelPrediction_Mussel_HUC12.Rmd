@@ -587,7 +587,7 @@ colnames(predictions_cc) <- gsub("propabun_", "pres_", colnames(predictions_cc))
 #join the predictions_cc to the list of comids
 tmp <- cbind(NHDplusV2_NewEngCrop_cc, predictions_cc)
 
-#average by HUC10 becuase that is the scale we are modeling mussels
+#average by HUC12 becuase that is the scale we are modeling mussels
 fish_host_prob_occ_cc <- tmp %>%
   data.frame() %>% 
   select(huc12_name, huc12_tnmid, COMID, 40:92) %>% 

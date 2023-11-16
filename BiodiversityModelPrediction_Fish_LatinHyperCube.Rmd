@@ -1,0 +1,55 @@
+---
+title: "BiodiversityModelPredictions_LHSparameters"
+author: "Jenny Rogers"
+date: "2023-03-01"
+output: html_document
+---
+
+```{r}
+
+library(glmmTMB)
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/param_combos.RData")
+
+mdl <- readRDS("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/trait_temp.rds")
+  
+predictions <- data.frame("test" = predict(mdl, newdata = param_combos, "probs"))
+
+param_combos <- cbind(param_combos, predictions)
+
+plot(param_combos$annual_mean_summer_temp, param_combos$test.cold)
+
+
+mdl <- readRDS("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/pres_brook trout.rds")
+predictions <- data.frame("test" = predict(mdl, newdata = param_combos, type = "response"))
+
+param_combos <- cbind(param_combos, predictions)
+plot(param_combos$annual_mean_summer_temp, param_combos$test)
+
+ggplot(data = param_combos, aes(x = annual_mean_summer_temp, y = test, color = as.factor(lat)))+
+  geom_smooth(method = "lm")+
+  facet_wrap(~ElevCat)
+
+ggplot(data = param_combos, aes(x = WtDepWs, y = test, color = as.factor(lat)))+
+  geom_smooth(method = "lm")+
+  facet_wrap(~as.factor(ElevCat), 
+             labeller = labeller("Low Elev" = "-0.8078209", "High Elev" = "0.6358421"))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+  labs(y= "Probabilty of Brook Trout")
+
+ggplot(data = param_combos, aes(x = logRdCrsCat, y = test, color = as.factor(lat)))+
+  geom_smooth(method = "lm")+
+  facet_wrap(~ElevCat)
+
+ggplot(data = param_combos, aes(x = huc12_damden_sqkm, y = test, color = as.factor(lat)))+
+  geom_smooth(method = "lm")+
+  facet_wrap(~ElevCat)
+
+ggplot(data = param_combos, aes(x = huc12_damden_sqkm, y = test.cold))+
+  geom_smooth(method = "lm")
+
+```
+
