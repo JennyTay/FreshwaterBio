@@ -402,6 +402,12 @@ occ <- occ %>%
   summarise(live_occurrence = max(live_occurrence, na.rm = T),
             shell_occurrence = max(shell_occurrence, na.rm = T))
 
+#how many occurrences of each species
+df <- occ %>% 
+  filter(live_occurrence ==1) %>% 
+  group_by(common_name) %>% 
+  summarise(count = n())
+
 #join occurrence data by huc12 to the covariate dataset for the model
 #first need to remove all repeated rows of huc12 covariates
 mussel_covariates <- mussel_covariates_huc12 %>% 

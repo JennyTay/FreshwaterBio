@@ -532,6 +532,11 @@ test <- mus1 %>%
          date = DATE1) %>% 
   data.frame()
 
+#need to fix the date to be 2006
+test$date <- as.character(test$date)
+test$date <- gsub("0001", "2006", test$date)
+test$date <- ymd(test$date)
+
 test <- left_join(test, name_conversion, by = "scientific_name")
 
 

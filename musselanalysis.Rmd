@@ -38,6 +38,18 @@ mussel_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/Spatia
 ```
 
 
+Calcuate some metadata for the climate change paper (Nov 27, 2023)
+```{r}
+table(mussel_event$state)
+dates <- mussel_event %>% 
+  group_by(state) %>% 
+  summarise(start = min(date, na.rm = T),
+            end = max(date, na.rm = T))
+min(mussel_event$date, na.rm = T)
+max(mussel_event$date, na.rm = T)
+nrow(mussel_event[mussel_event$date>mdy(01011985),]) / nrow(mussel_event)
+```
+
 Chuck2:
 Spatially join the huc and the flowline data to the all_mussel_event so that every mussel surveying event is aligned with hydrologic data.
 These two datasets have removed the lentic surveys.
@@ -93,8 +105,25 @@ mussel_event_huc_join <- st_join(mussel_event, huc8, left = FALSE)
 mussel_event_huc_join <- st_join(mussel_event_huc_join, huc10, left = FALSE)
 mussel_event_huc_join <- st_join(mussel_event_huc_join, huc12, left = FALSE)
 
+#metadata for the climate change paper
+nrow(mussel_event_huc_join) #total number of surveys - use this number as oppoed to the 4007 number
+table(mussel_event_huc_join$waterbody2)
+df <- mussel_event_huc_join %>% 
+  data.frame() %>% 
+  group_by(state, waterbody2) %>% 
+  summarise(count = n())
+dates <- mussel_event_huc_join %>% 
+  group_by(state) %>% 
+  summarize(count = n(),
+            start = min(date, na.rm = T),
+            end = max(date, na.rm = T))
+
+#remove lentic samples
 mussel_event_huc_join <- mussel_event_huc_join %>% 
   filter(waterbody2 == 'lotic')
+
+
+
 
 #Join the mussel event data to the NHDplusHR data set
 flowline <- flowline %>% st_zm() %>% 
@@ -141,6 +170,7 @@ dist <- as.numeric(dist)
 hist(dist)
 mussel_event_flowlineV2_join <- cbind(mussel_event, st_drop_geometry(flowline_EPA)[nearest,]) #join flowline to the mussel event based on the index value of the 
 mussel_event_flowlineV2_join$dist <- dist #add the distence in meters
+nrow(mussel_event_flowlineV2_join[mussel_event_flowlineV2_join$dist>500,])#1014 surveys are further than 500m
 mussel_event_flowlineV2_join <- mussel_event_flowlineV2_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
   filter(waterbody == "lotic" & dist <500) %>%  
   rename(event_to_flowln_dist_m = dist)
@@ -172,6 +202,7 @@ load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/
 mussel <- sort(unique(all_mussel_occurrence$common_name))
 
 #do we want to remove mussels that are have only been observed in 5 or fewer lotic location like we did for the fish?
+#black sandshell was never observed. Asian clam is invasive
 remove <- c("asian clam", "black sandshell")
 
 
@@ -226,7 +257,29 @@ save(mussel_occurrence, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBi
 ```
 
 
+metadata for the climate change paper
+```{r}
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
 
+df <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID")
+df <- df %>% 
+  data.frame() %>% 
+  filter(live_occurrence == 1 | shell_occurrence == 1) %>% 
+  select(state, common_name) %>% 
+  unique() %>% 
+  group_by(state) %>% 
+  summarise(count = n())
+
+df <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID")
+df <- df %>% 
+  data.frame() %>% 
+  filter(live_occurrence == 1 | shell_occurrence == 1) %>% 
+  select(state, common_name) %>% 
+  unique()
+
+
+```
 
 
 

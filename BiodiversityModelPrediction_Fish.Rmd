@@ -202,12 +202,15 @@ aa <- ggplot(data = OR)+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
-        legend.text = element_text(size = 8),
-        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 5),
+        legend.title = element_text(size = 5),
+        legend.position = c(0.78, 0.21),
+        legend.key.size = unit(.25, "cm"),
         title = element_text(size = 10),
         axis.text = element_blank(),
-        axis.ticks = element_blank())+
-  ggtitle("A) Native to Introduced")+
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "mm"))+
+  ggtitle("D) Native to Introduced")+
   labs(fill = "Ratio")
 
 ggsave(aa, file = "tmpfigures/paper1/NatIntRatio.png", 
@@ -354,7 +357,8 @@ b <- ggplot(data = FC)+
         legend.text = element_text(size = 7),
         legend.title = element_text(size = 7),
         legend.position = c(0.93, 0.10),
-        legend.key.size = unit(.15, "cm"))+
+        legend.key.size = unit(.15, "cm"),
+        plot.margin = unit(c(1, 1, 1, 1), "mm"))+
   ggtitle("B) Streamflow Clusters")+
   labs(fill = "P.Abun.")
 
@@ -382,7 +386,8 @@ TA <- pred %>%
   summarise(propabun = mean(propabun, na.rm = T))
 TA <- left_join(huc12, TA, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
   filter(!is.na(tmp))
-TA$propabun <- ifelse(TA$propabun > 1, 1, TA$propabun)  
+TA$propabun <- ifelse(TA$propabun > 1, 1, TA$propabun) 
+TA$tmp <- str_to_title(TA$tmp)
 
 
 c <- ggplot(data = TA)+
@@ -399,10 +404,13 @@ c <- ggplot(data = TA)+
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
         legend.text = element_text(size = 5),
-        strip.text = element_text(size = 10),
-        axis.text = element_text(size = 7),
+        strip.text = element_text(size = 8),
+        title = element_text(size = 10),
         legend.position = c(0.90, 0.25),
-        legend.key.size = unit(.15, "cm"))+
+        legend.key.size = unit(.15, "cm"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(1, 1, 1, 1), "mm"))+
   ggtitle("A) Temperature Guilds")+
   labs(fill = NULL)
 
@@ -425,7 +433,8 @@ FA <- pred %>%
   summarise(propabun = mean(propabun, na.rm = T))
 FA <- left_join(huc12, FA, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
   filter(!is.na(tolerance))
-FA$propabun <- ifelse(FA$propabun > 1, 1, FA$propabun)  
+FA$propabun <- ifelse(FA$propabun > 1, 1, FA$propabun) 
+FA$tolerance <- str_to_title(FA$tolerance)
 
 
 d <- ggplot(data = FA)+
@@ -442,12 +451,14 @@ d <- ggplot(data = FA)+
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
         legend.text = element_text(size = 5),
-        strip.text = element_text(size = 10),
+        strip.text = element_text(size = 8),
         legend.position = c(0.90, 0.25),
         legend.key.size = unit(.15, "cm"),
         axis.text = element_blank(),
-        axis.ticks = element_blank())+
-  ggtitle("C) Habitat Guilds")+
+        axis.ticks = element_blank(),
+        title = element_text(size = 10),
+        plot.margin = unit(c(1, 1, 1, 1), "mm"))+
+  ggtitle("B) Habitat Guilds")+
   labs(fill = NULL)
 
 ggsave(d, file = "tmpfigures/paper1/FlowGuilds.png", 
@@ -485,9 +496,11 @@ e <- ggplot(data = BT)+
         legend.title = element_text(size = 5),
         legend.position = c(0.78, 0.21),
         legend.key.size = unit(.25, "cm"),
-        title = element_text(size = 10))+
-  ggtitle("B) Brook Trout")+
+        title = element_text(size = 10),
+        plot.margin = unit(c(1, 1, 1, 1), "mm"))+
+  ggtitle("C) Brook Trout")+
   labs(fill = "Prop. Abun.")
+  
 
 ggsave(e, file = "tmpfigures/paper1/BrookTrout.png", 
     width = 8,
@@ -503,7 +516,7 @@ states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/
 #load USA states
 US <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/USstates/cb_2018_us_state_5m.shp")
 US <- US %>% 
-  filter(!STUSPS %in% c("HI", "GU", "AK", "VI", "MP", "PR", "AS"))
+  filter(STUSPS %in% c("ME", "NH", "VT", "MA", "CT", "RI", "NY", "PA", "NJ", "MD", "VA", "OH", "WV", "DE"))
 st_crs(huc8) == st_crs(US)
 states <- st_transform(states, crs = st_crs(huc8))
 st_crs(huc8) == st_crs(states)
@@ -516,18 +529,17 @@ locationalMap <- ggplot(data = US)+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
+        axis.text = element_text(size = 7),
         legend.position = "none",
         title = element_text(size = 10))+
-  ggtitle("D) Study Location")
+  ggtitle("E) Study Location")
 
 
 
 
-fig2 <- gridExtra::grid.arrange(c,e,d,locationalMap, nrow = 2, ncol = 2, widths = c(3/4 , 1/4))
-ggsave(fig2, file = "tmpfigures/paper1/fig2.png")
-
+fig2 <- gridExtra::grid.arrange(arrangeGrob(c,d, ncol = 2),
+                                arrangeGrob(e, aa, locationalMap, ncol = 3))
+ggsave(fig2, file = "tmpfigures/paper1/fig2.png", width = 18, height = 12, units = "cm")
 
 
 #plot each variable calcuated above against all the others in the ggpairs plot
@@ -536,16 +548,16 @@ TC <- TC %>%
   select(name, tnmid, tempclust, propabun)  %>%
   unique() %>% 
   pivot_wider(names_from = tempclust, values_from = propabun) %>% 
-  rename(Tempclust_1 = "1", Tempclust_2 = "2", Tempclust_3 = "3", 
-         Tempclust_4 = "4", Tempclust_5 = "5", Tempclust_6 = "6")
+  rename(Tempclust_1 = "1-cold, mid elev", Tempclust_2 = "2-warm, sm sheds", Tempclust_3 = "3-cool, low elev", 
+         Tempclust_4 = "4-cool, mid elev", Tempclust_5 = "5-cold, high elev", Tempclust_6 = "6-warm, lg sheds")
 
 FC <- FC %>% 
   data.frame() %>% 
   select(name, tnmid, flowclust, propabun)  %>%
   unique() %>% 
   pivot_wider(names_from = flowclust, values_from = propabun) %>% 
-  rename(Flowclust_1 = "1", Flowclust_2 = "2", Flowclust_3 = "3", 
-         Flowclust_4 = "4", Flowclust_5 = "5", Flowclust_6 = "6")
+  rename(Flowclust_1 = "1-Hi flood, Med Q", Flowclust_2 = "2-Mod flood, Lo Q", Flowclust_3 = "3-Hi flood, Low Q", 
+         Flowclust_4 = "4-Mod flood, Med Q", Flowclust_5 = "5-Hi flood, Hi Q", Flowclust_6 = "6-Lo flood, Med Q")
 
 TA <- TA %>% 
   data.frame() %>% 
@@ -582,8 +594,7 @@ compare <- left_join(TC, FC, by = c("name", "tnmid")) %>%
   left_join(TA, by = c("name", "tnmid")) %>% 
   left_join(FA, by = c("name", "tnmid")) %>% 
   left_join(BT, by = c("name", "tnmid")) %>%
-  left_join(OR, by = c("name", "tnmid")) %>% 
-  left_join(SP, by = c("name", "tnmid")) %>% 
+  left_join(OR, by = c("name", "tnmid")) %>%  
   select(-name, -tnmid)
   
 compare <- compare[complete.cases(compare),]
@@ -599,13 +610,12 @@ test <- test %>%
   filter(rownames(test) %in% c("Tempclust_1", "Tempclust_2", "Tempclust_3", "Tempclust_4", 
                                "Tempclust_5", "Tempclust_6", "Flowclust_1", "Flowclust_2", 
                                "Flowclust_3", "Flowclust_4", "Flowclust_5", "Flowclust_6", 
-                               "NatIntRatio", "speGenRatio")) %>%
-  rename("FS" = "fluvial.specialist", "FD" = "fluvial.dependent", "Gen" = "generalist", "BT" = "Brook.Trout") %>% 
-  arrange(desc(cold)) %>% 
+                               "NatIntRatio")) %>%
+  rename("Fluvial Specialist"="Fluvial.Specialist",  "Fluvial Dependent" = "Fluvial.Dependent", "Brook Trout" = "Brook.Trout") %>% 
   as.matrix()
 
 library(corrplot)
-png(file = "tmpfigures/paper1/correlationmatrix.png", res = 200, width = 8, height = 12, units = "in", pointsize = 24)
+png(file = "tmpfigures/paper1/correlationmatrix.png", res = 200, width = 10, height = 15, units = "in", pointsize = 24)
 corrplot(test, method = "square", outline = T, addgrid.col = "darkgray", 
          addCoef.col = "white", number.digits = 2, number.cex = 0.9, tl.col = "black")
 dev.off()

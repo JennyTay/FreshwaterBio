@@ -214,7 +214,10 @@ sheds <- dat2 %>%
   dplyr::select(29:37)
 sheds <- sheds[complete.cases(sheds),]
 cor <- cor(sheds, method = c("spearman"))
+
+png(height = 10, width = 15, file = "tmpfigures/shedscorrplot.png", units = "in", res = 150, type = "cairo")
 corrplot(cor, type = "lower")
+dev.off()
 #these are all incredible correlated so we will just keep one - annual_mean_summer_temp
 
 keep2 <- "annual_mean_summer_temp"  
