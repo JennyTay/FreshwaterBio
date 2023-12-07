@@ -14,6 +14,19 @@ library(lme4)
 
 ```
 
+
+```{r}
+#watershed shape files
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
+#load New England state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+
+```
+
 In this script we model the probability of freshwater mussel occurrence at the HUC12 scale - I copied the script from "BiodiversityModel_Mussel.Rmd and just made changes so that everything was at the HUC12 scale instead of the HUC10 scale.  I was originally planning on redoing the mussel model to be at the stream reach scale (by COMID), but when I went back to the musselanalysis file, I remembered that the spatial join of each mussel sampling event to the stream reach excluded too many surveys because many surveys were too far from a stream reach to be successfully joined to a line, so were able to use a lot more data if we use them at the HUC12 scale. 
 
 In the first chunk, we prepare the host fish covariate data by reading in the fish model and predicting in the baseline for presence/absence and proportional abundance
@@ -228,13 +241,13 @@ df <- left_join(fish_presence, fish_event_huc_join, by = "UID") %>%
 
 huc12 <- huc12 %>% 
   data.frame() %>% 
-  select(huc12_name, huc12_tnmid) %>%
+  select(name, tnmid) %>%
   unique()
 fish <- unique(df$common_name)
 
 #make a dataframe that has each UID repeated for each fish spp
-absence <- data.frame('huc12_name' = rep(huc12$huc12_name, each = 8,),
-                      'huc12_tnmid' = rep(huc12$huc12_tnmid, each = 8))
+absence <- data.frame('huc12_name' = rep(huc12$name, each = 8,),
+                      'huc12_tnmid' = rep(huc12$tnmid, each = 8))
 absence$common_name <- rep(fish, times = nrow(huc12))
 #keep only rows in the absence list that are no in the fish_presence list
 keep <- anti_join(absence, df, by = c("huc12_name", "huc12_tnmid", "common_name"))

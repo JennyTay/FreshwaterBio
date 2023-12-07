@@ -106,7 +106,7 @@ mussel_event_huc_join <- st_join(mussel_event_huc_join, huc10, left = FALSE)
 mussel_event_huc_join <- st_join(mussel_event_huc_join, huc12, left = FALSE)
 
 #metadata for the climate change paper
-nrow(mussel_event_huc_join) #total number of surveys - use this number as oppoed to the 4007 number
+nrow(mussel_event_huc_join) #total number of surveys 
 table(mussel_event_huc_join$waterbody2)
 df <- mussel_event_huc_join %>% 
   data.frame() %>% 
@@ -170,7 +170,7 @@ dist <- as.numeric(dist)
 hist(dist)
 mussel_event_flowlineV2_join <- cbind(mussel_event, st_drop_geometry(flowline_EPA)[nearest,]) #join flowline to the mussel event based on the index value of the 
 mussel_event_flowlineV2_join$dist <- dist #add the distence in meters
-nrow(mussel_event_flowlineV2_join[mussel_event_flowlineV2_join$dist>500,])#1014 surveys are further than 500m
+nrow(mussel_event_flowlineV2_join[mussel_event_flowlineV2_join$dist>500,])#1517 surveys are further than 500m
 mussel_event_flowlineV2_join <- mussel_event_flowlineV2_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
   filter(waterbody == "lotic" & dist <500) %>%  
   rename(event_to_flowln_dist_m = dist)
@@ -216,7 +216,7 @@ mussel <- unique(mussel_presence$common_name)
 
 #make a dataframe that has each UID repeated for each fish spp
 absence <- data.frame('UID' = rep(uid, each = 20))
-absence$common_name <- rep(mussel, times = 3971)
+absence$common_name <- rep(mussel, times = length(uid))
 #keep only rows in the absence list that are not in the mussel_presence list
 keep <- anti_join(absence, mussel_presence, by = c("UID", "common_name"))
 #add additional scientific names to the new absence data frame
@@ -277,6 +277,13 @@ df <- df %>%
   filter(live_occurrence == 1 | shell_occurrence == 1) %>% 
   select(state, common_name) %>% 
   unique()
+
+#number of occurrence by species
+df <- mussel_occurrence %>% 
+  unique() %>% 
+  filter(live_occurrence == 1) %>% 
+  group_by(common_name) %>% 
+  summarise(count = n())
 
 
 ```

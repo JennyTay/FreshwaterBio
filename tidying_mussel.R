@@ -1409,11 +1409,110 @@ save(ct_mussel_method, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/
 
 
 
+#################################################################
+
+#################  Vermont natural heritage  ###################
+
+###############################################################
 
 
 
-####
-# join all the datasets together
+st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
+
+rare <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
+uncom <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_Uncommon_animals")
+
+
+#select just the freshwater mussels
+mus1 <- rare %>% 
+  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
+  select(EO_ID, S_NAME, ENGLISH,SURVEYDATE, EO_DATA, GEN_DESC ) %>% 
+  mutate(EO_ID = as.character(EO_ID))
+
+mus2 <- uncom %>% 
+  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
+  mutate(EO_ID = paste(ENGLISH, Shape_Length, sep = "_")) %>% 
+  select(EO_ID, S_NAME, ENGLISH, SURVEYDATE, EO_DATA, GEN_DESC, VISITS)
+
+
+mus3 <- bind_rows(mus1, mus2) %>% 
+  data.frame() %>% 
+  select(-Shape)
+
+write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/heritage_data.csv")
+
+
+#### VT nature serve data was editted in excel in my onedrive, and then saved to the spp_data folder, and then loaded back in below
+mus4 <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/VT_heritage_data_extraction_JR.csv") %>% 
+  select(EO_ID, S_NAME, ENGLISH, date, live_count,  shell_count, live_occurrence, shell_occurrence, live_length_mm, 
+         survey_method, reach_length_m, reach_width, goal, search_time, number_of_searchers, sex) 
+
+
+mus5 <- mus1 %>% 
+  left_join(mus4, by = c("EO_ID", "S_NAME", "ENGLISH")) %>% 
+  select(EO_ID, S_NAME, ENGLISH, date, live_count,  shell_count, live_occurrence, shell_occurrence, live_length_mm, 
+         survey_method, reach_length_m, reach_width, goal, search_time, number_of_searchers, sex)
+
+mus6 <- mus2 %>% 
+  left_join(mus4, by = c("EO_ID", "S_NAME", "ENGLISH")) %>% 
+  select(EO_ID, S_NAME, ENGLISH, date, live_count,  shell_count, live_occurrence, shell_occurrence, live_length_mm, 
+         survey_method, reach_length_m, reach_width, goal, search_time, number_of_searchers, sex)
+
+names(mus5) == names(mus6)
+
+mus7 <- rbind(mus5, mus6)
+mus7 <- st_transform(mus7, st_crs(huc8))
+
+mus8 <- mus7 %>% 
+  mutate(state = "VT",
+         project = "VT_NatureServeDatabase",
+         source = "Everett Marshall",
+         date = mdy_hm(date),
+         live_count = as.numeric(live_count),
+         longitude = map_dbl(Shape, ~st_point_on_surface(.x)[[1]]),
+         latitude = map_dbl(Shape, ~st_point_on_surface(.x)[[2]]),
+         scientific_name = tolower(S_NAME),
+         common_name = tolower(ENGLISH),
+         UID = paste("VT", EO_ID, latitude, longitude, scientific_name, date, sep = "_")) %>% 
+  unique()
+
+
+vt_mussel_event_NatureServe <- mus8 %>%
+  data.frame() %>% 
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  filter(!is.na(latitude))
+
+vt_mussel_occurrence_NatureServe <- mus8 %>% 
+  data.frame() %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
+  filter(!is.na(live_occurrence) | !is.na(shell_occurrence))
+
+
+vt_mussel_count_NatureServe <- mus8 %>% 
+  data.frame() %>% 
+  select(UID, common_name, scientific_name, live_count, shell_count) %>% 
+  filter(!is.na(live_count) | !is.na(shell_count))
+
+
+
+save(vt_mussel_event_NatureServe, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_NatureServe_event.RData")
+save(vt_mussel_occurrence_NatureServe, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_NatureServe_occurrence.RData")
+save(vt_mussel_count_NatureServe, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/vt_mussel_NatureServe_count.RData")
+
+
+
+
+
+
+
+##################################################################
+
+################ join all the datasets together ##################
+
+##################################################################
+
+
+
 
 #read in data
 
@@ -1432,28 +1531,40 @@ for (i in 1:length(files)){
 me_mussel_event$project <- as.character(me_mussel_event$project) #shoudl go back to the maine tidying and add in the text for each project integer, for now, just do this
 
 all_mussel_event <- bind_rows(ma_mussel_event, me_mussel_event, ri_mussel_event, vt_mussel_event, 
-                              nh_mussel_event, vt_mussel_pdf_event, ct_mussel_event)
+                              nh_mussel_event, vt_mussel_pdf_event, ct_mussel_event, vt_mussel_event_NatureServe,
+                              ma_mussel_natureserve_poly_event)
 
 #bind occurrence data
 
 all_mussel_occurrence <- bind_rows(ma_mussel_occurrence, me_mussel_occurrence, ri_mussel_occurrence, 
                                    vt_mussel_occurrence, nh_mussel_occurrence, vt_mussel_pdf_occurrence,
-                                   ct_mussel_occurrence) #there are 20 repeated values here.. need to fix
+                                   ct_mussel_occurrence, vt_mussel_occurrence_NatureServe,
+                                   ma_mussel_natureserve_poly_occurrence) #there are 20 repeated values here.. need to fix
 all_mussel_occurrence$scientific_name <- str_trim(all_mussel_occurrence$scientific_name)
 all_mussel_occurrence$common_name[all_mussel_occurrence$common_name == "brook floater (swollen wedgemussel)"] <- "brook floater"
 all_mussel_occurrence$scientific_name[all_mussel_occurrence$common_name == "eastern floater" &
                                         all_mussel_occurrence$scientific_name == "alasmidonta undulata"] <- "pyganodon cataracta"
+all_mussel_occurrence$scientific_name[all_mussel_occurrence$common_name == "alewife floater"] <- "anodonta implicata"
+all_mussel_occurrence$scientific_name[all_mussel_occurrence$common_name == "eastern pondmussel"] <- "ligumia nasuta"
+
+
+
 
 #there is a mismatch between common and sci name alasmidonta undulata is called eastern floater once in CT and MA
 
 #bind count data
 
-all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count, nh_mussel_count, vt_mussel_pdf_count, ct_mussel_count)
+all_mussel_count <- bind_rows(ma_mussel_count, ri_mussel_count, nh_mussel_count, vt_mussel_pdf_count, 
+                              ct_mussel_count, vt_mussel_count_NatureServe, ma_mussel_natureserve_poly_count)
 all_mussel_count$scientific_name <- str_trim(all_mussel_count$scientific_name)
 all_mussel_count$common_name[all_mussel_count$common_name == "brook floater (swollen wedgemussel)"] <- "brook floater"
 #there is a mismatch between common and sci name alasmidonta undulata is called eastern floater once in CT and MA
 all_mussel_count$scientific_name[all_mussel_count$common_name == "eastern floater" &
                                    all_mussel_count$scientific_name == "alasmidonta undulata"] <- "pyganodon cataracta"
+all_mussel_count$scientific_name[all_mussel_count$common_name == "alewife floater"] <- "anodonta implicata"
+all_mussel_count$scientific_name[all_mussel_count$common_name == "eastern pondmussel"] <- "ligumia nasuta"
+
+
 
 
 #bind length data
@@ -1581,37 +1692,104 @@ write.csv(ma_srcpoly, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data
 
           
 
+#### MA nature serve data was edited in excel in my onedrive, and then saved to the spp_data folder, and then loaded back in below
+
+
+#load original polygon file so we get the spatial information
+
+
+st_layers(dsn = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_SrcPolys.gdb")
+ma_srcpoly <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/NHESP_Aquatics_SrcPolys.gdb", layer = "query_result")
+
+ma_srcpoly <- st_transform(ma_srcpoly, st_crs(huc8))
+ma_srcpoly <- ma_srcpoly %>% 
+  mutate(longitude = map_dbl(SHAPE, ~st_point_on_surface(.x)[[1]]),
+         latitude = map_dbl(SHAPE, ~st_point_on_surface(.x)[[2]]))
+
+#remove 0s that start the src_desc
+ma_srcpoly$src_descr <- sub("^0", "", ma_srcpoly$src_descr)
+ma_srcpoly$src_descr <- str_replace(ma_srcpoly$src_descr, "/0", "/")
+ma_srcpoly$src_descr <- str_replace(ma_srcpoly$src_descr, " 0", " ")
+  
+
+#load the editted polygon file
+poly <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/MA NHESP Mussel Data/MA_srcpoly_eo_join_Tidy.csv")
+poly$src_descr <- str_replace(poly$src_descr, "/0", "/")
+poly$src_descr <- str_replace(poly$src_descr, " 0", " ")
+poly$src_descr <- str_replace(poly$src_descr, "^0", "")
+
+polyy <- poly %>% 
+  filter(grepl("/", src_lastobs)) %>% 
+  mutate(src_lastobs = mdy(src_lastobs),
+         src_lastobs = as.character(src_lastobs))
+
+poly <- poly %>% 
+  filter(!grepl("/", src_lastobs))
+
+poly <- rbind(poly, polyy)
+
+#need to break this into three parts, with the src_lastobs and the src loctr to do the join in three parts
+poly1 <- poly %>% 
+  filter(!src_loctr == "")
+
+poly2 <- poly %>% 
+  filter(src_loctr == "")
+
+
+poly3 <- poly1 %>% 
+  left_join(ma_srcpoly, by = c("Sname", "EO_ID", "src_descr", "src_lastobs")) %>% 
+  mutate(scientific_name = Sname,
+         common_name = SComName,
+         live_occurrence = individual.present.absent,
+         live_count = as.numeric(individual.count),
+         shell_count = shell.count,
+         shell_occurrence = shell.present.absence,
+         UID = paste("MA", as.character(EO_ID),src_descr, src_lastobs, date, sep= "_"),
+         state = "MA",
+         project = "MA_NatureServeDatabase_Polygon",
+         source = "Sarah Maier",
+         date = mdy(date))
+
+poly4 <- poly2 %>% 
+  left_join(ma_srcpoly, by = c("Sname", "EO_ID", "src_descr", "src_lastobs")) %>% 
+  mutate(scientific_name = Sname,
+         common_name = SComName,
+         live_occurrence = individual.present.absent,
+         live_count = as.numeric(individual.count),
+         shell_count = shell.count,
+         shell_occurrence = shell.present.absence,
+         UID = paste("MA", as.character(EO_ID),src_descr, src_lastobs, date, sep= "_"),
+         state = "MA",
+         project = "MA_NatureServeDatabase_Polygon",
+         source = "Sarah Maier",
+         date = mdy(date))
+
+poly5 <- rbind(poly3, poly4)
 
 
 
-#################  Vermont natural heritage  ###################
+ma_mussel_natureserve_poly_event <- poly5 %>% 
+  select(UID, state, date, latitude, longitude, project, source) %>% 
+  filter(!is.na(latitude)) %>% 
+  unique()
+
+ma_mussel_natureserve_poly_occurrence <- poly5 %>% 
+  select(UID, common_name, scientific_name, live_occurrence, shell_occurrence) %>% 
+  filter(!is.na(live_occurrence) | !is.na(shell_occurrence)) %>% 
+  mutate(common_name = tolower(common_name),
+         scientific_name = tolower(scientific_name))%>% 
+  unique()
+
+ma_mussel_natureserve_poly_count <- poly5 %>% 
+  select(UID, common_name, scientific_name, live_count, shell_count) %>% 
+  filter(!is.na(live_count) | !is.na(shell_count)) %>% 
+  mutate(common_name = tolower(common_name),
+         scientific_name = tolower(scientific_name))%>% 
+  unique()
+
+save(ma_mussel_natureserve_poly_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_natureserve_poly_event.RData")
+save(ma_mussel_natureserve_poly_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_natureserve_poly_occurrence.RData")
+save(ma_mussel_natureserve_poly_count, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/ma_mussel_natureserve_poly_count.RData")
 
 
-
-st_layers(dsn = "C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb")
-
-rare <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_RTE_Animals")
-uncom <- st_read("C:/Users/jrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/Heritage_data.gdb", layer = "VT_Uncommon_animals")
-
-
-#select just the freshwater mussels
-mus1 <- rare %>% 
-  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
-  select(EO_ID, S_NAME, ENGLISH,SURVEYDATE, EO_DATA, GEN_DESC ) %>% 
-  mutate(EO_ID = as.character(EO_ID))
-
-mus2 <- uncom %>% 
-  filter(INFORMAL_TAXONOMY == 'Freshwater Mussels') %>% 
-  mutate(EO_ID = paste(ENGLISH, Shape_Length, sep = "_")) %>% 
-  select(EO_ID, S_NAME, ENGLISH, SURVEYDATE, EO_DATA, GEN_DESC, VISITS)
-
-
-mus3 <- bind_rows(mus1, mus2) %>% 
-  data.frame() %>% 
-  select(-Shape)
-
-write.csv(mus3, "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/VT Mussel Data/heritage_data.csv")
-
-
-#### left off here -- finished with the NH nature serve data, want to add in the VT nature serve data
-
+#Polygon data done - Becca working on point and line file

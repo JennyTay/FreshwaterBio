@@ -467,6 +467,49 @@ ggsave(d, file = "tmpfigures/paper1/FlowGuilds.png",
     units = "cm",
     dpi = 300)
 
+#Origin groups
+OG <- pred %>% 
+  select(COMID, huc12_name, huc12_tnmid, common_name, origin, propabun) %>% 
+  unique() %>% 
+  filter(!is.na(origin),
+         common_name != "brook trout") %>% 
+  group_by(COMID, huc12_name, huc12_tnmid, origin) %>% 
+  summarise(propabun = sum(propabun, na.rm = T)) %>% 
+  ungroup() %>% 
+  group_by(huc12_name, huc12_tnmid, origin) %>%
+  summarise(propabun = mean(propabun, na.rm = T))
+OG <- left_join(huc12, OG, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  filter(!is.na(origin))
+OG$propabun <- ifelse(OG$propabun > 1, 1, OG$propabun) 
+OG$origin <- str_to_title(OG$origin)
+
+
+
+OG2 <- ggplot(data = OG)+
+  geom_sf(aes(fill = propabun), color = NA)+
+  scale_fill_gradient2(low = "yellow",
+                        mid = "orange",
+                        high = "blue",
+                        midpoint = .5,
+                       limits = c(0,1), 
+                       breaks = c(0,1))+
+  facet_wrap(~origin)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        legend.text = element_text(size = 5),
+        strip.text = element_text(size = 8),
+        legend.position = c(0.90, 0.25),
+        legend.key.size = unit(.15, "cm"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        title = element_text(size = 10),
+        plot.margin = unit(c(1, 1, 1, 1), "mm"))+
+  labs(fill = NULL)
+
+
+
 #Brook Trout
 BT <- pred %>% 
   select(COMID, huc12_name, huc12_tnmid, common_name, propabun) %>% 
@@ -538,7 +581,7 @@ locationalMap <- ggplot(data = US)+
 
 
 fig2 <- gridExtra::grid.arrange(arrangeGrob(c,d, ncol = 2),
-                                arrangeGrob(e, aa, locationalMap, ncol = 3))
+                                arrangeGrob(e, OG2, locationalMap, ncol = 3))
 ggsave(fig2, file = "tmpfigures/paper1/fig2.png", width = 18, height = 12, units = "cm")
 
 
@@ -584,6 +627,12 @@ OR <- OR %>%
   unique() %>% 
   filter(!is.na(NatIntRatio))
 
+OG <- OG %>% 
+  data.frame() %>% 
+  select(name, tnmid, origin, propabun) %>% 
+  unique() %>% 
+  pivot_wider(names_from = origin, values_from = propabun)
+
 SP <- SP %>% 
   data.frame() %>% 
   select(name, tnmid, speGenRatio) %>% 
@@ -594,7 +643,7 @@ compare <- left_join(TC, FC, by = c("name", "tnmid")) %>%
   left_join(TA, by = c("name", "tnmid")) %>% 
   left_join(FA, by = c("name", "tnmid")) %>% 
   left_join(BT, by = c("name", "tnmid")) %>%
-  left_join(OR, by = c("name", "tnmid")) %>%  
+  left_join(OG, by = c("name", "tnmid")) %>%  
   select(-name, -tnmid)
   
 compare <- compare[complete.cases(compare),]
@@ -606,11 +655,10 @@ names(compare)
 test <- cor(compare)
 test <- test %>% 
   data.frame() %>% 
-  select(13:19) %>% 
+  select(13:21) %>% 
   filter(rownames(test) %in% c("Tempclust_1", "Tempclust_2", "Tempclust_3", "Tempclust_4", 
                                "Tempclust_5", "Tempclust_6", "Flowclust_1", "Flowclust_2", 
-                               "Flowclust_3", "Flowclust_4", "Flowclust_5", "Flowclust_6", 
-                               "NatIntRatio")) %>%
+                               "Flowclust_3", "Flowclust_4", "Flowclust_5", "Flowclust_6")) %>%
   rename("Fluvial Specialist"="Fluvial.Specialist",  "Fluvial Dependent" = "Fluvial.Dependent", "Brook Trout" = "Brook.Trout") %>% 
   as.matrix()
 
@@ -719,11 +767,13 @@ df7$elevation <- factor(df7$elevation, levels = c("Low elevation", "Mid elevatio
 
 df8 <- df7 %>% 
   filter(trait %in% c("TC_1", "TC_2", "TC_3", "TC_4", "TC_5", "TC_6", 
-                      "FC_1", "FC_2", "FC_3", "FC_4", "FC_5", "FC_6","native", "introduced" ))
-df8$trait[df8$trait == "native"] <- "Native"
-df8$trait[df8$trait == "introduced"] <- "Introduced"
+                      "FC_1", "FC_2", "FC_3", "FC_4", "FC_5", "FC_6"))
+
 df9 <- df7 %>% 
-  filter(trait %in% c("cold", "cool", "warm", "fluvial specialist", "fluvial dependent", "generalist", "brook trout"))
+  filter(trait %in% c("cold", "cool", "warm", "fluvial specialist", "fluvial dependent", "generalist", 
+                      "brook trout","native", "introduced" ))
+df9$trait[df9$trait == "native"] <- "Native"
+df9$trait[df9$trait == "introduced"] <- "Introduced"
 
 ggplot(data = df8, mapping = aes(x = trait, y = propabun))+
   geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
@@ -749,7 +799,7 @@ ggsave(plot = last_plot(),
 df9$trait <- str_to_title(df9$trait)
 df9$trait <- factor(df9$trait, levels = c("Cold", "Cool", "Warm", 
                                           "Fluvial Specialist", "Fluvial Dependent","Generalist",
-                                          "Brook Trout"))
+                                          "Brook Trout", "Native", "Introduced" ))
 
 ggplot(data = df9, mapping = aes(x = trait, y = propabun))+
   geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+

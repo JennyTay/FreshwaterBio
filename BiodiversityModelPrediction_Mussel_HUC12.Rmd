@@ -886,7 +886,7 @@ prediction_cc <- prediction_cc %>%
 
   
 ggplot(data = prediction_cc)+
-  geom_sf(aes(fill = `yellowlampmussel`), color = NA)+
+  geom_sf(aes(fill = `brook floater`), color = NA)+
   scale_fill_gradient2(low = "grey60",
                         mid = "yellow",
                         high = "green3",
@@ -902,9 +902,9 @@ ggplot(data = prediction_cc)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 12),
         legend.title = element_text(size = 15))+
-    ggtitle(label = "yellow lampmussel")+
+    ggtitle(label = "brook floater")+
   labs(fill = "Probability")+
-  geom_sf(data =shp[shp$common_name == "yellow lampmussel",], 
+  geom_sf(data =shp[shp$common_name == "brook floater",], 
           aes(color = live_occurrence), color = "black", size = .5)
 
 ggsave(paste("tmpfigures/baseline_mussel_predictions/dwarfwedgemussel_cc.png"), 
@@ -986,7 +986,7 @@ ggsave(paste("tmpfigures/baseline_mussel_predictions/tidewatermucket_change.png"
 richness_baseline <- predictions_baseline %>% 
   select(1,3,40:51) %>% 
   pivot_longer(3:14, names_to = "common_name", values_to = "prob") %>% 
-  mutate(occurrence = ifelse(common_name %in% c("alewifefloater", "brook.floater", "dwarf.wedgemussel", "easternpondmussel", "Ttidewatermucket", "yellowlampmussel") &
+  mutate(occurrence = ifelse(common_name %in% c("alewifefloater", "brook.floater", "dwarf.wedgemussel", "easternpondmussel", "Tidewatermucket", "yellowlampmussel") &
                                                   prob > 0.1 , 1,
                                                 ifelse(common_name %in% c("creeper", "eastern.elliptio", "eastern.floater", "eastern.lampmussel", "easternpearlshell", "triangle.floater") & prob > 0.5, 1, 0)))  %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
@@ -1025,7 +1025,7 @@ ggsave(paste("tmpfigures/baseline_mussel_predictions/mussel_richness_baseline.pn
 richness_cc <- prediction_cc %>% 
   select(1,3,40:51) %>% 
   pivot_longer(3:14, names_to = "common_name", values_to = "prob") %>% 
-  mutate(occurrence = ifelse(common_name %in% c("alewifefloater", "brook.floater", "dwarf.wedgemussel", "easternpondmussel", "Ttidewatermucket", "yellowlampmussel") &
+  mutate(occurrence = ifelse(common_name %in% c("alewifefloater", "brook.floater", "dwarf.wedgemussel", "easternpondmussel", "Tidewatermucket", "yellowlampmussel") &
                                                   prob > 0.1 , 1,
                                                 ifelse(common_name %in% c("creeper", "eastern.elliptio", "eastern.floater", "eastern.lampmussel", "easternpearlshell", "triangle.floater") & prob > 0.5, 1, 0)))  %>% 
   group_by(huc12_name, huc12_tnmid) %>% 
