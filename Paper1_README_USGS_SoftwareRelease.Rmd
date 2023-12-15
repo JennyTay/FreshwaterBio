@@ -1,0 +1,203 @@
+---
+title: "Untitled"
+author: "Jenny Rogers"
+date: "2023-12-15"
+output: html_document
+---
+
+# Novel biodiversity distributions of freshwater fishes in New England and their key drivers to help with management decisions 
+
+##Authors
+
+Jennifer B. Rogers, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA
+
+##Information
+
+Repository Type: Program R scripts
+
+Year of Origin: 2021
+
+Year of Version: 2023
+
+Version: 
+
+Digital Object Identifier (DOI): 
+
+USGS Information Product Data System (IPDS) no.:
+
+## Suggested Citation for Software
+
+## Abstract
+
+This software contains X serparate R scripts and X separate R markdown files that comprise an analysis to 1. collate freshwater fish survey data from within the northeastern United States, 2. develop separate models to predict the probability of occurrence and the proportional abudance of 53 freshwater fish species, and 3. combine model results by fish species traits and habitat characterisitcs into novel biodiversity groups to investigate the drivers and distribution of these groups within the study region. 
+
+
+## Data Tidying Files: Hydrography and Covariates
+
+
+### File 1: tidying_NHDplusV2
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 2: tidying_USFS_Flowmetrics
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 3: tidying_USEPAStreamCat
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 4: tidying_sheds_temperature
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 5: tidying_dams_by_state
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 6: tidying_covariates
+
+Data inputs:
+Overview:
+Outputs:
+
+
+
+# Data Tidying Files: Fish Survey Data
+
+
+
+### File 7: Tidying_RI_Fish
+
+Data inputs: 
+"jenrogers data request.xls"
+
+Overview: This R script creates three tidy dataframes, connected with a UID column, that contain attributes describing fish survey metadata, results, and methods in the state of Rhode Island supplised by the Rhode Island Department of Environmental Management.
+
+Outputs: 
+ri_fish_method.RData
+ri_fish_event.RData
+ri_fish_fish.RData
+
+### File 8: Tidying_CT_Fish
+
+Data inputs:
+ABM_FishData_2016_2021_012422.xlsx
+
+Overview: This R script creates three tidy dataframes, connected with a UID column, that contain attributes describing fish survey metadata, results, and methods in the state of Connecticut supplied by the Connecticut Department of Energy and Environmental Protection.
+
+Outputs: 
+ct_fish_method.RData
+ct_fish_event.RData
+ct_fish_fish.RData
+
+### File 9: Tidying_NH_Fish
+
+Data inputs: 
+20220119_NHDES_Fish Data_yrs 2000-2021.csv
+Fish Data 1983-2021-1-27-22.xlsx
+
+Overview: This R script creates three tidy dataframes, connected with a UID column, that contain attributes describing fish survey metadata, results, and methods in the state of New Hampshire supplied by two agencies: New Hampshire Department of Environmental Servies and New Hampshire Department of Fish and Game.  It also creates a dataframe with species information.  
+
+Outputs:
+nh_fish_method.RData
+nh_fish_event.RData
+nh_fish_fish.RData
+nh_fish_species.RData
+
+### File 10: Tidying_ME_Fish
+
+Data inputs:
+Rogers2022_MSFDBcopy.accdb
+
+Overview: This R script creates four tidy dataframes, connected with a UID column, that contain attributes describing fish survey metadata, results, demographics, and methods in the state of Maine supplied by the Maine Department of Inland Fisheries & Wildlife. 
+
+Outputs: 
+me_method_method.RData
+me_event_event.RData
+me_count_fish.RData
+me_length_fish.RData
+
+### File 11: Tidying_MA_Fish
+
+Data inputs:
+Fisheries Survey and Inventory Database.accdb
+
+Overview: This R script creates three tidy dataframes, connected with a UID column, that contain attributes describing fish survey metadata, results, and methods in the state of Maine supplied by the Massachusetts Department of Fish and Wildlife. It also creates a dataframe with species information
+
+Outputs: 
+ma_fish_method.RData
+ma_fish_event.RData
+ma_fish_fish.RData
+ma_fish_species.RData
+
+### File 12: tidying_fish_all
+
+Data inputs: 
+ct_event.RData, dec_event.RData, nh_event.RData, ma_event.RData, ri_event.RData, dfw_event.RData, me_event.RData, 
+ma_fish.RData, ct_fish.RData, nh_fish.RData, dec_fish.RData, ri_fish.RData, dfw_fish.RData, me_count.RData, me_length.RData,
+ma_method.RData, ct_method.RData, nh_method.RData, dec_method.RData, dfw_method.RData, ri_method.RData, me_method.RData
+huc8.shp
+
+Overview: This R scripts loads all the fish survey dataframes created in the R scripts described above from each of the individual states, standardizes the all of the attributes, and combines them into five separate dataframes that describes the fish survey event, results (fish species counts), size (fish demographics), presence (fish species occurrence), and survey method.  
+
+Outputs:
+all_fish_event.RData
+all_fish_count.RData
+all_fish_size.RData
+all_fish_presence.RData
+fishspp_count.csv
+fishgenus_count.csv
+all_fish_method.RData
+all_fish_count.shp
+all_fish_presence.shp
+all_fish_event.shp
+
+### File 13: tidying_FishTraits
+
+Data inputs:
+
+Overview:
+
+Outputs:
+
+### File 14: fishanalysis.Rmd
+
+Data inputs:
+Overview:
+Outputs:
+
+
+
+# Analysis Files
+
+
+
+
+### File 15: SpeciesClustersByHabitat
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 16: BiodiversityModelPrediction_Fish.Rmd
+
+Data inputs:
+Overview:
+Outputs:
+
+### File 17: BiodiversityModel.Rmd
+
+Data inputs:
+Overview:
+Outputs:

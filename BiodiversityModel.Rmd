@@ -995,6 +995,7 @@ composit_OR_fig_tempGrops <- composit_OR_figs%>%
             ORCIlow = median(ORCIlow, na.rm = T),
             ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
   filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_tempGrops$tmp <- str_to_title(composit_OR_fig_tempGrops$tmp)
 
 composit_OR_fig_tol <- composit_OR_figs%>% 
   filter(!is.na(tolerance),
@@ -1004,6 +1005,7 @@ composit_OR_fig_tol <- composit_OR_figs%>%
             ORCIlow = median(ORCIlow, na.rm = T),
             ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
   filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_tol$tolerance <- str_to_title(composit_OR_fig_tol$tolerance)
 
 composit_OR_fig_origin <- composit_OR_figs%>% 
   filter(!is.na(origin)) %>%
@@ -1022,7 +1024,7 @@ composit_OR_fig_BT <- composit_OR_figs%>%
 a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
-  coord_flip()+
+  coord_flip(ylim = c(0,4))+
   facet_wrap(~as.factor(cluster_TP), nrow = 2)+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
@@ -1036,7 +1038,7 @@ a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR))+
 b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
-  coord_flip()+
+  coord_flip(ylim = c(0,4))+
   facet_wrap(~as.factor(cluster_SF), nrow = 2)+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
