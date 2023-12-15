@@ -19,13 +19,15 @@ huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/N
 
 load('ProjectResults/mussel_CC2080_proboccurrence.RData')
 load('ProjectResults/mussel_baseline_proboccurrence.RData')
-
+load('ProjectResults/mussel_CC2080_landcover_mgmt_proboccurrence.RData')
+load('ProjectResults/mussel_CC2080_connectivity_mgmt_proboccurrence.RData')
 
 #fish predictions
 
 load('ProjectResults/fish_cc_proboccurrence.RData')
 load('ProjectResults/fish_baseline_proboccurrence.RData')
-
+load('ProjectResults/fish_mg_cnt_proboccurrence.RData')
+load('ProjectResults/fish_mg_proboccurrence.RData')
 
 
 
@@ -57,8 +59,14 @@ origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/t
 #mussel traits
 mussel_traits <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/mussel_traits.xlsx",
                            range = cell_cols("A:F")) %>% 
-  filter(!is.na(common_name))
+  filter(!is.na(common_name)) 
 names(mussel_traits) <- c("common_name", "scientific_name", "status", "host", "size", "strat")
+
+# mussel_traits_print <- mussel_traits %>% 
+#   select(common_name, scientific_name, size, status, host, strat) %>% 
+#   arrange(size, status, host, strat) %>% 
+#   mutate(common_name = str_to_title(common_name))
+# write.csv(mussel_traits_print, "tmpfigures/paper2/musselgroups.csv")
 
 
 ```
@@ -88,7 +96,10 @@ df_origin_baseline <- fish_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = origin, values_from = total_summed_prob) %>% 
   mutate(origin_ratio = native/introduced)
 
-shp_origin <- left_join(huc12, df_origin_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_origin <- left_join(huc12, df_origin_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "baseline",
+         grp = "origin")
 
 a <- ggplot(data = shp_origin)+
   geom_sf(aes(fill = origin_ratio), color = NA)+
@@ -110,7 +121,7 @@ a <- ggplot(data = shp_origin)+
     ggtitle(label = "Native:Introduced")+
   labs(fill = "ratio")
 
-  
+summary(shp_origin$origin_ratio)  
   
 
 
@@ -125,7 +136,10 @@ df_habitat_baseline <- fish_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = tolerance, values_from = total_summed_prob) %>% 
   mutate(habitat_ratio = (`fluvial specialist` + `fluvial dependent`) / generalist)
 
-shp_habitat <- left_join(huc12, df_habitat_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_habitat <- left_join(huc12, df_habitat_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "baseline",
+         grp = "habitat")
 
 b <- ggplot(data = shp_habitat)+
   geom_sf(aes(fill = habitat_ratio), color = NA)+
@@ -159,7 +173,10 @@ df_temp_baseline <- fish_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = tmp, values_from = total_summed_prob) %>% 
   mutate(ratio = (cold/warm))
 
-shp_temp <- left_join(huc12, df_temp_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_temp <- left_join(huc12, df_temp_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "baseline",
+         grp = "temp")
 
 c <- ggplot(data = shp_temp)+
   geom_sf(aes(fill = ratio), color = NA)+
@@ -212,7 +229,10 @@ df_origin_cc <- fish_cc_proboccurrence_huc12 %>%
   pivot_wider(names_from = origin, values_from = total_summed_prob) %>% 
   mutate(origin_ratio = native/introduced)
 
-shp_origin_cc <- left_join(huc12, df_origin_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_origin_cc <- left_join(huc12, df_origin_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "cc",
+         grp = "origin")
 
 ggplot(data = shp_origin_cc)+
   geom_sf(aes(fill = origin_ratio), color = NA)+
@@ -250,7 +270,9 @@ df_habitat_cc <- fish_cc_proboccurrence_huc12 %>%
   mutate(habitat_ratio = (`fluvial specialist` + `fluvial dependent`) / generalist)
 
 shp_habitat_cc <- left_join(huc12, df_habitat_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
-  filter(!is.na(habitat_ratio))
+  mutate(taxa = "fish",
+         scenario = "cc",
+         grp = "habitat") 
 
 ggplot(data = shp_habitat_cc)+
   geom_sf(aes(fill = habitat_ratio), color = NA)+
@@ -284,7 +306,10 @@ df_temp_cc <- fish_cc_proboccurrence_huc12 %>%
   pivot_wider(names_from = tmp, values_from = total_summed_prob) %>% 
   mutate(ratio = cold/warm)
 
-shp_temp_cc <- left_join(huc12, df_temp_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_temp_cc <- left_join(huc12, df_temp_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "cc",
+         grp = "temp")
 
 ggplot(data = shp_temp_cc)+
   geom_sf(aes(fill = ratio), color = NA)+
@@ -305,6 +330,271 @@ ggplot(data = shp_temp_cc)+
         legend.title = element_text(size = 15))+
     ggtitle(label = "Cold : Warm - Climate Change")+
   labs(fill = "ratio")
+
+
+
+
+
+
+
+
+############################################
+
+
+
+
+
+#Climate Change and landcover management
+
+fish_mg_proboccurrence_huc12$common_name <- gsub(pattern = ".rds", replacement = "", x = fish_mg_proboccurrence_huc12$common_name)
+fish_mg_proboccurrence_huc12$common_name <- gsub(pattern = "pres_", replacement = "", x = fish_mg_proboccurrence_huc12$common_name)
+fish_mg_proboccurrence_huc12$common_name <- gsub(pattern = "\\.", replacement = " ", x = fish_mg_proboccurrence_huc12$common_name)
+
+fish_mg_proboccurrence_huc12$mean_prob_occ[fish_mg_proboccurrence_huc12$mean_prob_occ<0.01] <- 0.01
+
+#1)	Total summed probabilities of native species divided by the total summed probabilities of introduced species.
+df_origin_mg <- fish_mg_proboccurrence_huc12 %>% 
+  left_join(origin, by = "common_name") %>%
+  filter(!is.na(origin)) %>% 
+  group_by(huc12_name, huc12_tnmid, origin) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = origin, values_from = total_summed_prob) %>% 
+  mutate(origin_ratio = native/introduced)
+
+shp_origin_mg <- left_join(huc12, df_origin_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "mg",
+         grp = "origin")
+
+ggplot(data = shp_origin_mg)+
+  geom_sf(aes(fill = origin_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 7,
+                       limits = c(.99,15))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Native:Introduced - Climate Change and landcover")+
+  labs(fill = "ratio")
+
+  
+  
+
+
+
+#2)	Total summed probabilities of fluvial specialist and fluvial dependent species divided by the total summed probabilities of macrohabitat generalist species.
+df_habitat_mg <- fish_mg_proboccurrence_huc12 %>% 
+  left_join(final_traits, by = "common_name") %>%  
+  filter(!is.na(tolerance)) %>%
+  select(-c("strategy", "timing", "velocity")) %>% 
+  group_by(huc12_name, huc12_tnmid, tolerance) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = tolerance, values_from = total_summed_prob) %>% 
+  mutate(habitat_ratio = (`fluvial specialist` + `fluvial dependent`) / generalist)
+
+shp_habitat_mg <- left_join(huc12, df_habitat_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "mg",
+         grp = "habitat")
+
+ggplot(data = shp_habitat_mg)+
+  geom_sf(aes(fill = habitat_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 4,
+                       limits = c(0,8))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "FS + FD : MG - Climate Change and landcover")+
+  labs(fill = "ratio")
+
+
+
+
+#3)	Total summed probabilities of cold-water species divided by the total summed probabilities of warm-water species.
+df_temp_mg <- fish_mg_proboccurrence_huc12 %>% 
+  left_join(temperature, by = "common_name") %>%
+  filter(!is.na(tmp)) %>% 
+  group_by(huc12_name, huc12_tnmid, tmp) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = tmp, values_from = total_summed_prob) %>% 
+  mutate(ratio = cold/warm)
+
+shp_temp_mg <- left_join(huc12, df_temp_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "mg",
+         grp = "temp")
+
+ggplot(data = shp_temp_mg)+
+  geom_sf(aes(fill = ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 3.25,
+                       limits = c(0,6.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Cold : Warm - Climate Change and landcover")+
+  labs(fill = "ratio")
+
+
+
+
+
+
+############################################
+
+
+
+
+
+#Climate Change and connectivity management
+
+fish_mg_cnt_proboccurrence_huc12$common_name <- gsub(pattern = ".rds", replacement = "", x = fish_mg_cnt_proboccurrence_huc12$common_name)
+fish_mg_cnt_proboccurrence_huc12$common_name <- gsub(pattern = "pres_", replacement = "", x = fish_mg_cnt_proboccurrence_huc12$common_name)
+fish_mg_cnt_proboccurrence_huc12$common_name <- gsub(pattern = "\\.", replacement = " ", x = fish_mg_cnt_proboccurrence_huc12$common_name)
+
+fish_mg_cnt_proboccurrence_huc12$mean_prob_occ[fish_mg_cnt_proboccurrence_huc12$mean_prob_occ<0.01] <- 0.01
+
+#1)	Total summed probabilities of native species divided by the total summed probabilities of introduced species.
+df_origin_mg_cnt <- fish_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(origin, by = "common_name") %>%
+  filter(!is.na(origin)) %>% 
+  group_by(huc12_name, huc12_tnmid, origin) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = origin, values_from = total_summed_prob) %>% 
+  mutate(origin_ratio = native/introduced)
+
+shp_origin_mg_cnt <- left_join(huc12, df_origin_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "cnt",
+         grp = "origin")
+
+ggplot(data = shp_origin_mg_cnt)+
+  geom_sf(aes(fill = origin_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 7,
+                       limits = c(.99,15))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Native:Introduced - Climate Change and connectivity")+
+  labs(fill = "ratio")
+
+  
+  
+
+
+
+#2)	Total summed probabilities of fluvial specialist and fluvial dependent species divided by the total summed probabilities of macrohabitat generalist species.
+df_habitat_mg_cnt <- fish_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(final_traits, by = "common_name") %>%  
+  filter(!is.na(tolerance)) %>%
+  select(-c("strategy", "timing", "velocity")) %>% 
+  group_by(huc12_name, huc12_tnmid, tolerance) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = tolerance, values_from = total_summed_prob) %>% 
+  mutate(habitat_ratio = (`fluvial specialist` + `fluvial dependent`) / generalist)
+
+shp_habitat_mg_cnt <- left_join(huc12, df_habitat_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "cnt",
+         grp = "habitat") 
+
+ggplot(data = shp_habitat_mg_cnt)+
+  geom_sf(aes(fill = habitat_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 4,
+                       limits = c(0,8))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "FS + FD : MG - Climate Change and connectivity")+
+  labs(fill = "ratio")
+
+
+
+
+#3)	Total summed probabilities of cold-water species divided by the total summed probabilities of warm-water species.
+df_temp_mg_cnt <- fish_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(temperature, by = "common_name") %>%
+  filter(!is.na(tmp)) %>% 
+  group_by(huc12_name, huc12_tnmid, tmp) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = tmp, values_from = total_summed_prob) %>% 
+  mutate(ratio = cold/warm)
+
+shp_temp_mg_cnt <- left_join(huc12, df_temp_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "fish",
+         scenario = "cnt",
+         grp = "temp") 
+
+ggplot(data = shp_temp_mg_cnt)+
+  geom_sf(aes(fill = ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 3.25,
+                       limits = c(0,6.5))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Cold : Warm - Climate Change and connectivity")+
+  labs(fill = "ratio")
+
+
+
 
 
 
@@ -438,7 +728,10 @@ df_status_baseline <- mussel_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = status, values_from = total_summed_prob) %>% 
   mutate(status_ratio = rare/common)
 
-shp_status <- left_join(huc12, df_status_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_status <- left_join(huc12, df_status_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "baseline",
+         grp = "status") 
 
 a <- ggplot(data = shp_status)+
   geom_sf(aes(fill = status_ratio), color = NA)+
@@ -474,7 +767,10 @@ df_host_baseline <- mussel_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = host, values_from = total_summed_prob) %>% 
   mutate(host_ratio = (specialist / generalist))
 
-shp_host <- left_join(huc12, df_host_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_host <- left_join(huc12, df_host_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "baseline",
+         grp = "host")
 
 b <- ggplot(data = shp_host)+
   geom_sf(aes(fill = host_ratio), color = NA)+
@@ -508,7 +804,10 @@ df_size_baseline <- mussel_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = size, values_from = total_summed_prob) %>% 
   mutate(ratio = (small/large))
 
-shp_size <- left_join(huc12, df_size_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_size <- left_join(huc12, df_size_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "baseline",
+         grp = "size")
 
 c <- ggplot(data = shp_size)+
   geom_sf(aes(fill = ratio), color = NA)+
@@ -541,7 +840,10 @@ df_strat_baseline <- mussel_baseline_proboccurrence_huc12 %>%
   pivot_wider(names_from = strat, values_from = total_summed_prob) %>% 
   mutate(ratio = ((equilibrium + periodic) /opportunistic))
 
-shp_strat <- left_join(huc12, df_strat_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_strat <- left_join(huc12, df_strat_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "baseline",
+         grp = "strategy")
 
 d <- ggplot(data = shp_strat)+
   geom_sf(aes(fill = ratio), color = NA)+
@@ -607,7 +909,10 @@ df_status_cc <- mussel_cc_proboccurrence_huc12 %>%
   pivot_wider(names_from = status, values_from = total_summed_prob) %>% 
   mutate(status_ratio = rare/common)
 
-shp_status_cc <- left_join(huc12, df_status_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_status_cc <- left_join(huc12, df_status_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cc",
+         grp = "status")
 
 ggplot(data = shp_status_cc)+
   geom_sf(aes(fill = status_ratio), color = NA)+
@@ -643,7 +948,10 @@ df_host_cc <- mussel_cc_proboccurrence_huc12 %>%
   pivot_wider(names_from = host, values_from = total_summed_prob) %>% 
   mutate(host_ratio = (specialist / generalist))
 
-shp_host_cc <- left_join(huc12, df_host_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_host_cc <- left_join(huc12, df_host_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cc",
+         grp = "host")
 
 ggplot(data = shp_host_cc)+
   geom_sf(aes(fill = host_ratio), color = NA)+
@@ -676,7 +984,10 @@ df_size_cc <- mussel_cc_proboccurrence_huc12 %>%
   pivot_wider(names_from = size, values_from = total_summed_prob) %>% 
   mutate(ratio = (small/large))
 
-shp_size_cc <- left_join(huc12, df_size_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_size_cc <- left_join(huc12, df_size_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cc",
+         grp = "size")
 
 ggplot(data = shp_size_cc)+
   geom_sf(aes(fill = ratio), color = NA)+
@@ -709,7 +1020,10 @@ df_strat_cc <- mussel_cc_proboccurrence_huc12 %>%
   pivot_wider(names_from = strat, values_from = total_summed_prob) %>% 
   mutate(ratio = ((equilibrium + periodic) /opportunistic))
 
-shp_strat_cc <- left_join(huc12, df_strat_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+shp_strat_cc <- left_join(huc12, df_strat_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cc",
+         grp = "strategy")
 
 ggplot(data = shp_strat_cc)+
   geom_sf(aes(fill = ratio), color = NA)+
@@ -730,6 +1044,368 @@ ggplot(data = shp_strat_cc)+
         legend.title = element_text(size = 15))+
     ggtitle(label = "equil : opportun - cc")+
   labs(fill = "ratio")
+
+
+
+
+
+
+
+############################################
+
+
+
+
+
+#Climate Change and landcover mgmt
+
+head(prediction_mg)
+mussel_mg_proboccurrence_huc12 <- prediction_mg %>%
+  data.frame() %>% 
+  select(huc12_name, huc12_tnmid, 40:51) %>% 
+  filter(!is.na(alewifefloater),
+         !is.na(huc12_name)) %>%
+  pivot_longer(3:14, names_to = "common_name", values_to = "prob_occ") %>% 
+  group_by(huc12_name, huc12_tnmid, common_name) %>% 
+  summarise(mean_prob_occ = mean(prob_occ)) %>% 
+  ungroup() %>% 
+  mutate(scenario = "mg", taxa = "mussel")
+
+mussel_mg_proboccurrence_huc12$common_name <- gsub(pattern = "\\.", replacement = " ", x = mussel_mg_proboccurrence_huc12$common_name)
+mussel_mg_proboccurrence_huc12$common_name[mussel_mg_proboccurrence_huc12$common_name == "alewifefloater"] <- "alewife floater"
+mussel_mg_proboccurrence_huc12$common_name[mussel_mg_proboccurrence_huc12$common_name == "easternpearlshell"] <- "eastern pearlshell"
+mussel_mg_proboccurrence_huc12$common_name[mussel_mg_proboccurrence_huc12$common_name == "easternpondmussel"] <- "eastern pondmussel"
+mussel_mg_proboccurrence_huc12$common_name[mussel_mg_proboccurrence_huc12$common_name == "Tidewatermucket"] <- "tidewater mucket"
+mussel_mg_proboccurrence_huc12$common_name[mussel_mg_proboccurrence_huc12$common_name == "yellowlampmussel"] <- "yellow lampmussel"
+
+
+mussel_mg_proboccurrence_huc12$mean_prob_occ[mussel_mg_proboccurrence_huc12$mean_prob_occ<0.01]<-0.01
+
+#1)	Total summed probabilities of rare species divided by the total summed probabilities of common species.
+df_status_mg <- mussel_mg_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%
+  filter(!is.na(status)) %>% 
+  group_by(huc12_name, huc12_tnmid, status) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = status, values_from = total_summed_prob) %>% 
+  mutate(status_ratio = rare/common)
+
+shp_status_mg <- left_join(huc12, df_status_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "mg",
+         grp = "status")
+
+ggplot(data = shp_status_mg)+
+  geom_sf(aes(fill = status_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = .26,
+                       limits = c(0,.52))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Rare:Common - mg")+
+  labs(fill = "ratio")
+
+  
+  
+
+
+
+#2)	Total summed probabilities of host specialist divided by the total summed probabilities of host generalist species.
+df_host_mg <- mussel_mg_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%  
+  filter(!is.na(host)) %>%
+  group_by(huc12_name, huc12_tnmid, host) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = host, values_from = total_summed_prob) %>% 
+  mutate(host_ratio = (specialist / generalist))
+
+shp_host_mg <- left_join(huc12, df_host_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "mg",
+         grp = "host")
+
+ggplot(data = shp_host_mg)+
+  geom_sf(aes(fill = host_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = .26,
+                       limits = c(0,.57))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Host specialist : generalist - mg")+
+  labs(fill = "ratio")
+
+
+
+#3)	Total summed probabilities of small species divided by the total summed probabilities of large species.
+df_size_mg <- mussel_mg_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%
+  filter(!is.na(size)) %>% 
+  group_by(huc12_name, huc12_tnmid, size) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = size, values_from = total_summed_prob) %>% 
+  mutate(ratio = (small/large))
+
+shp_size_mg <- left_join(huc12, df_size_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "mg",
+         grp = "size")
+
+ggplot(data = shp_size_mg)+
+  geom_sf(aes(fill = ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 5,
+                       limits = c(0,9))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "small : large - mg")+
+  labs(fill = "ratio")
+
+
+
+#4)	Total summed probabilities of equilibrium + periodic species divided by the total summed probabilities of opportunistic species.
+df_strat_mg <- mussel_mg_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%
+  filter(!is.na(strat)) %>% 
+  group_by(huc12_name, huc12_tnmid, strat) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = strat, values_from = total_summed_prob) %>% 
+  mutate(ratio = ((equilibrium + periodic) /opportunistic))
+
+shp_strat_mg <- left_join(huc12, df_strat_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "mg",
+         grp = "strategy")
+
+ggplot(data = shp_strat_mg)+
+  geom_sf(aes(fill = ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 5,
+                       limits = c(0,8))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "equil : opportun - mg")+
+  labs(fill = "ratio")
+
+
+
+
+############################################
+
+
+
+
+
+#Climate Change and connectivity mgmt
+
+head(prediction_mg_cnt)
+mussel_mg_cnt_proboccurrence_huc12 <- prediction_mg_cnt %>%
+  data.frame() %>% 
+  select(huc12_name, huc12_tnmid, 40:51) %>% 
+  filter(!is.na(alewifefloater),
+         !is.na(huc12_name)) %>%
+  pivot_longer(3:14, names_to = "common_name", values_to = "prob_occ") %>% 
+  group_by(huc12_name, huc12_tnmid, common_name) %>% 
+  summarise(mean_prob_occ = mean(prob_occ)) %>% 
+  ungroup() %>% 
+  mutate(scenario = "mg_cnt", taxa = "mussel")
+
+mussel_mg_cnt_proboccurrence_huc12$common_name <- gsub(pattern = "\\.", replacement = " ", x = mussel_mg_cnt_proboccurrence_huc12$common_name)
+mussel_mg_cnt_proboccurrence_huc12$common_name[mussel_mg_cnt_proboccurrence_huc12$common_name == "alewifefloater"] <- "alewife floater"
+mussel_mg_cnt_proboccurrence_huc12$common_name[mussel_mg_cnt_proboccurrence_huc12$common_name == "easternpearlshell"] <- "eastern pearlshell"
+mussel_mg_cnt_proboccurrence_huc12$common_name[mussel_mg_cnt_proboccurrence_huc12$common_name == "easternpondmussel"] <- "eastern pondmussel"
+mussel_mg_cnt_proboccurrence_huc12$common_name[mussel_mg_cnt_proboccurrence_huc12$common_name == "Tidewatermucket"] <- "tidewater mucket"
+mussel_mg_cnt_proboccurrence_huc12$common_name[mussel_mg_cnt_proboccurrence_huc12$common_name == "yellowlampmussel"] <- "yellow lampmussel"
+
+
+mussel_mg_cnt_proboccurrence_huc12$mean_prob_occ[mussel_mg_cnt_proboccurrence_huc12$mean_prob_occ<0.01]<-0.01
+
+#1)	Total summed probabilities of rare species divided by the total summed probabilities of common species.
+df_status_mg_cnt <- mussel_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%
+  filter(!is.na(status)) %>% 
+  group_by(huc12_name, huc12_tnmid, status) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = status, values_from = total_summed_prob) %>% 
+  mutate(status_ratio = rare/common)
+
+shp_status_mg_cnt <- left_join(huc12, df_status_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cnt",
+         grp = "status")
+
+ggplot(data = shp_status_mg_cnt)+
+  geom_sf(aes(fill = status_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = .26,
+                       limits = c(0,.52))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Rare:Common - mg_cnt")+
+  labs(fill = "ratio")
+
+  
+  
+
+
+
+#2)	Total summed probabilities of host specialist divided by the total summed probabilities of host generalist species.
+df_host_mg_cnt <- mussel_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%  
+  filter(!is.na(host)) %>%
+  group_by(huc12_name, huc12_tnmid, host) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = host, values_from = total_summed_prob) %>% 
+  mutate(host_ratio = (specialist / generalist))
+
+shp_host_mg_cnt <- left_join(huc12, df_host_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cnt",
+         grp = "host")
+
+ggplot(data = shp_host_mg_cnt)+
+  geom_sf(aes(fill = host_ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = .26,
+                       limits = c(0,.57))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "Host specialist : generalist - mg_cnt")+
+  labs(fill = "ratio")
+
+
+
+#3)	Total summed probabilities of small species divided by the total summed probabilities of large species.
+df_size_mg_cnt <- mussel_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%
+  filter(!is.na(size)) %>% 
+  group_by(huc12_name, huc12_tnmid, size) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = size, values_from = total_summed_prob) %>% 
+  mutate(ratio = (small/large))
+
+shp_size_mg_cnt <- left_join(huc12, df_size_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cnt",
+         grp = "size")
+
+ggplot(data = shp_size_mg_cnt)+
+  geom_sf(aes(fill = ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 5,
+                       limits = c(0,9))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "small : large - mg_cnt")+
+  labs(fill = "ratio")
+
+
+
+#4)	Total summed probabilities of equilibrium + periodic species divided by the total summed probabilities of opportunistic species.
+df_strat_mg_cnt <- mussel_mg_cnt_proboccurrence_huc12 %>% 
+  left_join(mussel_traits, by = "common_name") %>%
+  filter(!is.na(strat)) %>% 
+  group_by(huc12_name, huc12_tnmid, strat) %>% 
+  summarise(total_summed_prob = sum(mean_prob_occ)) %>% 
+  pivot_wider(names_from = strat, values_from = total_summed_prob) %>% 
+  mutate(ratio = ((equilibrium + periodic) /opportunistic))
+
+shp_strat_mg_cnt <- left_join(huc12, df_strat_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cnt",
+         grp = "strategy")
+
+ggplot(data = shp_strat_mg_cnt)+
+  geom_sf(aes(fill = ratio), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 5,
+                       limits = c(0,8))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        strip.background = element_rect(fill = "grey50",
+                                        colour = "black"),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 15))+
+    ggtitle(label = "equil : opportun - mg_cnt")+
+  labs(fill = "ratio")
+
+
+
 
 
 
@@ -851,6 +1527,8 @@ ggsave(fig4, file = "tmpfigures/paper2/fig4_change_mussel.png")
 
 prediction_cc <- data.frame(prediction_cc)
 predictions_baseline <- data.frame(predictions_baseline)
+prediction_mg <- data.frame(prediction_mg)
+prediction_mg_cnt <- data.frame(prediction_mg_cnt)
 
 cc <- as.matrix(prediction_cc[, 40:51])
 bl <- as.matrix(predictions_baseline[, 40:51])
@@ -908,7 +1586,10 @@ richness_baseline <- predictions_baseline %>%
   summarise(richness = sum(occurrence))
 
 
-richness_baseline <- left_join(huc12, richness_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+richness_baseline <- left_join(huc12, richness_baseline, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "baseline",
+         grp = "richness")
 
   
 e <- ggplot(data = richness_baseline)+
@@ -950,7 +1631,10 @@ richness_cc <- prediction_cc %>%
   group_by(huc12_name, huc12_tnmid) %>% 
   summarise(richness = sum(occurrence))
 
-richness_cc <- left_join(huc12, richness_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid"))
+richness_cc <- left_join(huc12, richness_cc, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cc",
+         grp = "richness")
 
 
 ggplot(data = richness_cc)+
@@ -977,6 +1661,100 @@ ggsave(paste("tmpfigures/baseline_mussel_predictions/mussel_richness_cc.png"),
     height = 12,
     units = "cm",
     dpi = 300) 
+
+
+
+
+
+#species richness in climate change and landcover mgmt
+richness_mg <- prediction_mg %>% 
+  select(1,3,40:51) %>% 
+  pivot_longer(3:14, names_to = "common_name", values_to = "prob") %>% 
+  mutate(occurrence = ifelse(common_name %in% c("alewifefloater", "brook.floater", "dwarf.wedgemussel", "easternpondmussel", "Tidewatermucket", "yellowlampmussel") &
+                                                  prob > 0.1 , 1,
+                                                ifelse(common_name %in% c("creeper", "eastern.elliptio", "eastern.floater", "eastern.lampmussel", "easternpearlshell", "triangle.floater") & prob > 0.5, 1, 0)))  %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(richness = sum(occurrence))
+
+richness_mg <- left_join(huc12, richness_mg, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "mg",
+         grp = "richness")
+
+
+ggplot(data = richness_mg)+
+  geom_sf(aes(fill = richness), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 5,
+                       limits = c(0,10))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+    ggtitle(label = "CC_mg Species Richness")+
+  labs(fill = "Richness")
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/mussel_richness_cc_mg.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+
+
+
+
+
+
+#species richness in climate change and connectivity mgmt
+richness_mg_cnt <- prediction_mg_cnt %>% 
+  select(1,3,40:51) %>% 
+  pivot_longer(3:14, names_to = "common_name", values_to = "prob") %>% 
+  mutate(occurrence = ifelse(common_name %in% c("alewifefloater", "brook.floater", "dwarf.wedgemussel", "easternpondmussel", "Tidewatermucket", "yellowlampmussel") &
+                                                  prob > 0.1 , 1,
+                                                ifelse(common_name %in% c("creeper", "eastern.elliptio", "eastern.floater", "eastern.lampmussel", "easternpearlshell", "triangle.floater") & prob > 0.5, 1, 0)))  %>% 
+  group_by(huc12_name, huc12_tnmid) %>% 
+  summarise(richness = sum(occurrence))
+
+richness_mg_cnt <- left_join(huc12, richness_mg_cnt, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  mutate(taxa = "mussel",
+         scenario = "cnt",
+         grp = "richness")
+
+
+ggplot(data = richness_mg_cnt)+
+  geom_sf(aes(fill = richness), color = NA)+
+  scale_fill_gradient2(low = "blue",
+                        mid = "yellow",
+                        high = "red",
+                        midpoint = 5,
+                       limits = c(0,10))+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20))+
+    ggtitle(label = "CC_mg_cnt Species Richness")+
+  labs(fill = "Richness")
+
+ggsave(paste("tmpfigures/baseline_mussel_predictions/mussel_richness_cc_mg_cnt.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300) 
+
+
 
 
 #change in species richness: climate change - baseline
@@ -1126,14 +1904,15 @@ Here, We will overlay the different maps  to get
 4. which have the biggest increase in positive change with the mgmt scenario
 
 ```{r}
-#1. first we need to standardize each of the ratios so that the 'larger' ratios are not considered more important than the 'smaller' ratios
+#1. 
+#first we need to standardize each of the ratios so that the 'larger' ratios are not considered more important than the 'smaller' ratios
 
 #make a matrix of all the ratio columns and then scale them and then add them together and then cbind back to the HUC12 and plot
 #there are two ways I am going to look at best:
 #1. the watersheds that maximize the fish origin ratio and the mussel spp richess 
 #2. the watersheds that maximuz the spp that might be most vulnerable to cliamte change (fish temp, fish habitat, mussel size, mussel strat)
 
-#this looks at the ratios of vulnerable to not vulnerable
+#this looks at the ratios of combined groups in the baseline
 df <- scale(as.matrix(data.frame(
   "x1" = shp_origin$origin_ratio,
   "x2" = shp_habitat$habitat_ratio,
@@ -1153,6 +1932,8 @@ climvul <- data.frame(df) %>%
 
 best <- data.frame(df) %>% 
   mutate(best = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8)
+
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 
 huc12$native <- native$native
 huc12$climvul <- climvul$climvul
@@ -1217,6 +1998,34 @@ fig5 <- gridExtra::grid.arrange(a,b,c, nrow = 1, ncol = 3)
 ggsave(fig5, file = "tmpfigures/paper2/fig5_baseline_mussel_and_fish.png")
 
 
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC12.RData")
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12 <- NHDplusV2_NewEngCrop_mussel_covariates_HUC12 %>%  
+  mutate(latitude  = ifelse(lat > 44.51944, "High latitude",
+                            ifelse(lat < 42.97004, "Low latitude", "Mid latitude"))) %>% 
+  mutate(elevation  = ifelse(ElevCat > 181.4322 , "High elevation", "Low elevation")) 
+
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12$latitude <- 
+  factor(NHDplusV2_NewEngCrop_mussel_covariates_HUC12$latitude, levels = c("Low latitude", "Mid latitude", "High latitude"))
+
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12$elevation <- 
+  factor(NHDplusV2_NewEngCrop_mussel_covariates_HUC12$elevation, levels = c("Low elevation", "Mid elevation", "High elevation"))
+
+
+huc12 <- left_join(huc12, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  filter(!is.na(elevation),
+         !is.na(latitude)) 
+huc12describe <- huc12 %>% 
+  data.frame() %>% 
+  group_by(elevation, latitude) %>% 
+  summarise(native = mean(native, na.rm = T))
+huc12describe <- huc12 %>% 
+  data.frame() %>% 
+  group_by(elevation, latitude) %>% 
+  summarise(climvul = mean(climvul, na.rm = T))
+huc12describe <- huc12 %>% 
+  data.frame() %>% 
+  group_by(elevation, latitude) %>% 
+  summarise(best = mean(best, na.rm = T))
 
 
 #2. most climate vulnerable (ie which have the biggest negative change)
@@ -1240,6 +2049,9 @@ climvul <- data.frame(df) %>%
 
 best <- data.frame(df) %>% 
   mutate(best = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8)
+
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
 
 huc12$native <- native$native
 huc12$climvul <- climvul$climvul
@@ -1302,5 +2114,497 @@ c <- ggplot(data = huc12)+
 fig6 <- gridExtra::grid.arrange(a,b,c, nrow = 1, ncol = 3)
 ggsave(fig6, file = "tmpfigures/paper2/fig6_change_mussel_and_fish.png")
 
+huc12 <- left_join(huc12, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  filter(!is.na(elevation),
+         !is.na(latitude)) 
+huc12describe <- huc12 %>% 
+  data.frame() %>% 
+  group_by(elevation, latitude) %>% 
+  summarise(native = mean(native, na.rm = T))
+huc12describe <- huc12 %>% 
+  data.frame() %>% 
+  group_by(elevation, latitude) %>% 
+  summarise(climvul = mean(climvul, na.rm = T))
+huc12describe <- huc12 %>% 
+  data.frame() %>% 
+  group_by(elevation, latitude) %>% 
+  summarise(best = mean(best, na.rm = T))
+
+
+
+#make dot plot figure showing values of each metric (facet) by scenaio (color)
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDv2_huc_state_join.RData")
+
+df1 <- shp_habitat %>% 
+  select(name, tnmid, taxa, scenario, grp, habitat_ratio) %>% 
+  rename(ratio = habitat_ratio)
+df2 <- shp_habitat_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, habitat_ratio) %>% 
+  rename(ratio = habitat_ratio)
+df3 <- shp_habitat_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, habitat_ratio) %>% 
+  rename(ratio = habitat_ratio)
+df4 <- shp_habitat_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, habitat_ratio) %>% 
+  rename(ratio = habitat_ratio)
+
+df5 <- shp_origin %>% 
+  select(name, tnmid, taxa, scenario, grp, origin_ratio) %>% 
+  rename(ratio = origin_ratio)
+df6 <- shp_origin_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, origin_ratio) %>% 
+  rename(ratio = origin_ratio)
+df7 <- shp_origin_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, origin_ratio) %>% 
+  rename(ratio = origin_ratio)
+df8 <- shp_origin_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, origin_ratio) %>% 
+  rename(ratio = origin_ratio)
+
+df9 <- shp_temp %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio) 
+df10 <- shp_temp_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+df11 <- shp_temp_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio) 
+df12 <- shp_temp_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+
+df13 <- shp_status %>% 
+  select(name, tnmid, taxa, scenario, grp, status_ratio)%>% 
+  rename(ratio = status_ratio) 
+df14 <- shp_status_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, status_ratio)%>% 
+  rename(ratio = status_ratio)
+df15 <- shp_status_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, status_ratio) %>% 
+  rename(ratio = status_ratio)
+df16 <- shp_status_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, status_ratio)%>% 
+  rename(ratio = status_ratio)
+
+df17 <- shp_size %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio) 
+df18 <- shp_size_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+df19 <- shp_size_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+df20 <- shp_size_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+
+
+df21 <- shp_strat %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio) 
+df22 <- shp_strat_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+df23 <- shp_strat_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+df24 <- shp_strat_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, ratio)
+
+df25 <- richness_baseline %>% 
+  select(name, tnmid, taxa, scenario, grp, richness)%>% 
+  rename(ratio = richness) 
+df26 <- richness_cc %>% 
+  select(name, tnmid, taxa, scenario, grp, richness)%>% 
+  rename(ratio = richness)
+df27 <- richness_mg %>% 
+  select(name, tnmid, taxa, scenario, grp, richness)%>% 
+  rename(ratio = richness)
+df28 <- richness_mg_cnt %>% 
+  select(name, tnmid, taxa, scenario, grp, richness)%>% 
+  rename(ratio = richness)
+
+
+
+final <- rbind(df1,df2, df3, df4, df5, df6, df7, df8, df9, df10, df11, df12, 
+               df13, df14, df15, df16, df17, df18, df19, df20, df21, df22, df23,
+               df24)
+
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC12.RData")
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12 <- NHDplusV2_NewEngCrop_mussel_covariates_HUC12 %>%  
+  mutate(latitude  = ifelse(lat > 44.51944, "High latitude",
+                            ifelse(lat < 42.97004, "Low latitude", "Mid latitude"))) %>% 
+  mutate(elevation  = ifelse(ElevCat > 181.4322 , "High elevation", "Low elevation")) 
+
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12$latitude <- 
+  factor(NHDplusV2_NewEngCrop_mussel_covariates_HUC12$latitude, levels = c("Low latitude", "Mid latitude", "High latitude"))
+
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12$elevation <- 
+  factor(NHDplusV2_NewEngCrop_mussel_covariates_HUC12$elevation, levels = c("Low elevation", "Mid elevation", "High elevation"))
+
+
+final <- left_join(final, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("name" = "huc12_name", "tnmid" = "huc12_tnmid")) %>% 
+  filter(!is.na(elevation),
+         !is.na(latitude)) 
+
+
+ggplot(data = final[final$taxa == "fish",], aes(x = grp, y = ratio, fill = scenario), color = "black")+
+  geom_boxplot(position=position_dodge(width=.75),
+               outlier.size = 0.1,
+               outlier.colour = "grey50")+
+  geom_hline(yintercept = 1, color= "red", linetype = "dashed")+
+  coord_flip(ylim = c(0, 15))+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = "Ratio")+
+  facet_wrap(~elevation)
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/paper2/fishcompare.png",
+    plot = last_plot(),
+    width = 19,
+    height = 10,
+    units = "cm",
+    dpi = 200
+  )
+
+ggplot(data = final[final$taxa == "mussel",], aes(x = grp, y = ratio, fill = scenario), color = "black")+
+  geom_boxplot(position=position_dodge(width=.75),
+               outlier.size = 0.1,
+               outlier.colour = "grey50")+
+  geom_hline(yintercept = 1, color= "red", linetype = "dashed")+
+  coord_flip(ylim = c(0, 7.5))+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = "Ratio")+
+  facet_wrap(~elevation)
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/paper2/musselcompare.png",
+    plot = last_plot(),
+    width = 19,
+    height = 10,
+    units = "cm",
+    dpi = 200
+  )
+
+
+
+stats <- final %>% 
+  data.frame() %>% 
+  select(elevation, taxa, grp, scenario, ratio) %>% 
+  filter(!is.na(ratio)) %>% 
+  group_by(elevation, taxa, grp, scenario) %>% 
+  summarise(grt = round((sum(ratio >1)/n()),5),
+            mean = mean(ratio)) %>% 
+  arrange(elevation, taxa, grp, scenario)
+
+#calculate p values between baseline and climate change ratios
+fishhigh <- final %>%
+  data.frame() %>% 
+  filter(elevation == "High elevation" & taxa == "fish")
+t.test(fishhigh[fishhigh$grp == "temp" & fishhigh$scenario == "baseline",]$ratio, 
+       fishhigh[fishhigh$grp == "temp" & fishhigh$scenario == "cc",]$ratio, conf.level = 0.9972222)
+t.test(fishhigh[fishhigh$grp == "habitat" & fishhigh$scenario == "baseline",]$ratio, 
+       fishhigh[fishhigh$grp == "habitat" & fishhigh$scenario == "cc",]$ratio, conf.level = 0.9972222)
+t.test(fishhigh[fishhigh$grp == "origin" & fishhigh$scenario == "baseline",]$ratio, 
+       fishhigh[fishhigh$grp == "origin" & fishhigh$scenario == "cc",]$ratio, conf.level = 0.9972222)
+
+
+#calculate p values between climate change and connectivity ratios
+t.test(fishhigh[fishhigh$grp == "temp" & fishhigh$scenario == "cnt",]$ratio, 
+       fishhigh[fishhigh$grp == "temp" & fishhigh$scenario == "cc",]$ratio, conf.level = 0.9972222)
+t.test(fishhigh[fishhigh$grp == "habitat" & fishhigh$scenario == "cnt",]$ratio, 
+       fishhigh[fishhigh$grp == "habitat" & fishhigh$scenario == "cc",]$ratio, conf.level = 0.9972222)
+t.test(fishhigh[fishhigh$grp == "origin" & fishhigh$scenario == "cnt",]$ratio, 
+       fishhigh[fishhigh$grp == "origin" & fishhigh$scenario == "cc",]$ratio, conf.level = 0.95)
+
+
+#now we want to average the values for 'habitat' 'vulnerability' and 'all' and make the boxplots again (numbers will be meaningless because they will have been scaled)
+#we need to scale each scenario using the baseline mean and sd values
+#scale the variables using the means and sd used to scale the variables in the baseline condition
+
+
+df <- data.frame(
+  "x1" = shp_origin$origin_ratio,
+  "x2" = shp_habitat$habitat_ratio,
+  "x3" = shp_temp$ratio,
+  "x4" =  shp_status$status_ratio,
+  "x5" = shp_host$host_ratio,
+  "x6" = shp_size$ratio,
+  "x7" = shp_strat$ratio,
+  "x8" = richness_baseline$richness)
+
+means <- sapply(df, mean, na.rm = T)
+sd <- sapply(df, sd, na.rm = T)
+df <- data.frame(scale(as.matrix(df)))
+  
+df2 <- data.frame(
+    "x9" = shp_origin_cc$origin_ratio,
+  "x10" = shp_habitat_cc$habitat_ratio,
+  "x11" = shp_temp_cc$ratio,
+  "x12" =  shp_status_cc$status_ratio,
+  "x13" = shp_host_cc$host_ratio,
+  "x14" = shp_size_cc$ratio,
+  "x15" = shp_strat_cc$ratio,
+  "x16" = richness_cc$richness)
+  
+df2 <- sweep(df2, 2, means, FUN = '-') 
+df2 <- sweep(df2, 2, sd, FUN = '/') 
+ 
+  
+  df3 <- data.frame(
+    "x17" = shp_origin_mg$origin_ratio,
+  "x18" = shp_habitat_mg$habitat_ratio,
+  "x19" = shp_temp_mg$ratio,
+  "x20" =  shp_status_mg$status_ratio,
+  "x21" = shp_host_mg$host_ratio,
+  "x22" = shp_size_mg$ratio,
+  "x23" = shp_strat_mg$ratio,
+  "x24" = richness_mg$richness)
+df3 <- sweep(df3, 2, means, FUN = '-') 
+df3 <- sweep(df3, 2, sd, FUN = '/') 
+   
+  
+df4 <- data.frame(
+   "x25" = shp_origin_mg_cnt$origin_ratio,
+  "x26" = shp_habitat_mg_cnt$habitat_ratio,
+  "x27" = shp_temp_mg_cnt$ratio,
+  "x28" =  shp_status_mg_cnt$status_ratio,
+  "x29" = shp_host_mg_cnt$host_ratio,
+  "x30" = shp_size_mg_cnt$ratio,
+  "x31" = shp_strat_mg_cnt$ratio,
+  "x32" = richness_mg_cnt$richness)
+  
+df4 <- sweep(df4, 2, means, FUN = '-') 
+df4 <- sweep(df4, 2, sd, FUN = '/') 
+
+df <- cbind(df, df2, df3, df4)
+
+new2 <- df %>% 
+  mutate(native_baseline = x1 + x8,
+         native_cc = x9 + x16,
+         native_mg = x17 + x24,
+         native_cnt = x25 + x32,
+         vul_baseline = x2 + x3 + x6 + x7,
+         vul_cc = x10 + x11 + x14 + x15,
+         vul_mg = x18 + x19 + x22 + x23,
+         vul_cnt = x26 + x27 + x30 + x31,
+         all_baseline = x1 + x2 + x3 + x4 + x5 + x6 + x7 + x8,
+         all_cc = x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16,
+         all_mg = x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24,
+         all_cnt = x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32
+         ) %>% 
+  select(33:44) %>% 
+  pivot_longer(cols = 1:12, values_to = "value", names_to = "grp_scenario") %>% 
+  separate(grp_scenario, sep = "_", into = c("grp", "scenario")) %>% 
+  filter(!is.na(value))
+
+ggplot(data = new2, aes(x = grp, y = value, fill = scenario), color = "black")+
+  geom_boxplot(position=position_dodge(width=.75),
+               outlier.size = 0.1,
+               outlier.colour = "grey50")+
+  coord_flip(ylim = c(-10, 12))+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = "Value")
+
+ggsave(
+    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/paper2/Fig8.png",
+    plot = last_plot(),
+    width = 19,
+    height = 10,
+    units = "cm",
+    dpi = 200
+  )
+
+
+```
+
+
+Here we calcualte some summary stats for the manuscript
+```{r}
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NHDplusV2_NewEngCrop_mussel_covariates_HUC12.RData")
+NHDplusV2_NewEngCrop_mussel_covariates_HUC12 <- NHDplusV2_NewEngCrop_mussel_covariates_HUC12 %>%  
+  mutate(latitude  = ifelse(lat > 44.51944, "High latitude",
+                            ifelse(lat < 42.97004, "Low latitude", "Mid latitude"))) %>% 
+  mutate(elevation  = ifelse(ElevCat > 181.4322 , "High elevation", "Low elevation")) %>% 
+  mutate(longitude  = ifelse(long > -71.27307, "East", "West")) 
+
+df$latitude <- factor(df$latitude, levels = c("Low latitude", "Mid latitude", "High latitude"))
+df$elevation <- factor(df$elevation, levels = c("Low elevation", "Mid elevation", "High elevation"))
+
+
+#fish origin  
+df <- left_join(df_origin_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(origin_ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_origin_baseline$origin_ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = origin_ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Origin Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(latitude) %>% 
+  summarise(mean = mean(origin_ratio))
+
+
+
+
+#fish habitat
+df <- left_join(df_habitat_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(habitat_ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_habitat_baseline$habitat_ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = habitat_ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Habitat Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(latitude) %>% 
+  summarise(mean = mean(habitat_ratio))
+
+
+#fish temp baseline
+df <- left_join(df_temp_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_temp_baseline$ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Temp Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(latitude) %>% 
+  summarise(mean = mean(ratio))
+
+
+#mussel status
+df <- left_join(df_status_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(status_ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_status_baseline$status_ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = status_ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Temp Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(elevation) %>% 
+  summarise(mean = mean(status_ratio))
+nrow(df[df$status_ratio > 1,])/nrow(df)
+test <- df[df$status_ratio > 1,]
+
+
+#mussel size
+df <- left_join(df_size_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_size_baseline$ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Size Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(elevation) %>% 
+  summarise(mean = mean(ratio))
+nrow(df[df$ratio > 1,])/nrow(df)
+
+
+
+
+#mussel host
+df <- left_join(df_host_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(host_ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_host_baseline$host_ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = host_ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Host Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(elevation) %>% 
+  summarise(mean = mean(host_ratio))
+nrow(df[df$host_ratio > 1,])/nrow(df)
+test <- df[df$host_ratio > 1,]
+  
+#mussel life history strat
+df <- left_join(df_strat_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_strat_baseline$ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Host Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(elevation) %>% 
+  summarise(mean = mean(ratio))
+nrow(df[df$ratio > 1,])/nrow(df)
+test <- df[df$ratio < 1,]
+
+#mussel life history strat
+df <- left_join(df_strat_baseline, NHDplusV2_NewEngCrop_mussel_covariates_HUC12, by = c("huc12_name", "huc12_tnmid")) %>% 
+  select(ratio, latitude, longitude, elevation, huc12_name, huc12_tnmid) 
+
+summary(df_strat_baseline$ratio)
+
+ggplot(data = df, mapping = aes(x = elevation, y = ratio))+
+  geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
+    labs(x = "Grouping", y = "Host Ratio")+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 8),
+        axis.title = element_text(size = 12))
+df_high <- df %>% 
+  group_by(elevation) %>% 
+  summarise(mean = mean(ratio))
+nrow(df[df$ratio > 1,])/nrow(df)
+test <- df[df$ratio < 1,]
+  
 
 ```
