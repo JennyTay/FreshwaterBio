@@ -78,6 +78,24 @@ huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/N
 huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
 NHDplusV2_NewEngCrop <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
 
+#Riparian NLDC - this is the file Jason prepared - 100m buffer around flowlines and extracts the pixel count for each landcover class
+#I removed X0 and X11 from the total (denominator) becuase open water is mostly just the stream itself
+NLCD <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NLCD/landuse_100m_buff_NE.csv") %>% 
+  rename(COMID = commid) %>% 
+  mutate(pctforest_ripbuf100 = ((X41 + X42 + X43) / 
+                                  (X0 + X12 + X21 + X22 + X23 + X24 + X31 + X41 + X42 + X43 + X51 + 
+                                     X52 + X71 + X72 + X73 + X74 + X81 + X82 + X90 + X95))*100,
+         pctNatural_ripbuf100 = ((X41 + X42 + X43 + X51 + X52 + X71 + X72 + X73 + X74) / 
+                                   (X0 + X12 + X21 + X22 + X23 + X24 + X31 + X41 + X42 + 
+                                      X43  + X81 + X82 + X90 + X95 + X51 + X52 + X71 + X72 + X73 + X74))*100,
+         pctUrban_ripbuf100 = ((X21 + X22 + X23 + X24) / 
+                                 (X0 + X12 + X31 + X41 + X42 + X43  + X81 + X82 + X90 + X21 + X22 + X23 + X24 +
+                                    X95 + X51 + X52 + X71 + X72 + X73 + X74))*100
+  ) %>% 
+  select(COMID, pctforest_ripbuf100, pctNatural_ripbuf100, pctUrban_ripbuf100)
+
+
+
 
 #prepare the huc files - select the attributes we want and remove the duplicated rows
 #21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
@@ -174,6 +192,9 @@ strmcatByyr_landcov <- strmcatByyr_landcov %>%
   select(-year)
 NHDv2_huc_join <- left_join(NHDv2_huc_join, strmcatByyr_landcov, by = "COMID")
 
+NHDv2_huc_join <- left_join(NHDv2_huc_join, NLCD, by = "COMID")
+
+
 
 #usfs flow metrics - historical values for the baseline predictions
 flowmet_historical_crop <- as.data.frame(flowmet_historical_crop)
@@ -257,7 +278,7 @@ baselinecov <- NHDv2_huc_join
 
 baselinecov <- baselinecov %>% 
   select(COMID, huc8_tnmid, huc10_name, huc10_tnmid, huc12_name, huc12_tnmid, 
-         names(fishcovariates)[2:3], names(fishcovariates)[8:38]) %>% 
+         names(fishcovariates)[2:3], names(fishcovariates)[8:41]) %>% 
   data.frame() %>% 
   select(-geometry)
 
@@ -287,8 +308,8 @@ futcov <- NHDv2_huc_join
 # some of the projections of streamflow and stream temperature
 futcov <- futcov %>% 
   select(COMID, huc8_tnmid, huc10_name, huc10_tnmid, huc12_name, huc12_tnmid, 
-         names(fishcovariates)[2:3], names(fishcovariates)[8], names(fishcovariates)[14:35],
-         names(fishcovariates)[37:38], 
+         names(fishcovariates)[2:3], names(fishcovariates)[8], names(fishcovariates)[14:38],
+         names(fishcovariates)[40:41], 
          annual_mean_summer_temp_pls_4, 
          BFI_2080, 
          LO7Q1DT_2080, 

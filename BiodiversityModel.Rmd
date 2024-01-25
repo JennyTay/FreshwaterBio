@@ -187,6 +187,9 @@ fish_count_with_zeros_filtered <- fish_count_with_zeros %>%
                             "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
                             "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
 
+
+
+#calcuate proportional abundance (propabun)
 counts <- fish_count_with_zeros_filtered %>%
   filter(gear == "efish_backpack") %>% 
   group_by(UID) %>% 
@@ -197,99 +200,76 @@ counts <- fish_count_with_zeros_filtered %>%
   mutate(abund_km = count / (reach_length_m) *1000) %>% 
   filter(common_name == "white sucker")
 
-ggplot(data = counts, aes(x = propabun))+
-  geom_histogram(color = "black", fill = "grey50")+
-  theme(
-    panel.border = element_rect(color = "black", fill = NA),
-    panel.grid = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.background = element_blank(),
-    axis.title = element_text(size = 15),
-    axis.text = element_text(size = 13))+
-  labs(x = "Proportional Abundance",
-       y = "Count")
-ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/suckercounts.png",
-    plot = last_plot(),
-    width = 18,
-    height = 9,
-    units = "cm",
-    dpi = 300
-  )
+
+# #plot proportional abundance for one species as a reality check
+# ggplot(data = counts, aes(x = propabun))+
+#   geom_histogram(color = "black", fill = "grey50")+
+#   theme(
+#     panel.border = element_rect(color = "black", fill = NA),
+#     panel.grid = element_blank(),
+#     panel.grid.major = element_blank(),
+#     panel.grid.minor = element_blank(),
+#     panel.background = element_blank(),
+#     axis.title = element_text(size = 15),
+#     axis.text = element_text(size = 13))+
+#   labs(x = "Proportional Abundance",
+#        y = "Count")
+# ggsave(
+#     filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/suckercounts.png",
+#     plot = last_plot(),
+#     width = 18,
+#     height = 9,
+#     units = "cm",
+#     dpi = 300
+#   )
       
 
-#plot the observed proportional abundance
-shp <- left_join(fish_shp, counts, by = "UID") %>%
-  filter(!is.na(propabun)) %>%
-  mutate(occurrence = ifelse(count>0, 1, 0))
-ggplot(data = shp)+
-  geom_sf(aes(color = propabun))
-
+#scale covariates
 fishcovariates <- fishcovariates[complete.cases(fishcovariates),]
-test <- fishcovariates[,c(2:3, 9:38)]
+test <- fishcovariates[,c(2:3, 9:41)]
 test <- data.frame(scale(test))
-
 fishcovariates <- cbind((fishcovariates)[,c(1, 4:8)], test)
 
 
-#join the counts to the tidying covariates, fishcovariates
+#join the fish species counts to the covariates, fishcovariates
 dat <- left_join(counts, fishcovariates, by = "UID")
 
-
+#create a presence absence column
 dat <- dat %>% 
   mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
-  select(UID, common_name, occurrence, propabun, state, huc8_name, 14:45)
+  select(UID, common_name, occurrence, propabun, state, huc8_name, 14:48)
 
 
-#plot of variables vs proportional abundance
-dat$occurrence <- as.factor(dat$occurrence)
-ggplot(data = dat, mapping = aes(x = occurrence, y = W95_HIST))+
-  geom_violin(lwd = 1, fill = "azure1")+
-  geom_boxplot(width = 0.1, lwd = .5, color = "grey30", fill = "cornflowerblue")+
-  geom_smooth(method = "lm")+
-    theme(panel.border = element_rect(colour = "black", fill = NA),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank(),
-          panel.background = element_blank(),
-          axis.title = element_text(size = 15),
-          axis.text = element_text(size = 11))+
-  labs(title = "white sucker",
-       x = "Presence / Absence",
-       y = "Winter Storms (#)")
-ggsave(
-    filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/suckercounts.png",
-    plot = last_plot(),
-    width = 12,
-    height = 10,
-    units = "cm",
-    dpi = 300
-  )
-
-#histogram of relative abundance
-# ggplot(data = dat, mapping = aes(x = propabun))+
-#   geom_histogram()
-# #histogram of relative abundance without the zeros so we can see the other data
-# ggplot(data = dat[dat$occurrence ==1,], mapping = aes(x = propabun))+
-#   geom_histogram()
-# 
-# #map of observed relative abundance - need to join to the shapefile with UID
-# rel_abundance <- left_join(fish_shp, dat, by ="UID") 
-# ggplot(data = rel_abundance)+
-#   geom_sf(aes(fill = as.factor(occurrence), size = propabun), pch = 21, color = "black")
+# #plot of variable vs proportional abundance as a reality check
+# dat$occurrence <- as.factor(dat$occurrence)
+# ggplot(data = dat, mapping = aes(x = occurrence, y = W95_HIST))+
+#   geom_violin(lwd = 1, fill = "azure1")+
+#   geom_boxplot(width = 0.1, lwd = .5, color = "grey30", fill = "cornflowerblue")+
+#   geom_smooth(method = "lm")+
+#     theme(panel.border = element_rect(colour = "black", fill = NA),
+#           panel.grid.major = element_blank(),
+#           panel.grid.minor = element_blank(),
+#           panel.background = element_blank(),
+#           axis.title = element_text(size = 15),
+#           axis.text = element_text(size = 11))+
+#   labs(title = "white sucker",
+#        x = "Presence / Absence",
+#        y = "Winter Storms (#)")
+# ggsave(
+#     filename = "C:/Users/jenrogers/Documents/git/FreshwaterBio/FreshwaterBio/tmpfigures/suckercounts.png",
+#     plot = last_plot(),
+#     width = 12,
+#     height = 10,
+#     units = "cm",
+#     dpi = 300
+#   )
 
 
-#two options to further reduce the variable list:
 
-# PCA to combine all the variables used in the conditional model (or both models?) need to do this
-
-#simple binomial models to identify which variables are not related to the outcome
-# mdl <- glmmTMB(propabun ~ huc8_damcount,
-#                data = dat,
-#                family = "binomial")
-# summary(mdl)
-
+#revalue locations that have a proportional abundance value of '1' to be 0.99 to satisty beta model requirements
 dat$propabun[dat$propabun == 1] <- 0.99
+
+#remove rows without a full set of covariates
 dat <- dat %>% 
   filter(!is.na(lat))
 
@@ -444,7 +424,7 @@ val_zero_prob <- data.frame(
 )
 
 
-#Start the for loop here
+#Start the for loop here for the remaining 52 species
 
 for (i in 2:length(unique(fish_count_with_zeros_filtered$common_name))) { #start with 2 bc we used white sucker as the started spp above
   
@@ -640,6 +620,10 @@ write.csv(prop_abun_validation, file = "tmpfigures/prop_abun_validation.csv")
 
 #all the species models (53 total) had model convergence
 
+write.csv(results, file = "tmpfigures/raw_results.csv")
+
+read.csv("tmpfigures/raw_results.csv")
+
 cond <- results %>% 
   filter(model == "conditional")
 
@@ -723,7 +707,7 @@ write.csv(results_zer, file = "tmpfigures/zeroinfla_results.csv")
 
 
 
-#make plots for manuscript one that show the model performance: a series of histograms that show the counts of accuracy, sensitivity, specificity
+#Manuscript Figure 1 that show the model performance: a series of histograms that show the counts of accuracy, sensitivity, specificity:
 prop_abun_validation <- read.csv("tmpfigures/prop_abun_validation.csv")
 df <- prop_abun_validation %>% 
   select(common_name, accuracy, sensitivity, Specificity) %>% 
@@ -784,7 +768,7 @@ ggplot(data = df, aes(x = reorder(common_name, -perc_pres), y = perc_pres))+
           panel.background = element_blank(),
         axis.text = element_text(size = 15),
         axis.title = element_text(size = 20),
-        axis.text.x = element_text(angle=45, hjust=1),
+        axis.text.x = element_text(angle=50, hjust=1),
         title = element_text(size = 20))+
   labs(x = NULL, y = "Ratio")+
   coord_cartesian(ylim = c(0, .6)) +
@@ -928,7 +912,7 @@ composit_OR_figs <- left_join(results_zer, clusters, by = "common_name") %>%
 #rename variables to make more interpret able
 composit_OR_figs$variable[composit_OR_figs$variable == "annual_mean_summer_temp"] <- "Mean summer T"
 composit_OR_figs$variable[composit_OR_figs$variable == "huc12_damden_sqkm"] <- "Dam density"
-composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "Baseflow index"
+composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "BFI (reach)"
 composit_OR_figs$variable[composit_OR_figs$variable == "LO7Q1DT_HIST"] <- "Low flow date"
 composit_OR_figs$variable[composit_OR_figs$variable == "W95_HIST"] <- "Winter floods"
 composit_OR_figs$variable[composit_OR_figs$variable == "logMJJA_HIST"] <- "Summer flow"
@@ -941,19 +925,19 @@ composit_OR_figs$variable[composit_OR_figs$variable == "pctWetland_Cat"] <- "Wet
 composit_OR_figs$variable[composit_OR_figs$variable == "pctAg_Ws"] <- "Agriculture"
 composit_OR_figs$variable[composit_OR_figs$variable == "PctImp_Ws"] <- "Impervious"
 composit_OR_figs$variable[composit_OR_figs$variable == "WtDepWs"] <- "Water table dep"
-composit_OR_figs$variable[composit_OR_figs$variable == "logPctOw_Cat"] <- "Open water"
+composit_OR_figs$variable[composit_OR_figs$variable == "logPctOw_Cat"] <- "Open water (Cat)"
 
 #order the variables so they occurr in the correct/ same order for all figures
-composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("Mean summer T", "Baseflow index", "Summer flow", "Low flow date", "Winter floods", 
+composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("Mean summer T", "BFI (reach)", "Summer flow", "Low flow date", "Winter floods", 
                                                           "BFIWs", "Water table dep", "Impervious", "Agriculture", 
                                                           "Wetland", "Dam density",
-                                                          "Dam count", "LogRdCrsCat", "PctOw_Ws", "Open water", 
+                                                          "Dam count", "LogRdCrsCat", "PctOw_Ws", "Open water (Cat)", 
                                                           "Latitude", "Longitude", "Elevation", "Watershed area"))
 
 composit_OR_figs <- composit_OR_figs %>% 
-  filter(variable %in% c("Mean summer T", "Baseflow index", "Summer flow", "Low flow date", "Winter floods", 
+  filter(variable %in% c("Mean summer T", "BFI (reach)", "Summer flow", "Low flow date", "Winter floods", 
                                                           "Water table dep", "Impervious", "Agriculture", 
-                                                          "Wetland", "Dam density","Open water", 
+                                                          "Wetland", "Dam density","Open water (Cat)", 
                                                           "Latitude", "Elevation", "Watershed area"))
 
 composit_OR_fig_tmpclust <- composit_OR_figs%>% 
@@ -1021,6 +1005,7 @@ composit_OR_fig_BT <- composit_OR_figs%>%
   filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
 
 
+#Manuscript Figures 7 and 8
 a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR))+
   geom_point(size = 1.5, position=position_dodge(width=0.5))+
   geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+

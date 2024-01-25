@@ -1,0 +1,10 @@
+---
+title: "Untitled"
+author: "Jenny Rogers"
+date: "2023-12-18"
+output: html_document
+---
+
+Title: Freshwater fish biodiversity and distribution in the Northeastern United States
+
+Few sentences describing the repo: This software contains 3 separate R Markdown files and 1 R script file that comprise an analysis to 1. collate freshwater fish survey data from within the northeastern United States, 2. develop separate models to predict the probability of occurrence and the proportional abundance of 53 freshwater fish species, and 3. combine model results by fish species traits and habitat characteristics into novel biodiversity groups to investigate the drivers and distribution of these groups within the study region. 

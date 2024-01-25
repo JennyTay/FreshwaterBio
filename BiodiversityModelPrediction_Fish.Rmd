@@ -28,7 +28,7 @@ test <- NHDplusV2_NewEngCrop %>%
   data.frame() %>% 
   select(-geometry)
 
-test <- test[,c(7:8, 10:39)]
+test <- test[,c(7:8, 10:42)]
 
 #we need to scale these variables, but first I will calculate the mean and sd of each column, bc we will need to use these values to scale these variables in the predicted scenarios
 
@@ -93,7 +93,7 @@ flowclust <- flowclust %>%
 
 #proportional abundance predictions
 
-file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "^propabun_")
 
 i <- 1
 
@@ -136,7 +136,7 @@ load(file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NH
 pred <- cbind(NHDplusV2_NewEngCrop, predictions)
 pred <- pred %>%
   data.frame %>% 
-  pivot_longer(40:92, values_to = "propabun", names_to = "common_name") 
+  pivot_longer(43:95, values_to = "propabun", names_to = "common_name") 
 pred$common_name <- gsub("propabun_", "", pred$common_name)
 pred$common_name <- gsub(".rds", "", pred$common_name)
 pred$common_name <- gsub("\\.", " ", pred$common_name)
@@ -307,8 +307,8 @@ a <- ggplot(data = TC)+
         axis.ticks = element_blank(),
         legend.text = element_text(size = 8),
         legend.title = element_text(size = 8),
-        legend.position = c(0.93, 0.10),
-        legend.key.size = unit(.15, "cm"))+
+        legend.position = c(0.94, 0.10),
+        legend.key.size = unit(.2, "cm"))+
   ggtitle("A) Temperature Clusters")+
   labs(fill = "P.Abun.")
 
@@ -354,10 +354,10 @@ b <- ggplot(data = FC)+
           panel.background = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        legend.text = element_text(size = 7),
-        legend.title = element_text(size = 7),
-        legend.position = c(0.93, 0.10),
-        legend.key.size = unit(.15, "cm"),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.position = c(0.94, 0.10),
+        legend.key.size = unit(.2, "cm"),
         plot.margin = unit(c(1, 1, 1, 1), "mm"))+
   ggtitle("B) Streamflow Clusters")+
   labs(fill = "P.Abun.")
@@ -406,8 +406,8 @@ c <- ggplot(data = TA)+
         legend.text = element_text(size = 5),
         strip.text = element_text(size = 8),
         title = element_text(size = 10),
-        legend.position = c(0.90, 0.25),
-        legend.key.size = unit(.15, "cm"),
+        legend.position = c(0.93, 0.25),
+        legend.key.size = unit(.25, "cm"),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
         plot.margin = unit(c(1, 1, 1, 1), "mm"))+
@@ -421,6 +421,7 @@ ggsave(c, file = "tmpfigures/paper1/TempGuilds.png",
     dpi = 300)
 
 #Fluvial guilds
+pred$tolerance[pred$tolerance == "generalist"] <- "Macrohab. Generalist"
 FA <- pred %>% 
   select(COMID, huc12_name, huc12_tnmid, common_name, tolerance, propabun) %>% 
   unique() %>% 
@@ -452,8 +453,8 @@ d <- ggplot(data = FA)+
           panel.background = element_blank(),
         legend.text = element_text(size = 5),
         strip.text = element_text(size = 8),
-        legend.position = c(0.90, 0.25),
-        legend.key.size = unit(.15, "cm"),
+        legend.position = c(0.93, 0.25),
+        legend.key.size = unit(.25, "cm"),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
         title = element_text(size = 10),
@@ -501,11 +502,12 @@ OG2 <- ggplot(data = OG)+
         legend.text = element_text(size = 5),
         strip.text = element_text(size = 8),
         legend.position = c(0.90, 0.25),
-        legend.key.size = unit(.15, "cm"),
+        legend.key.size = unit(.25, "cm"),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
         title = element_text(size = 10),
         plot.margin = unit(c(1, 1, 1, 1), "mm"))+
+  ggtitle("D) Origin Groups")+
   labs(fill = NULL)
 
 
@@ -535,10 +537,6 @@ e <- ggplot(data = BT)+
           panel.background = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
-        legend.text = element_text(size = 5),
-        legend.title = element_text(size = 5),
-        legend.position = c(0.78, 0.21),
-        legend.key.size = unit(.25, "cm"),
         title = element_text(size = 10),
         plot.margin = unit(c(1, 1, 1, 1), "mm"))+
   ggtitle("C) Brook Trout")+
@@ -576,8 +574,6 @@ locationalMap <- ggplot(data = US)+
         legend.position = "none",
         title = element_text(size = 10))+
   ggtitle("E) Study Location")
-
-
 
 
 fig2 <- gridExtra::grid.arrange(arrangeGrob(c,d, ncol = 2),
@@ -652,6 +648,7 @@ library(GGally)
 ggpairs(compare)
 names(compare)
 
+names(compare)[names(compare) == "Macrohab. Generalist"] <-  "Macrohabitat Generalist"
 test <- cor(compare)
 test <- test %>% 
   data.frame() %>% 
@@ -659,7 +656,8 @@ test <- test %>%
   filter(rownames(test) %in% c("Tempclust_1", "Tempclust_2", "Tempclust_3", "Tempclust_4", 
                                "Tempclust_5", "Tempclust_6", "Flowclust_1", "Flowclust_2", 
                                "Flowclust_3", "Flowclust_4", "Flowclust_5", "Flowclust_6")) %>%
-  rename("Fluvial Specialist"="Fluvial.Specialist",  "Fluvial Dependent" = "Fluvial.Dependent", "Brook Trout" = "Brook.Trout") %>% 
+  rename("Fluvial Specialist"="Fluvial.Specialist",  "Fluvial Dependent" = "Fluvial.Dependent", "Brook Trout" = "Brook.Trout",
+         "Macrohabitat Generalist" = "Macrohabitat.Generalist") %>% 
   as.matrix()
 
 library(corrplot)
@@ -774,6 +772,7 @@ df9 <- df7 %>%
                       "brook trout","native", "introduced" ))
 df9$trait[df9$trait == "native"] <- "Native"
 df9$trait[df9$trait == "introduced"] <- "Introduced"
+df9$trait[df9$trait == "generalist"] <- "Macrohabitat Generalist"
 
 ggplot(data = df8, mapping = aes(x = trait, y = propabun))+
   geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+ 
@@ -784,7 +783,7 @@ ggplot(data = df8, mapping = aes(x = trait, y = propabun))+
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
-        axis.text = element_text(size = 8),
+        axis.text = element_text(size = 10),
         axis.title = element_text(size = 12))+
   geom_hline(yintercept = 0.5, linetype = "dashed", color = "red")+
   geom_hline(yintercept = 0.25, linetype = "dashed", color = "red") +
@@ -798,19 +797,19 @@ ggsave(plot = last_plot(),
 
 df9$trait <- str_to_title(df9$trait)
 df9$trait <- factor(df9$trait, levels = c("Cold", "Cool", "Warm", 
-                                          "Fluvial Specialist", "Fluvial Dependent","Generalist",
+                                          "Fluvial Specialist", "Fluvial Dependent","Macrohabitat Generalist",
                                           "Brook Trout", "Native", "Introduced" ))
 
 ggplot(data = df9, mapping = aes(x = trait, y = propabun))+
   geom_boxplot(outlier.size = .5, outlier.colour = "grey80")+
   facet_grid(rows = vars(elevation), cols = vars(latitude))+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+
   labs(x = "Grouping", y = "Average Proportional Abundance")+
     theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
           panel.grid.minor = element_blank(),
           panel.background = element_blank(),
-        axis.text = element_text(size = 8),
+        axis.text = element_text(size = 10),
         axis.title = element_text(size = 12))+
   geom_hline(yintercept = 0.5, linetype = "dashed", color = "red") +
   geom_hline(yintercept = 0.25, linetype = "dashed", color = "red") +

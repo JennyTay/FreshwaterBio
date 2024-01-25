@@ -1,0 +1,101 @@
+---
+title: "Climate Change Paper Software Releas"
+author: "Jenny Rogers"
+date: "2023-01-25"
+output: html_document
+---
+
+# Can management alleviate impacts of climate change to support freshwater fish and mussel biodiversity? 
+
+##Authors
+
+Jennifer B. Rogers, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA
+
+Rebecca O'Brien, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA
+
+Graziella V. DiRenzo, U.S. Geological Survey, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA 
+
+Rebecca M. Quiñones, Massachusetts Division of Fisheries and Wildlife, 1 Rabbit Hill, Westborough, MA 01581, USA
+
+Todd Richards, Massachusetts Division of Fisheries and Wildlife, 1 Rabbit Hill, Westborough, MA 01581, USA
+
+Allison H. Roy, U.S. Geological Survey, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA
+
+
+##Information
+
+Repository Type: Program R scripts
+
+Year of Origin: 2021
+
+Year of Version: 2024
+
+Version: 
+
+Digital Object Identifier (DOI): 
+
+USGS Information Product Data System (IPDS) no.:
+
+## Suggested Citation for Software
+Rogers, J.B., R. O'Brien, G.V. DiRenzo, R.M. Quiñones, T.Richards, A. H. Roy. 2023. Freshwater fish biodiversity and distribution in the Northeastern United States. Version 1.0.0: U.S. Geological Survey software release, https://doi.org/xxxxxx
+
+## Abstract
+
+This software contains X separate R Markdown files and X R script file that comprise an analysis to 1. use freshwater fish and mussel models to predict the impacts of climate change on certain groups of freshwater fish and mussel species of management intervnetions within the Northeast United state, and 2. asses the potential for different management interventions to mitigate various climate change impacts
+
+
+
+
+
+
+### File 1: BiodiversityModel_ClimateChangePaper.Rmd
+
+#### Data inputs:
+
+
+#### Overview: 
+example text: This R markdown file generally accomplishes 3 goals: 1. It spatially joins the hydrography data from the USGS National Hydrography Dataset to the fish survey event data such every fish survey is now associated with an NHDplus flowline, an NHDVersion2 flowline, a HUC12 watershed, a HUC10 watershed, and a HUC8 watershed. 2. It prepares the fish occurrence dataset using the 'all_fish_present.RData file'.  It assigns a 'zero' occurrence for all species not identified during each survey, so that now the data is in presence (1) and absence (2) format.  3. It prepares the fish count file in a similar manner - it assigns a zero to each fish species not identified in each survey using the all_fish_count.RData file.  
+
+#### Outputs:
+
+
+
+
+
+
+
+### File 2: BiodiversityModel_Mussel_HUC12.Rmd
+
+#### Data inputs:
+
+
+#### Overview: 
+
+#### Outputs:
+
+
+
+
+
+### File 3: BiodiversityModelPrediction_Mussel_HUC12_ClimateChangePaper.Rmd
+
+#### Data inputs:
+
+
+#### Overview: 
+
+
+#### Outputs:
+
+
+
+### File 4: BiodiversityMetricCalculations_ClimateChangePaper.Rmd
+
+
+#### Data inputs:
+
+
+#### Overview: 
+
+#### Outputs:
+

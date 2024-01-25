@@ -166,16 +166,42 @@ all_fish_event.shp
 ### File 13: tidying_FishTraits
 
 Data inputs:
+Copy Of Fish_Traits.xlsx
+fish_occurrence.RData
+thermalpref_origin_tolerance.xlsx
+fish_count_with_zeros.RData
 
-Overview:
+Overview: This R script combines fish species trait data from different sources:  
+1. spawn time, spawn substrate and stream veloicity from: Emmanuel Frimpong, and Paul L. Angermeier, 200811, Fish Traits Database: USGS, http://www.tandfonline.com/doi/abs/10.1577/1548-8446-34.10.487 
+2. Habitat guild assignments based on our partner expertise.
 
 Outputs:
+velocity.csv
+spawntime.csv
+fish_traits.RData
 
 ### File 14: fishanalysis.Rmd
 
 Data inputs:
-Overview:
+NHDflowline_NE.shp
+NHDplusV2_NewEngCrop.shp
+WBDHU8_NE.shp
+WBDHU10_NE.shp
+WBDHU12_NE.shp
+all_fish_presence.RData
+all_fish_method.RData
+all_fish_count.RData
+all_fish_size.RData
+
+Overview: This Rmarkdown file generally accomplishes 3 things: 1. It spatially joins the hydrography data from the NHD to the fish survey event data such every survey is now associated with an NHDplus flowline, an NHDVersion2 flowline, a HUC12 watershed, a HUC10 watershed, and a HUC8 watershed. 2. It prepares the fish occurrence dataset using the 'all_fish_present.RData file'.  It assigns a 'zero' occurrence for all species not identified during each survey, so that now the data is in presence (1) and absence (2) format.  3. It prepares the fish count file in a similar manner - it assigns a zero to each fish species not identified in each survey using the all_fish_count.RData file.  
+
 Outputs:
+fish_event_huc_join.RData
+fish_event_flowline_join.RData
+fish_event_flowlineV2_join.RData
+fish_occurrence.RData
+fish_count_with_zeros.RData
+
 
 
 

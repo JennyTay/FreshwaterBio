@@ -1,0 +1,896 @@
+---
+title: "Biodiversity Model"
+author: "Jenny Rogers"
+date: '2022-09-22'
+output: html_document
+---
+
+
+This is the biodiversity model, but slightly adjusted to included riparian imperviousness, riparian forest, and watershed forest % in the model, as opposed to watershed imperviousness.   This model will be used for the climate change and management paper (we are still using the original model in the paper 1)
+
+```{r}
+library(tidyverse)
+library(sf)
+library(lubridate)
+library(corrplot)
+library(caret)
+library(readxl)
+
+
+```
+
+
+In this first chunk, read in files: 
+
+```{r}
+#fish data
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData")
+fish_shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+#fish event and hydrography join
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowline_join.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowlineV2_join.RData")
+
+
+#watershed shape files
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+
+#load new england state data
+states <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/newenglandshape/NEWENGLAND_POLY.shp")
+
+
+
+#tidied covariates 
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates_byhuc12.RData")
+
+#fish traits
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp")
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin")
+
+```
+
+
+
+
+
+Proportional abundance at the stream reach scale
+```{r}
+#models at the stream reach scale
+library(glmmTMB)
+
+#filter the fish names to be only those that we agreed as a group we would include
+#we also excluded bowfin, white catfish, channel catfish, round whitefish, and walleye becuase when splitting into testing and trainng data, there was not enough 'present' observations and it was thowing a model errow
+fish_count_with_zeros_filtered <- fish_count_with_zeros %>% 
+  filter(common_name %in% c("american eel", "white perch", "rosyside dace",  
+                            "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "cutlips minnow", "green sunfish", 
+                            "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
+
+
+
+#calcuate proportional abundance (propabun)
+counts <- fish_count_with_zeros_filtered %>%
+  filter(gear == "efish_backpack") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = (count / totalcount)) %>% 
+  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m) %>% 
+  mutate(abund_km = count / (reach_length_m) *1000) %>% 
+  filter(common_name == "white sucker")
+
+
+
+#scale covariates
+fishcovariates <- fishcovariates[complete.cases(fishcovariates),]
+test <- fishcovariates[,c(2:3, 9:41)]
+test <- data.frame(scale(test))
+fishcovariates <- cbind((fishcovariates)[,c(1, 4:8)], test)
+
+
+#join the fish species counts to the covariates, fishcovariates
+dat <- left_join(counts, fishcovariates, by = "UID")
+
+#create a presence absence column
+dat <- dat %>% 
+  mutate(occurrence = ifelse(count>0, 1, 0)) %>% 
+  select(UID, common_name, occurrence, propabun, state, huc8_name, 14:48)
+
+
+
+#revalue locations that have a proportional abundance value of '1' to be 0.99 to satisty beta model requirements
+dat$propabun[dat$propabun == 1] <- 0.99
+
+#remove rows without a full set of covariates
+dat <- dat %>% 
+  filter(!is.na(lat))
+
+#set aside 20% for validation and put 80% into the calibration dataset
+n_obs <- nrow(dat)
+permuted_rows <- sample(n_obs)
+dat <- dat[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(3223)
+train <- dat[1:split, ]
+test <- dat[(split+1):n_obs, ]
+
+
+#global model
+mdl <- glmmTMB(propabun ~
+                 annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 PctOw_Ws + 
+                 pctForest_ws +
+                 pctAg_Ws +
+                 pctNatural_ripbuf100 +
+                 PctImp_WsRp100 +
+                 pctWetland_Cat + 
+                 huc12_damden_sqkm +
+                 lat +
+                 long +
+                 ElevCat +
+                 logWsAreaSqKm,
+                data = train,
+               ziformula = ~ annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 PctOw_Ws + 
+                 pctForest_ws +
+                 pctAg_Ws +
+                 pctNatural_ripbuf100 +
+                 PctImp_WsRp100 +
+                 pctWetland_Cat +
+                 huc12_damden_sqkm +
+                 lat +
+                 long +
+                 ElevCat +
+                 logWsAreaSqKm,
+               family = beta_family())
+
+summary(mdl)
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/_Mgmt_Paper_propabun_", unique(dat$common_name), ".rds", sep = ""))
+
+#make a table of the model resuls
+
+results1 <- 
+  data.frame(
+    "estimate" = summary(mdl)$coefficients$cond[,1],
+    "std_er" = summary(mdl)$coefficients$cond[,2],
+    "p_val" = summary(mdl)$coefficients$cond[,4],
+    "variable" = rownames(summary(mdl)$coefficients$cond),
+    "model" = "conditional")
+
+results2 <- 
+  data.frame(
+    "estimate" = summary(mdl)$coefficients$zi[,1],
+    "std_er" = summary(mdl)$coefficients$zi[,2],
+    "p_val" = summary(mdl)$coefficients$zi[,4],
+    "variable" = rownames(summary(mdl)$coefficients$zi),
+    "model" = "zeroinfla")
+
+results <- rbind(results1, results2)
+results$common_name <- unique(dat$common_name)
+
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
+
+predict_zer <- predict(mdl, test, type = 'zprob') #the probability of a zero
+
+#compare the predicted zeros to the actual zeros, the prediction prop abund to the actual prop abun
+#The last two are ranked predicted prop abund to the ranked actual prop abund. Even if the raw magnitudes differ, we would still want a positive relatiomship between the ranked values, so this is what I used to validate in the plot with r2 value
+compare <- data.frame(
+  "common_name" = test$common_name,
+  "occurrence" = factor(test$occurrence),
+  "propabun" = round(test$propabun, 2),
+  "pred_occurrence" = factor(ifelse(predict_zer > 0.7, 0, 1), levels = levels(factor(test$occurrence))),
+  "pred_propabun" = round(predict_resp, 2),
+  "rank_propabun" = as.numeric(ordered(round(test$propabun, 2))),
+  "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
+)
+
+compare <- compare %>% 
+  mutate(tmp = (pred_propabun - propabun)^2,
+         tmp2 = (sum(tmp, na.rm = T))/nrow(compare),
+         RMSE = sqrt(tmp2))
+
+compare <- na.omit(compare)
+r2_probabun <- cor(compare$propabun,  compare$pred_propabun)
+ggplot(data = compare, aes(x = propabun, y = pred_propabun))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm")+
+  labs(x = "Testing Data Prop Abun", y = "Predicted Prop Abun")+
+  annotate("text",x=.5,y=.2,label=r2_probabun,parse=TRUE, color = "red", size = 5)
+
+#validate the ranked prop abund values
+r2_rank_propabun <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
+
+ggplot(data = compare, aes(x = rank_propabun, y = rank_pred_propabun))+
+  geom_jitter(alpha = 0.1, size = 3)+
+  geom_smooth(method = "lm")+
+  labs(x = "Testing Data Prop Abun Rank", y = "Predicted Prop Abun Rank")+
+  annotate("text",x=20,y=5,label=r2_rank_propabun,parse=TRUE, color = "red", size = 5)
+ggsave(
+    filename = paste("tmpfigures/propabun_rank_compare/" , unique(train$common_name), ".png", sep = ""),
+    plot = last_plot(),
+    width = 14,
+    height = 9,
+    units = "cm",
+    dpi = 300
+  )
+
+val_prop_abun <- data.frame(
+  "common_name" = unique(train$common_name),
+  "r2_propabun" = r2_probabun,
+  "r2_rank_propabun" = r2_rank_propabun,
+  "RMSE" = unique(compare$RMSE)
+  
+)
+
+#validations for the predicted occurrence vs the actual occurrence
+compare$pred_occurrence <- factor(compare$pred_occurrence, levels = c(1,0))
+compare$occurrence <- factor(compare$occurrence, levels = c(1,0))
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val_zero_prob <- data.frame(
+  "common_name" = unique(train$common_name),
+  "test_dat_pres" = nrow(test[test$occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$occurrence == 0,]),
+  "train_dat_pres" = nrow(train[train$occurrence == 1, ]),
+  "train_dat_abs" = nrow(train[train$occurrence == 0, ]),
+  "accuracy" = round(cm$overall[1], 2),
+  "sensitivity" = round(cm$byClass[1], 2),
+  "Specificity" = round(cm$byClass[2], 2),
+  "Pos Pred Value" = round(cm$byClass[3], 2),
+  "Neg Pred Value" = round(cm$byClass[4], 2)
+)
+
+
+#Start the for loop here for the remaining 52 species
+
+for (i in 2:length(unique(fish_count_with_zeros_filtered$common_name))) { #start with 2 bc we used white sucker as the started spp above
+  
+
+
+counts <- fish_count_with_zeros_filtered %>%
+  filter(gear == "efish_backpack") %>% 
+  group_by(UID) %>% 
+  mutate(totalcount = sum(count)) %>% 
+  ungroup() %>% 
+  mutate(propabun = (count / totalcount)) %>% 
+  select(UID, count, totalcount, propabun, common_name, gear, reach_length_m) %>% 
+  mutate(abund_km = count / (reach_length_m) *1000) %>% 
+  filter(common_name == unique(fish_count_with_zeros_filtered$common_name)[i])
+
+
+#join the counts to the tidying covariates, fishcovariates
+dat <- left_join(counts, fishcovariates, by = "UID")
+dat$occurrence <- ifelse(dat$count>0, 1,0)
+dat <- dat[complete.cases(dat),]
+dat$propabun[dat$propabun == 1] <- 0.99
+dat <- dat %>% 
+  filter(!is.na(lat))
+
+#set aside 20% for validation and put 80% into the calibration dataset
+n_obs <- nrow(dat)
+permuted_rows <- sample(n_obs)
+dat <- dat[permuted_rows,]
+split <- round(n_obs * 0.8)
+set.seed(32435)
+train <- dat[1:split, ]
+test <- dat[(split+1):n_obs, ]
+
+#global model
+mdl <- glmmTMB(propabun ~
+                 annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 PctOw_Ws + 
+                 pctForest_ws +
+                 pctAg_Ws +
+                 pctNatural_ripbuf100 +
+                 PctImp_WsRp100 +
+                 pctWetland_Cat +
+                 huc12_damden_sqkm +
+                 lat +
+                 long +
+                 ElevCat +
+                 logWsAreaSqKm,
+                data = train,
+               ziformula = ~annual_mean_summer_temp + 
+                 BFI_HIST + 
+                 LO7Q1DT_HIST +
+                 W95_HIST + 
+                 BFIWs +   
+                 PctOw_Ws + 
+                 pctForest_ws +
+                 pctAg_Ws +
+                 pctNatural_ripbuf100 +
+                 PctImp_WsRp100 +
+                 pctWetland_Cat + 
+                 huc12_damden_sqkm +
+                 lat +
+                 long +
+                 ElevCat +
+                 logWsAreaSqKm,
+               family = beta_family())
+
+saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/_Mgmt_Paper_propabun_", unique(fish_count_with_zeros_filtered$common_name)[i], ".rds", sep = ""))
+
+#make a table of the model resuls
+
+
+results1 <- 
+  data.frame(
+    "estimate" = summary(mdl)$coefficients$cond[,1],
+    "std_er" = summary(mdl)$coefficients$cond[,2],
+    "p_val" = summary(mdl)$coefficients$cond[,4],
+    "variable" = rownames(summary(mdl)$coefficients$cond),
+    "model" = "conditional")
+
+results2 <- 
+  data.frame(
+    "estimate" = summary(mdl)$coefficients$zi[,1],
+    "std_er" = summary(mdl)$coefficients$zi[,2],
+    "p_val" = summary(mdl)$coefficients$zi[,4],
+    "variable" = rownames(summary(mdl)$coefficients$zi),
+    "model" = "zeroinfla")
+
+tmp <- rbind(results1, results2)
+tmp$common_name <- unique(fish_count_with_zeros_filtered$common_name)[i]
+
+
+
+results <- rbind(results, tmp)
+
+#use model to predict on testing data
+predict_resp <- predict(mdl, test, type = 'response') #the predicted value
+
+predict_zer <- predict(mdl, test, type = 'zprob') #the probability of a zero
+
+compare <- data.frame(
+  "common_name" = rep(unique(train$common_name), nrow(test)),
+  "occurrence" = factor(test$occurrence),
+  "propabun" = round(test$propabun, 2),
+  "pred_occurrence" = factor(ifelse(predict_zer > 0.7, 0, 1), levels = levels(factor(test$occurrence))),
+  "pred_propabun" = round(predict_resp, 2),
+  "rank_propabun" = as.numeric(ordered(round(test$propabun, 2))),
+  "rank_pred_propabun" = as.numeric(ordered(round(predict_resp, 2)))
+)
+
+compare <- compare %>% 
+  mutate(tmp = (pred_propabun - propabun)^2,
+         tmp2 = (sum(tmp, na.rm = T))/nrow(compare),
+         RMSE = sqrt(tmp2))
+
+r2_propabun <- cor(compare$propabun,  compare$pred_propabun)
+
+
+r2_rank_propabun <- cor(compare$rank_propabun,  compare$rank_pred_propabun)
+
+
+
+val_prop_abun2 <- data.frame(
+  "common_name" = unique(train$common_name),
+  "r2_propabun" = r2_propabun,
+  "r2_rank_propabun" = r2_rank_propabun,
+  "RMSE" = unique(compare$RMSE)
+  
+)
+
+val_prop_abun <- rbind(val_prop_abun, val_prop_abun2)
+
+compare$pred_occurrence <- factor(compare$pred_occurrence, levels = c(1,0))
+compare$occurrence <- factor(compare$occurrence, levels = c(1,0))
+
+cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
+
+val2 <- data.frame(
+  "common_name" = unique(train$common_name),
+  "test_dat_pres" = nrow(test[test$occurrence == 1,]),
+  "test_dat_abs" = nrow(test[test$occurrence == 0,]),
+  "train_dat_pres" = nrow(train[train$occurrence == 1, ]),
+  "train_dat_abs" = nrow(train[train$occurrence == 0, ]),
+  "accuracy" = round(cm$overall[1], 2),
+  "sensitivity" = round(cm$byClass[1], 2),
+  "Specificity" = round(cm$byClass[2], 2),
+  "Pos Pred Value" = round(cm$byClass[3], 2),
+  "Neg Pred Value" = round(cm$byClass[4], 2)
+)
+val_zero_prob <- rbind(val_zero_prob, val2)
+
+
+print(unique(fish_count_with_zeros_filtered$common_name)[i])
+
+}
+
+
+
+#cbind the two validation dfs so we can write a single csv
+prop_abun_validation <- cbind(val_zero_prob, val_prop_abun)
+prop_abun_validation <- prop_abun_validation %>% 
+  select(-11) %>% 
+  arrange(common_name)
+
+write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob_Mgmt_Paper.csv")
+write.csv(prop_abun_validation, file = "tmpfigures/prop_abun_validation_Mgmt_Paper.csv")
+
+#all the species models (53 total) had model convergence
+
+write.csv(results, file = "tmpfigures/raw_results_Mgmt_Paper.csv")
+
+read.csv("tmpfigures/raw_results_Mgmt_Paper.csv")
+
+cond <- results %>% 
+  filter(model == "conditional")
+
+
+
+zer <- results %>% 
+  filter(model == "zeroinfla") %>% 
+  mutate(estimate = -estimate)
+
+
+#conditional results: calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results2 <- cond %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, OR, ORCIlow, ORCIhigh, p_val) %>% 
+  mutate(OR = ifelse(p_val<0.001, paste(OR, "***", sep = ""),
+                     ifelse(p_val < 0.01 & p_val > 0.001, paste(OR, "**", sep = ""),
+                            ifelse(p_val < 0.1 & p_val > 0.01, paste(OR, "*", sep = ""),
+                                   OR)))) %>% 
+  filter(p_val <0.1)
+  
+rownames(results2) <- NULL
+
+#rename variables to make more interpretable
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "mean summer temp"
+results2$variable[results2$variable == "BFI_HIST"] <- "baseflow index"
+results2$variable[results2$variable == "LO7Q1DT_HIST"] <- "low flow date"
+results2$variable[results2$variable == "W95_HIST"] <- "winter floods"
+results2$variable[results2$variable == "lat"] <- "latitude"
+results2$variable[results2$variable == "long"] <- "longitude"
+results2$variable[results2$variable == "ElevCat"] <- "elevation"
+results2$variable[results2$variable == "logWsAreaSqKm"] <- "watershed area"
+results2$variable[results2$variable == "pctWetland_Cat"] <- "Wetland (cat)"
+results2$variable[results2$variable == "PctImp_WsRp100"] <- "Impervious (Rip)"
+results2$variable[results2$variable == "pctNatural_ripbuf100"] <- "Natural (Rip)"
+results2$variable[results2$variable == "PctOw_Ws"] <- "Open Water (Ws)"
+results2$variable[results2$variable == "pctForest_ws"] <- "Forest (Ws)"
+results2$variable[results2$variable == "pctAg_Ws"] <- "Agriculture (Ws)"
+results2$variable[results2$variable == "BFIWs"] <- "BFI (Ws)"
+results2$variable[results2$variable == "huc12_damden_sqkm"] <- "dam density"
+
+
+write.csv(results2, file = "tmpfigures/propabun_results_Mgmt_Paper.csv")
+prop_abun_results <- read.csv("tmpfigures/propabun_results_Mgmt_Paper.csv")
+
+
+#zero inflation results: calucate the z score, pvalue, and the upr and lwr CI, and then exponentiate the coef and upr/lower bounds to get odds ratio units
+results_zer <- zer %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, OR, ORCIlow, ORCIhigh, p_val) %>% 
+  mutate(OR = ifelse(p_val<0.001, paste(OR, "***", sep = ""),
+                     ifelse(p_val < 0.01 & p_val > 0.001, paste(OR, "**", sep = ""),
+                            ifelse(p_val < 0.1 & p_val > 0.01, paste(OR, "*", sep = ""),
+                                   OR)))) %>% 
+  filter(p_val <0.1)
+  
+rownames(results_zer) <- NULL
+
+#rename variables to make more interpretable
+results_zer$variable[results_zer$variable == "annual_mean_summer_temp"] <- "mean summer temp"
+results_zer$variable[results_zer$variable == "BFI_HIST"] <- "baseflow index"
+results_zer$variable[results_zer$variable == "LO7Q1DT_HIST"] <- "low flow date"
+results_zer$variable[results_zer$variable == "W95_HIST"] <- "winter floods"
+results_zer$variable[results_zer$variable == "lat"] <- "latitude"
+results_zer$variable[results_zer$variable == "long"] <- "longitude"
+results_zer$variable[results_zer$variable == "ElevCat"] <- "elevation"
+results_zer$variable[results_zer$variable == "logWsAreaSqKm"] <- "watershed area"
+results_zer$variable[results_zer$variable == "pctWetland_Cat"] <- "Wetland (cat)"
+results_zer$variable[results_zer$variable == "PctImp_WsRp100"] <- "Impervious (Rip)"
+results_zer$variable[results_zer$variable == "pctNatural_ripbuf100"] <- "Natural (Rip)"
+results_zer$variable[results_zer$variable == "PctOw_Ws"] <- "Open Water (Ws)"
+results_zer$variable[results_zer$variable == "pctForest_ws"] <- "Forest (Ws)"
+results_zer$variable[results_zer$variable == "pctAg_Ws"] <- "Agriculture (Ws)"
+results_zer$variable[results_zer$variable == "BFIWs"] <- "BFI (Ws)"
+results_zer$variable[results_zer$variable == "huc12_damden_sqkm"] <- "dam density"
+
+
+
+write.csv(results_zer, file = "tmpfigures/zeroinfla_results_Mgmt_Paper.csv")
+
+
+
+
+#Manuscript Figure 1 that show the model performance: a series of histograms that show the counts of accuracy, sensitivity, specificity:
+prop_abun_validation <- read.csv("tmpfigures/prop_abun_validation_Mgmt_Paper.csv")
+df <- prop_abun_validation %>% 
+  select(common_name, accuracy, sensitivity, Specificity) %>% 
+  rename("Accuracy" = "accuracy", "Sensitivity" = "sensitivity") %>% 
+  pivot_longer(2:4, names_to = "metric", values_to = "value") 
+ggplot(data = df, aes(x = value))+
+  geom_histogram(bins = 10, fill = "grey", color = "black")+
+  facet_wrap(~metric)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", linewidth = 0.1),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        title = element_text(size = 12))+
+  labs(x = "Proportion", y = "Count")+
+  ggtitle("A")
+ggsave(
+    filename = "tmpfigures/paper2/validationhistogram_zero_Mgmt_Paper.png",
+    plot = last_plot(),
+    width = 14,
+    height = 5,
+    units = "cm",
+    dpi = 300)
+
+#histogram of the ranked prop abund correlations
+ggplot(data = prop_abun_validation, aes(x = r2_rank_propabun))+
+  geom_histogram(bins = 15, fill = "grey", color = "black")+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_line(color = "grey", linewidth = 0.1),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 12),
+        title = element_text(size = 12))+
+  labs(x = "Correlation", y = "Count")+
+  scale_y_continuous(limits = c(0,10), breaks = c(2, 4, 6, 8, 10))+
+  ggtitle("B")
+ggsave(
+    filename = "tmpfigures/paper2/validationhistogram_propabun_Mgmt_Paper.png",
+    plot = last_plot(),
+    width = 14,
+    height = 5,
+    units = "cm",
+    dpi = 300)
+
+#bar plot of the ratio of spp presnce points to absnece points in the training data
+df <- prop_abun_validation %>% 
+  select(common_name, test_dat_pres, test_dat_abs) %>% 
+  mutate(perc_pres = test_dat_pres/test_dat_abs) %>% 
+  filter(perc_pres>0.05)
+df$common_name <- str_to_title(df$common_name)
+ggplot(data = df, aes(x = reorder(common_name, -perc_pres), y = perc_pres))+
+  geom_bar(stat = "identity", fill = "grey", color = "black")+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        axis.text.x = element_text(angle=50, hjust=1),
+        title = element_text(size = 20))+
+  labs(x = NULL, y = "Ratio")+
+  coord_cartesian(ylim = c(0, .6)) +
+  ggtitle("C")
+ggsave(
+    filename = "tmpfigures/paper2/testingdataratio_Mgmt_Paper.png",
+    plot = last_plot(),
+    width = 25,
+    height = 10,
+    units = "cm",
+    dpi = 300)
+
+#dot plot of the OR and the CI. The CI are so tiny bc the sample size is super big
+#need to remake the results df because when we added the asterisks to the OR column for the table, it is not longer a numeric varialbe
+results2 <- cond %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") 
+
+#rename variables to make more interpretable
+results2$variable[results2$variable == "annual_mean_summer_temp"] <- "Mean summer temp"
+results2$variable[results2$variable == "BFI_HIST"] <- "Baseflow index (rch)"
+results2$variable[results2$variable == "LO7Q1DT_HIST"] <- "Low flow date"
+results2$variable[results2$variable == "W95_HIST"] <- "Winter floods"
+results2$variable[results2$variable == "lat"] <- "Latitude"
+results2$variable[results2$variable == "long"] <- "Longitude"
+results2$variable[results2$variable == "ElevCat"] <- "Elevation"
+results2$variable[results2$variable == "logWsAreaSqKm"] <- "Watershed area"
+results2$variable[results2$variable == "pctWetland_Cat"] <- "Wetland (cat)"
+results2$variable[results2$variable == "PctImp_WsRp100"] <- "Impervious (Rip)"
+results2$variable[results2$variable == "pctNatural_ripbuf100"] <- "Natural (Rip)"
+results2$variable[results2$variable == "PctOw_Ws"] <- "Open Water (Ws)"
+results2$variable[results2$variable == "pctForest_ws"] <- "Forest (Ws)"
+results2$variable[results2$variable == "pctAg_Ws"] <- "Agriculture (Ws)"
+results2$variable[results2$variable == "BFIWs"] <- "BFI (Ws)"
+results2$variable[results2$variable == "huc12_damden_sqkm"] <- "Dam density"
+
+#order the variables so they occurr in the correct/ same order for all figures
+results2$variable <- factor(results2$variable, levels = c("Mean summer temp", "Baseflow index", "Low flow date", 
+                                                          "Winter floods", 
+                                                          "Wetland (cat)", "Impervious (Rip)", "Natural (Rip)", "Open Water (Ws)", "Forest (Ws)", "Agriculture (Ws)", 
+                                                          "BFI (Ws)", "Dam density", 
+                                                          "Latitude", "Longitude", "Elevation", "Watershed area"))
+
+
+
+# make composite OR plots to show how different temperature, tolerance, origin,  groups respond to the variables on average
+# do this using the zero inflated model component
+
+
+#prepare the zero inflation results file
+results_zer <- zer %>% 
+  mutate(CIlow = estimate - (1.96*std_er),
+         CIhigh = estimate + (1.96*std_er),
+         OR = round(exp(estimate), 2),
+         ORCIlow = round(exp(CIlow), 2),
+         ORCIhigh = round(exp(CIhigh), 2)) %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, OR, ORCIlow, ORCIhigh, p_val)
+
+
+#fish traits
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_traits.RData")
+temperature <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 1,
+                  range = cell_cols("A:G")) %>% 
+  pivot_longer(2:7, names_to = "state", values_to = "tmp") %>% 
+  filter(!is.na(tmp),
+         !tmp == "eury",
+         !(common_name %in% c("american brook lamprey") & tmp == "cold"),
+         !(common_name %in% c("common shiner", "white sucker", "smallmouth bass", "fallfish") & tmp == "warm")) %>% 
+  select(-state) %>% 
+  unique()
+
+origin <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/thermalpref_origin_tolerance.xlsx",
+                  sheet = 2,
+                  range = cell_cols("A:G"))%>% 
+  pivot_longer(2:7, names_to = "state", values_to = "origin") %>% 
+  filter(!is.na(origin),
+         !(common_name == "spottail shiner" & origin == "introduced"),
+         !origin == "unk") %>% 
+  select(-state) %>%  
+  unique()
+
+tolerance <- final_traits %>% 
+  select(common_name, tolerance) %>% 
+  unique()
+
+#composite OR figures by cluster - can change the cluster csv to _bytemperature, _bystreamflow, or just fish clusters
+clusters <- read.csv("tmpfigures/fishclusters_bytemperature.csv")
+clusters <- clusters %>% 
+  select(-1) %>% 
+  rename(cluster_TP = final.cluster)
+
+clusters2 <- read.csv("tmpfigures/fishclusters_bystreamflow.csv")
+clusters2 <- clusters2 %>% 
+  select(-1) %>% 
+  rename(cluster_SF = final.cluster)
+
+composit_OR_figs <- left_join(results_zer, clusters, by = "common_name") %>% 
+  left_join(temperature, by  = "common_name") %>% 
+  left_join(clusters2, by  = "common_name") %>% 
+  left_join(origin, by = "common_name") %>% 
+  left_join(tolerance, by = "common_name") %>% 
+  filter(! OR > 20,
+         ! ORCIhigh > 20)
+
+#rename variables to make more interpret able
+
+composit_OR_figs$variable[composit_OR_figs$variable == "annual_mean_summer_temp"] <- "Mean summer temp"
+composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "Baseflow index (rch)"
+composit_OR_figs$variable[composit_OR_figs$variable == "LO7Q1DT_HIST"] <- "Low flow date"
+composit_OR_figs$variable[composit_OR_figs$variable == "W95_HIST"] <- "Winter floods"
+composit_OR_figs$variable[composit_OR_figs$variable == "lat"] <- "Latitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "long"] <- "Longitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "ElevCat"] <- "Elevation"
+composit_OR_figs$variable[composit_OR_figs$variable == "logWsAreaSqKm"] <- "Watershed area"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctWetland_Cat"] <- "Wetland (cat)"
+composit_OR_figs$variable[composit_OR_figs$variable == "PctImp_WsRp100"] <- "Impervious (Rip)"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctNatural_ripbuf100"] <- "Natural (Rip)"
+composit_OR_figs$variable[composit_OR_figs$variable == "PctOw_Ws"] <- "Open Water (Ws)"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctForest_ws"] <- "Forest (Ws)"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctAg_Ws"] <- "Agriculture (Ws)"
+composit_OR_figs$variable[composit_OR_figs$variable == "BFIWs"] <- "BFI (Ws)"
+composit_OR_figs$variable[composit_OR_figs$variable == "huc12_damden_sqkm"] <- "Dam density"
+
+#order the variables so they occurr in the correct/ same order for all figures
+composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("Mean summer temp", "Baseflow index", "Low flow date", 
+                                                          "Winter floods", 
+                                                          "Wetland (cat)", "Impervious (Rip)", "Natural (Rip)", "Open Water (Ws)", "Forest (Ws)", "Agriculture (Ws)", 
+                                                          "BFI (Ws)", "Dam density",
+                                                          "Latitude", "Longitude", "Elevation", "Watershed area"))
+
+
+
+composit_OR_fig_tmpclust <- composit_OR_figs%>% 
+  filter(!is.na(cluster_TP),
+         common_name !="brook trout") %>%
+  group_by(cluster_TP, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 1] <- "1-cold, mid elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 2] <- "2-warm, sm watersheds"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 3] <- "3-cool, low elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 4] <- "4-cool, mid elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 5] <- "5-cold, high elevation"
+composit_OR_fig_tmpclust$cluster_TP[composit_OR_fig_tmpclust$cluster_TP == 6] <- "6-warm, lg watersheds"
+
+composit_OR_fig_flowclust <- composit_OR_figs%>% 
+  filter(!is.na(cluster_SF),
+         common_name !="brook trout") %>%
+  group_by(cluster_SF, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 1] <- "1-Many floods, med Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 2] <- "2-Mod floods, low Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 3] <- "3-Many floods, low Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 4] <- "4-mod floods, med Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 5] <- "5-Many floods, high Su Q"
+composit_OR_fig_flowclust$cluster_SF[composit_OR_fig_flowclust$cluster_SF == 6] <- "6-Few floods, med Su Q"
+
+
+composit_OR_fig_tempGrops <- composit_OR_figs%>% 
+  filter(!is.na(tmp),
+         common_name !="brook trout") %>%
+  group_by(tmp, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_tempGrops$tmp <- str_to_title(composit_OR_fig_tempGrops$tmp)
+
+composit_OR_fig_tol <- composit_OR_figs%>% 
+  filter(!is.na(tolerance),
+         common_name !="brook trout") %>%
+  group_by(tolerance, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_tol$tolerance <- str_to_title(composit_OR_fig_tol$tolerance)
+
+composit_OR_fig_origin <- composit_OR_figs%>% 
+  filter(!is.na(origin)) %>%
+  group_by(origin, variable) %>% 
+  summarise(OR = median(OR, na.rm = T),
+            ORCIlow = median(ORCIlow, na.rm = T),
+            ORCIhigh = median(ORCIhigh, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+
+composit_OR_fig_BT <- composit_OR_figs%>% 
+  filter(common_name == "brook trout",
+         !is.na(common_name)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+
+
+#Manuscript Figures 7 and 8
+a <- ggplot(data = composit_OR_fig_tmpclust, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,4))+
+  facet_wrap(~as.factor(cluster_TP), nrow = 2)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = "Odds ratio", title = "A) Temperature Clusters")
+
+b <- ggplot(data = composit_OR_fig_flowclust, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,4))+
+  facet_wrap(~as.factor(cluster_SF), nrow = 2)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = "Odds ratio", title = "A) Streamflow Clusters")
+
+c <- ggplot(data = composit_OR_fig_tempGrops, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  facet_wrap(~as.factor(tmp), nrow = 6)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "B) Temp Guilds")
+d <- ggplot(data = composit_OR_fig_tol, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  facet_wrap(~as.factor(tolerance), nrow = 6)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "B) Habitat Guilds")
+
+e <- ggplot(data = composit_OR_fig_BT, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip()+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 18),
+        axis.text = element_text(size = 15))+
+  labs(y = NULL, title = "C) Brook Trout")
+
+ggsave(e, file = "tmpfigures/paper2/CompositORPlotsBT.png", 
+    width = 15,
+    height = 10,
+    units = "cm",
+    dpi = 300)
+
+library(cowplot)
+g <- plot_grid(a,c, align = "h", nrow = 1, rel_widths = c(2/3, 1/3))
+ggsave(g, file = "tmpfigures/paper2/CompositORPlots3.png", 
+    width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+g <- plot_grid(b,d, align = "h", nrow = 1, rel_widths = c(2/3, 1/3))
+ggsave(g, file = "tmpfigures/paper2/CompositORPlots4.png", 
+    width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+```

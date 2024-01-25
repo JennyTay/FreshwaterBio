@@ -38,17 +38,6 @@ mussel_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/Spatia
 ```
 
 
-Calcuate some metadata for the climate change paper (Nov 27, 2023)
-```{r}
-table(mussel_event$state)
-dates <- mussel_event %>% 
-  group_by(state) %>% 
-  summarise(start = min(date, na.rm = T),
-            end = max(date, na.rm = T))
-min(mussel_event$date, na.rm = T)
-max(mussel_event$date, na.rm = T)
-nrow(mussel_event[mussel_event$date>mdy(01011985),]) / nrow(mussel_event)
-```
 
 Chuck2:
 Spatially join the huc and the flowline data to the all_mussel_event so that every mussel surveying event is aligned with hydrologic data.
@@ -105,8 +94,20 @@ mussel_event_huc_join <- st_join(mussel_event, huc8, left = FALSE)
 mussel_event_huc_join <- st_join(mussel_event_huc_join, huc10, left = FALSE)
 mussel_event_huc_join <- st_join(mussel_event_huc_join, huc12, left = FALSE)
 
+
 #metadata for the climate change paper
+table(mussel_event_huc_join$state) #surveys per state
 nrow(mussel_event_huc_join) #total number of surveys 
+nrow(mussel_event_huc_join[mussel_event_huc_join$date>mdy(01011985),]) / nrow(mussel_event) #total surveys past 1985
+
+dates <- mussel_event_huc_join %>% 
+  group_by(state) %>% 
+  summarise(start = min(date, na.rm = T),
+            end = max(date, na.rm = T))
+min(mussel_event_huc_join$date, na.rm = T)
+max(mussel_event_huc_join$date, na.rm = T)
+
+
 table(mussel_event_huc_join$waterbody2)
 df <- mussel_event_huc_join %>% 
   data.frame() %>% 
@@ -262,6 +263,13 @@ metadata for the climate change paper
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
 
+#number of lotic surveys
+nrow(mussel_event_huc_join)
+
+#number of lotic surveys by state
+table(mussel_event_huc_join$state)
+
+#mussel species county by state
 df <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID")
 df <- df %>% 
   data.frame() %>% 
@@ -271,6 +279,7 @@ df <- df %>%
   group_by(state) %>% 
   summarise(count = n())
 
+#mussel species found in each state
 df <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID")
 df <- df %>% 
   data.frame() %>% 
@@ -282,6 +291,15 @@ df <- df %>%
 df <- mussel_occurrence %>% 
   unique() %>% 
   filter(live_occurrence == 1) %>% 
+  group_by(common_name) %>% 
+  summarise(count = n())
+
+#number of huc12s that each spp has been observed in
+df <- left_join(mussel_event_huc_join, mussel_occurrence, by = "UID") %>%
+  data.frame() %>% 
+  select(huc12_name, huc12_tnmid, common_name, live_occurrence) %>% 
+  filter(live_occurrence == 1) %>% 
+  unique() %>% 
   group_by(common_name) %>% 
   summarise(count = n())
 

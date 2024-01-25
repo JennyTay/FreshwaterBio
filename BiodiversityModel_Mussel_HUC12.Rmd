@@ -49,7 +49,7 @@ test <- NHDplusV2_NewEngCrop %>%
   data.frame() %>% 
   select(-geometry)
 
-test <- test[,c(7:8, 10:39)]
+test <- test[,c(7:8, 10:42)]
 
 #scale data
 test <- data.frame(scale(test))
@@ -115,7 +115,7 @@ NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
 #The predicted probability of occurrence of all fish (summed by stream reach – representing the total probability of occurrence of all species within a given reach) and averaged over a HUC12 – ultimately representing the average summed probability of occurrence of any fish species within a HUC12
 #using the zprob from the prop abund model
 
-file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "_Mgmt_Paper_propabun_")
 
 i <- 1
 
@@ -140,7 +140,7 @@ for (i in 2:53) {
   
 }
 
-colnames(predictions) <- gsub("propabun_", "pres_", colnames(predictions)) #the probabun is the title of the model, but we used the zero predict option so we need to change the column names
+colnames(predictions) <- gsub("_Mgmt_Paper_propabun_", "pres_", colnames(predictions)) #the _Mgmt_Paper_propabun_ is the title of the model, but we used the zero predict option so we need to change the column names
 
 
 #join the predictions to the list of comids
@@ -149,7 +149,7 @@ NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 #average by HUC10 becuase that is the scale we are modeling mussels
 fish_host_prob_occ <- NHDplusV2_NewEngCrop_baseline %>%
   data.frame() %>% 
-  select(huc12_name, huc12_tnmid, COMID, 40:92) %>% 
+  select(huc12_name, huc12_tnmid, COMID, 43:95) %>% 
   filter(!is.na(pres_brook.trout.rds),
          !is.na(huc12_name)) %>%
   pivot_longer(4:56, names_to = "common_name", values_to = "prob_occ") %>% 
@@ -168,7 +168,7 @@ fish_host_prob_occ <- NHDplusV2_NewEngCrop_baseline %>%
 #fish host covariate with proportional abundance for the perferred host fish. (Variable 3 and 4)
 
 
-file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "propabun_")
+file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "_Mgmt_Paper_propabun_")
 
 i <- 1
 
@@ -195,10 +195,10 @@ for (i in 2:53) {
 
 #select only the columns for preferred host fish
 predictions <- predictions %>% 
-  select("propabun_brown trout.rds", "propabun_rainbow trout.rds", "propabun_atlantic salmon.rds", "propabun_brook trout.rds",
-         "propabun_yellow perch.rds", "propabun_white perch.rds", "propabun_largemouth bass.rds", "propabun_bluegill.rds", "propabun_pumpkinseed.rds", 
-         "propabun_redbreast sunfish.rds", )
-names(predictions) <- gsub("propabun_", "", names(predictions))
+  select("_Mgmt_Paper_propabun_brown trout.rds", "_Mgmt_Paper_propabun_rainbow trout.rds", "_Mgmt_Paper_propabun_atlantic salmon.rds", "_Mgmt_Paper_propabun_brook trout.rds",
+         "_Mgmt_Paper_propabun_yellow perch.rds", "_Mgmt_Paper_propabun_white perch.rds", "_Mgmt_Paper_propabun_largemouth bass.rds", "_Mgmt_Paper_propabun_bluegill.rds", "_Mgmt_Paper_propabun_pumpkinseed.rds", 
+         "_Mgmt_Paper_propabun_redbreast sunfish.rds", )
+names(predictions) <- gsub("_Mgmt_Paper_propabun_", "", names(predictions))
 names(predictions) <- gsub(".rds", "", names(predictions))
 names(predictions) <- gsub("\\.", " ", names(predictions))
 
@@ -209,7 +209,7 @@ NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 #average by HUC10 becuase that is the scale we are modeling mussels
 fish_host_propabun <- NHDplusV2_NewEngCrop_baseline %>%
   data.frame() %>% 
-  select(COMID, huc12_name, huc12_tnmid, 40:49) %>% 
+  select(COMID, huc12_name, huc12_tnmid, 43:52) %>% 
   filter(!is.na(brook.trout),
          !is.na(huc12_name)) %>%
   mutate(sumYLamp = white.perch + yellow.perch,
@@ -282,6 +282,59 @@ fish_host_occ$Afloa_notmodeledhost <- ifelse(fish_host_occ$alewife == 1 |
 fish_host_occ <- fish_host_occ %>% 
   select(huc12_name, huc12_tnmid, YLamp_notmodeledhost, Epond_notmodeledhost, Afloa_notmodeledhost)
 
+
+
+#save host fish files for Becca O
+# save(fish_host_occ, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_host_occ.RData")
+# save(fish_host_prob_occ, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_host_prob_occ.RData")
+# save(fish_host_propabun, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_host_propabun.RData")
+
+
+
+#plot fish host occurrence for fish partner review
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+#load mussel data
+shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_occurrence.shp")
+#get the UIDs in the mussel_event_huc_join because these have been editted to remove lentic and to remove sites >500m from stream
+
+#remove NA names
+shp <- shp %>% 
+  filter(UID %in% mussel_event_huc_join$UID) %>% #remove the lentic sites
+  select(UID) %>% 
+  unique()
+
+pres <- right_join(shp, mussel_occurrence, by = "UID") %>% 
+  filter(!is.na(live_occurrence)) %>% 
+  filter(live_occurrence ==1)
+
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+huc12 <- huc12 %>% 
+  rename("huc12_name" = "name",
+         "huc12_tnmid" = "tnmid")
+plot <- left_join(huc12, fish_host_propabun, by = c("huc12_name", "huc12_tnmid"))%>% 
+  left_join(fish_host_occ, by = c("huc12_name", "huc12_tnmid"))%>% 
+  left_join(fish_host_prob_occ, by = c("huc12_name", "huc12_tnmid"))%>% 
+  filter(huc12_name != "Long Island Sound")
+
+  
+ggplot(data = plot)+
+    geom_sf(aes(fill = as.character(YLamp_notmodeledhost)), color = NA)+
+  geom_sf(data = huc8, fill = NA, color = "grey70", lwd = 0.15)+
+  geom_sf(data = pres[pres$common_name== "yellow lampmussel", ], 
+            color = "black", size = .6)+
+    theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())+
+  labs(fill = "YLamp_notmodeledhost")
+
+ggsave(paste("tmpfigures/YLamp_notmodeledhost.png"), 
+    plot = last_plot(),
+    width = 18,
+    height = 12,
+    units = "cm",
+    dpi = 300)  
 
 
 
@@ -441,7 +494,7 @@ mussel_covariates <- left_join(mussel_covariates, fish_host_propabun, by = c("hu
 mussel_covariates <- left_join(mussel_covariates, fish_host_occ, by = c("huc12_name", "huc12_tnmid"))
 
 #scale mussel covariates
-test <- mussel_covariates[,c(5:40)]
+test <- mussel_covariates[,c(5:44)]
 
 #scale data
 test <- data.frame(scale(test))
@@ -739,20 +792,19 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ +
              TMuck_perferredhost,
              data = train,
@@ -801,6 +853,7 @@ val_zero_prob_TM <- data.frame(
 
 
 ####Rare spp : alewife floater
+#### Removed Afloa_notmodeledhost from the model becuase of the huge gaps in low ct river and coastal maine.
 dat_AF <- dat %>% 
   filter(common_name %in% c("alewife floater"))
 n_obs <- nrow(dat_AF)
@@ -815,22 +868,20 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
-             mean_prob_occ +
-             Afloa_notmodeledhost,
+             mean_prob_occ,
              data = train,
              family = "binomial")
 
@@ -891,20 +942,19 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ +
              YLamp_perferredhost +
              YLamp_notmodeledhost,
@@ -967,23 +1017,22 @@ train <- dat_EP[1:split, ]
 test <- dat_EP[(split+1):n_obs, ]
 
 mdl <- glm(live_occurrence ~ 
-             lat +
+            lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ +
              Epond_perferredhost +
              Epond_notmodeledhost,
@@ -1055,20 +1104,19 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ,
              data = train,
              family = "binomial")
@@ -1133,20 +1181,19 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ,
              data = train,
              family = "binomial")
@@ -1228,23 +1275,22 @@ test <- dat2[(split+1):n_obs, ]
 
 
 mdl <- glm(live_occurrence ~ 
-             lat +
+            lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ +
              EPear_perferredhost,
              data = train,
@@ -1320,20 +1366,19 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ,
              data = train,
              family = "binomial")
@@ -1398,20 +1443,19 @@ mdl <- glm(live_occurrence ~
              lat +
              long +
              ElevCat +
+             logWsAreaSqKm + 
              CaOWs +
-             RunoffWs +
-             pollutionWs +
-             WWTPMajorDensWs +
              KffactWs +
              annual_mean_summer_temp + 
              W95_HIST +
-             logMJJA_HIST + 
-             pctForest_ws +
-             PctOw_Ws +  
-             PctImp_WsRp100 +  
-             pctAg_Ws + 
+             LO7Q1DT_HIST +
+             BFI_HIST +
+             pctForest_ws + 
+             pctAg_Ws +
+             PctImp_WsRp100 +
+             pctNatural_ripbuf100 + 
+             pctWetland_Cat + 
              huc12_damden_sqkm +
-             huc8_damcount +
              mean_prob_occ,
              data = train,
              family = "binomial")
@@ -1473,7 +1517,7 @@ write.csv(val_zero_prob, file = "tmpfigures/val_zero_prob_with_host.csv")
 results <- rbind(results, results_Epond, results_YL, results_AF, results_TM,
                  results_common, results_Epearl)
 results <- results %>% 
-  filter(p_val <0.1) %>%  
+  #filter(p_val <0.1) %>%  
   mutate(odds = exp(estimate),
          up = estimate + (1.64 * std_er),#90% confidence interval
          up_odds = exp(up),
@@ -1491,7 +1535,7 @@ for (i in 1:12) {
 ggplot(data = results[results$common_name == unique(results$common_name)[i],], aes(x = variable, y = odds))+
   geom_point(size = 2)+
   geom_errorbar(aes(ymin = lw_odds, ymax = up_odds), width = .2)+
-  coord_flip()+
+  coord_flip(ylim = c(0,5))+
   geom_hline(yintercept = 1, color  = "red", linetype = "dashed", linewidth = 1)+
   theme(panel.border = element_rect(colour = "black", fill = NA),
           panel.grid.major = element_blank(),
@@ -1513,6 +1557,309 @@ ggsave(
 
 print(i)
 }
+
+
+
+
+
+
+
+
+
+
+
+# make composite OR plots to show how different clusters and trait groups respond to the variables on average
+
+mussel_results_with_host.csv <- read.csv("tmpfigures/mussel_results_with_host.csv")
+#prepare the zero inflation results file
+results_zer <- mussel_results_with_host.csv %>% 
+  arrange(common_name) %>% 
+  filter(variable != "(Intercept)") %>% 
+  select(common_name, variable, odds, up_odds, lw_odds, p_val)
+
+
+#mussel traits
+mussel_traits <- read_xlsx("C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/mussel_traits.xlsx",
+                           range = cell_cols("A:J")) %>% 
+  filter(!is.na(common_name)) 
+names(mussel_traits) <- c("common_name", "scientific_name", "status", "host", "size", "strat", "rank", "shell", "habitat", "brood")
+
+#composite OR figures by cluster 
+clusters <- read.csv("tmpfigures/musselclusters_byStreamflowAndTemp.csv")
+clusters <- clusters %>% 
+  select(-1) %>% 
+  rename(cluster_TP = final.cluster)
+
+composit_OR_figs <- left_join(results_zer, clusters, by = "common_name") %>% 
+  left_join(mussel_traits, by  = "common_name") %>%  
+  filter(! odds > 20,
+         ! up_odds > 20)
+
+#rename variables to make more interpretable
+composit_OR_figs$variable[composit_OR_figs$variable == "annual_mean_summer_temp"] <- "Mean summer temp"
+composit_OR_figs$variable[composit_OR_figs$variable == "BFI_HIST"] <- "Baseflow index (rch)"
+composit_OR_figs$variable[composit_OR_figs$variable == "LO7Q1DT_HIST"] <- "Low flow date"
+composit_OR_figs$variable[composit_OR_figs$variable == "W95_HIST"] <- "Winter floods"
+composit_OR_figs$variable[composit_OR_figs$variable == "lat"] <- "Latitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "long"] <- "Longitude"
+composit_OR_figs$variable[composit_OR_figs$variable == "ElevCat"] <- "Elevation"
+composit_OR_figs$variable[composit_OR_figs$variable == "logWsAreaSqKm"] <- "Watershed area"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctWetland_Cat"] <- "Wetland (cat)"
+composit_OR_figs$variable[composit_OR_figs$variable == "PctImp_WsRp100"] <- "Impervious (Rip)"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctNatural_ripbuf100"] <- "Natural (Rip)"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctForest_ws"] <- "Forest (Ws)"
+composit_OR_figs$variable[composit_OR_figs$variable == "pctAg_Ws"] <- "Agriculture (Ws)"
+composit_OR_figs$variable[composit_OR_figs$variable == "huc12_damden_sqkm"] <- "Dam density"
+composit_OR_figs$variable[composit_OR_figs$variable == "KffactWs"] <- "Soil erodibility"
+composit_OR_figs$variable[composit_OR_figs$variable == "mean_prob_occ"] <- "All fish"
+composit_OR_figs$variable[composit_OR_figs$variable == "CaOWs"] <- "Calcium"
+
+
+#remove host fish specialist variables because these are only in models for one species and wont represent avages over spp within each group
+composit_OR_figs <- composit_OR_figs %>% 
+  filter(!variable == "YLamp_perferredhost")
+
+
+#order the variables so they occurr in the correct/ same order for all figures
+composit_OR_figs$variable <- factor(composit_OR_figs$variable, levels = c("Mean summer temp", "Baseflow index (rch)", "Winter floods", 
+                                                          "Low flow date", 
+                                                          "Wetland (cat)", "Impervious (Rip)", "Natural (Rip)", "Forest (Ws)", "Agriculture (Ws)", 
+                                                          "Dam density", 
+                                                          "Soil erodibility",
+                                                          "All fish",
+                                                          "Calcium", "Latitude", "Longitude", "Elevation", "Watershed area"))
+
+composit_OR_fig_Flowtmpclust <- composit_OR_figs%>% 
+  filter(!is.na(cluster_TP), !is.na(variable)) %>%
+  group_by(cluster_TP, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+
+
+composit_OR_fig_status <- composit_OR_figs%>% 
+  filter(!is.na(status), !is.na(variable)) %>%
+  group_by(status, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_status$status <- str_to_title(composit_OR_fig_status$status)
+
+composit_OR_fig_size <- composit_OR_figs%>% 
+  filter(!is.na(size), !is.na(variable)) %>%
+  group_by(size, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_size$size <- str_to_title(composit_OR_fig_size$size)
+
+composit_OR_fig_host <- composit_OR_figs%>% 
+  filter(!is.na(host), !is.na(variable)) %>%
+  group_by(host, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_host$host <- str_to_title(composit_OR_fig_host$host)
+
+composit_OR_fig_strat <- composit_OR_figs%>% 
+  filter(!is.na(strat), !is.na(variable)) %>%
+  filter(strat %in% c("equilibrium" , "opportunistic", "periodic")) %>%
+  group_by(strat, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_strat$strat <- str_to_title(composit_OR_fig_strat$strat)
+
+composit_OR_fig_rank <- composit_OR_figs%>% 
+  filter(!is.na(rank), !is.na(variable)) %>%
+  group_by(rank, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_rank$rank <- str_to_title(composit_OR_fig_rank$rank)
+
+composit_OR_fig_shell <- composit_OR_figs%>% 
+  filter(!is.na(shell), !is.na(variable)) %>%
+  filter(shell %in% c("thin" , "thick")) %>% 
+  group_by(shell, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_shell$shell <- str_to_title(composit_OR_fig_shell$shell)
+
+composit_OR_fig_habitat <- composit_OR_figs%>% 
+  filter(!is.na(habitat), !is.na(variable)) %>%
+  group_by(habitat, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_habitat$habitat <- str_to_title(composit_OR_fig_habitat$habitat)
+
+composit_OR_fig_brood <- composit_OR_figs%>% 
+  filter(!is.na(brood), !is.na(variable)) %>%
+  filter(brood %in% c("long" , "short")) %>%
+  group_by(brood, variable) %>% 
+  summarise(OR = median(odds, na.rm = T),
+            ORCIlow = median(lw_odds, na.rm = T),
+            ORCIhigh = median(up_odds, na.rm = T)) %>% 
+  filter(ORCIlow  > 1 & ORCIhigh > 1 | ORCIlow  < 1 & ORCIhigh < 1)
+composit_OR_fig_brood$brood <- str_to_title(composit_OR_fig_brood$brood)
+
+
+
+#Manuscript Figures
+a <- ggplot(data = composit_OR_fig_Flowtmpclust, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,4))+
+  facet_wrap(~as.factor(cluster_TP), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = "Odds ratio", title = "A) Stream Temperature and streamflow Clusters")
+
+ggsave(a, file = "tmpfigures/paper2/CompositORPlots1.png", 
+    width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+
+b <- ggplot(data = composit_OR_fig_status, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(status), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "A) Status")
+
+c <- ggplot(data = composit_OR_fig_rank, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(rank), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "B) Species Ranking")
+
+d <- ggplot(data = composit_OR_fig_size, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(size), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "C) Size")
+
+e <- ggplot(data = composit_OR_fig_shell, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(shell), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "D) Shell Thickness")
+
+f <- ggplot(data = composit_OR_fig_host, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(host), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "A) Fish Host")
+
+g <- ggplot(data = composit_OR_fig_strat, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(strat), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "B) Life History Strategy")
+
+h <- ggplot(data = composit_OR_fig_brood, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(brood), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "C) Brooding Duration")
+
+
+i <- ggplot(data = composit_OR_fig_habitat, aes(x = variable, y = OR))+
+  geom_point(size = 1.5, position=position_dodge(width=0.5))+
+  geom_errorbar(aes(ymin = ORCIlow, ymax = ORCIhigh), position=position_dodge(width=0.5))+
+  coord_flip(ylim = c(0,3))+
+  facet_wrap(~as.factor(habitat), nrow = 1)+
+  geom_hline(yintercept = 1, color  = "red", linetype = "dashed", size = 1)+
+  theme(panel.border = element_rect(colour = "black", fill = NA),
+          panel.background = element_blank(),
+        axis.title = element_text(size = 15),
+        axis.title.y = element_blank(),
+        title = element_text(size = 15))+
+  labs(y = NULL, title = "D) Habitat Specificity")
+
+
+library(cowplot)
+j <- plot_grid(b,c,d,e, align = "h", nrow = 2)
+ggsave(j, file = "tmpfigures/paper2/CompositORPlots2.png", 
+    width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+k <- plot_grid(f,g,h,i, align = "h", nrow = 2)
+ggsave(k, file = "tmpfigures/paper2/CompositORPlots2a.png", 
+    width = 25,
+    height = 15,
+    units = "cm",
+    dpi = 300)
+
+
 
 
 

@@ -1345,6 +1345,8 @@ stats <- test2 %>%
 
   
   
+ 
+  
   
   #####  cluster spp based on the COEFFCIENT values by climate change imapcted variables from the proportional abundance model
   ##### then we are using K-means clusting, following a tutorial from this website https://uc-r.github.io/kmeans_clustering
@@ -1524,3 +1526,683 @@ stats <- test2 %>%
   }
   
 
+  
+  
+  
+  
+  
+  ##############################################################################
+  
+  ##############################################################################
+  
+  ########################## Cluster Mussel Species ############################
+  
+  ##############################################################################
+  
+  ##############################################################################
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  #####  cluster mussel spp based on the variable values by streamflow variables
+  ##### in this code we are using weighted means for each species.
+  ##### for each species, we calucated the weighted mean of each variable (weighted by the proportional abundance at a survey site)
+  ##### then we are using K-means clusting, following a tutorial from this website https://uc-r.github.io/kmeans_clustering
+  
+  
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc12.RData")
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+  
+  #join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
+  occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
+  #there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
+  #present in the mussel_occurrence data file.
+  occ <- occ %>% 
+    data.frame() %>% 
+    filter(!is.na(huc12_name)) %>% 
+    group_by(huc12_name, huc12_tnmid, common_name) %>% 
+    summarise(live_occurrence = max(live_occurrence, na.rm = T),
+              shell_occurrence = max(shell_occurrence, na.rm = T))
+  
+   #join occurrence data by huc12 to the covariate dataset for the model
+  #first need to remove all repeated rows of huc12 covariates
+  mussel_covariates <- mussel_covariates_huc12 %>% 
+    data.frame() %>% 
+    select(-c(UID, state, date, project, source, waterbody, waterbody2,
+              huc8_tnmid, huc8_areasqkm,
+              huc10_tnmid, huc10_areasqkm,huc10_name,
+              geometry)) %>% 
+    unique()
+  
+  
+  
+  test <- left_join(occ, mussel_covariates, by = c("huc12_name", "huc12_tnmid"))
+  
+  #remove rows with incomplete data
+  test <- test[complete.cases(test),]
+  
+  #select only the variables used in the model, calcuate weighted means of each varaible by species, filter for the species that the proportional abunance model converged for.
+  test <- test %>% 
+    ungroup() %>% 
+    select(common_name, 
+           live_occurrence, 
+           BFI_HIST, 
+           LO7Q1DT_HIST,
+           W95_HIST, 
+           ElevCat,  
+           logWsAreaSqKm,) %>%
+    filter(common_name %in% c("alewife floater", "brook floater", "creeper",  "dwarf wedgemussel" ,  
+                              "eastern elliptio", "eastern floater", "eastern lampmussel", "eastern pearlshell",    
+                              "eastern pondmussel", "tidewater mucket", "triangle floater", "yellow lampmussel"),
+           live_occurrence == 1) %>% 
+    select(-live_occurrence) %>% 
+    group_by(common_name) %>% 
+    summarise(BFI_HIST = mean(BFI_HIST), 
+              LO7Q1DT_HIST = mean(LO7Q1DT_HIST),
+              W95_HIST = mean(W95_HIST), 
+              ElevCat = mean(ElevCat),  
+              logWsAreaSqKm = mean(logWsAreaSqKm)) %>% 
+    data.frame()
+  
+  #make the common names column into row names so we can cluster and keep only the final weighted mean values
+  test2 <- test[,-1]
+  rownames(test2) <- test[,1]
+ 
+  
+  #scale the variables
+  cluster2 <- scale(test2)
+  
+  #make distance matrix using the factoexta package
+  #default distance computed is the Euclidean
+  distance <- get_dist(cluster2)
+  
+  # visualize distance matrix
+  fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+  
+  #compute k-means into 2-5 clusters
+  k2 <- kmeans(distance, centers = 2, nstart = 25)
+  k3 <- kmeans(distance, centers = 3, nstart = 25)
+  k4 <- kmeans(distance, centers = 4, nstart = 25)
+  str(k2)
+  k2
+  
+  #view clusters. Plotted along the two most influential compoents according to PCA
+  fviz_cluster(k4, data = distance)
+  
+  #make plots of the clusters using 2-5 centroids
+  p1 <- fviz_cluster(k2, geom = "point", data = distance) + ggtitle("k = 2")
+  p2 <- fviz_cluster(k3, geom = "point",  data = distance) + ggtitle("k = 3")
+  p3 <- fviz_cluster(k4, geom = "point",  data = distance) + ggtitle("k = 4")
+  
+  
+  library(gridExtra)
+  grid.arrange(p1, p2, p3, nrow = 2)
+  
+  
+  #determine optimal number of clusters
+  # function to compute total within-cluster sum of square 
+  # elbow method
+  # plot the within cluster variation, when it stops dropping much (the elbow) after adding an adidtional cluster than you can use that numbmer
+  set.seed(123)
+  
+  wss <- function(k) {
+    kmeans(distance, k, nstart = 10 )$tot.withinss
+  }
+  
+  # Compute and plot wss for k = 1 to k = 8
+  k.values <- 1:8
+  
+  # extract wss for 2-8 clusters
+  wss_values <- map_dbl(k.values, wss)
+  
+  plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+  
+  
+  
+  # Another method to determine best number of clusters (the highest point is the best)
+  # function to compute average silhouette for k clusters
+  library(cluster)
+  avg_sil <- function(k) {
+    km.res <- kmeans(distance, centers = k, nstart = 25)
+    ss <- silhouette(km.res$cluster, dist(distance))
+    mean(ss[, 3])
+  }
+  
+  # Compute and plot wss for k = 2 to k = 8
+  k.values <- 2:8
+  
+  # extract avg silhouette for 2-8 clusters
+  avg_sil_values <- map_dbl(k.values, avg_sil)
+  
+  plot(k.values, avg_sil_values,
+       type = "b", pch = 19, frame = FALSE, 
+       xlab = "Number of clusters K",
+       ylab = "Average Silhouettes")
+  
+  
+  #well use 3 as our final cluster number
+  
+  set.seed(123)
+  final <- kmeans(distance, 3, nstart = 25)
+  print(final)
+  finalclust <- data.frame(final$cluster)
+  finalclust$common_name <- rownames(finalclust)
+  rownames(finalclust) <- NULL
+  finalclust <- finalclust %>% 
+    arrange(final.cluster)
+  write.csv(finalclust, "tmpfigures/musselclusters_bystreamflow.csv")
+  
+  png(height = 15, width = 15, file = "tmpfigures/kmeanscluster_bystreamflow_mussel.png", units = "in", res = 150, type = "cairo")
+  
+  fviz_cluster(final, data = distance,
+               pointsize = 3,
+               labelsize = 25,
+               main = NULL)+
+    theme(legend.key.height= unit(2, 'cm'),
+          legend.key.width= unit(2, 'cm'),
+          legend.text = element_text(size=30),
+          legend.title = element_text(size=30),
+          axis.text = element_text(size = 30),
+          axis.title = element_text(size = 30),
+          panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())
+  
+  dev.off()
+  
+  stats <- test2 %>% 
+    mutate(cluster = final$cluster) %>% 
+    group_by(cluster) %>% 
+    summarise_all("mean") %>% 
+    pivot_longer(cols = 2:6, names_to = "variable") %>% 
+    mutate(mean = round(value, 2)) %>% 
+    select(cluster, variable, mean) %>% 
+    pivot_wider(names_from = variable, values_from = mean)
+  write.csv(stats, "tmpfigures/musselclusters_stats_mean_bystreamflow.csv")
+  stats2 <- test2 %>% 
+    mutate(cluster = final$cluster) %>% 
+    group_by(cluster) %>% 
+    summarise_all("sd") %>% 
+    pivot_longer(cols = 2:6, names_to = "variable") %>% 
+    mutate(sd = round(value, 2)) %>% 
+    select(cluster, variable, sd)%>% 
+    pivot_wider(names_from = variable, values_from = sd)
+  write.csv(stats2, "tmpfigures/musselclusters_stats_sd_bystreamflow.csv")
+  
+  stats <- test2 %>% 
+    mutate(cluster = final$cluster)
+
+  
+  for (i in 1:5) {
+    ggplot(data = stats, aes(x = cluster, y = stats[,i], group = cluster))+
+      geom_boxplot()+
+      geom_jitter(color = "red", width = .2)+
+      labs(y = names(stats)[i],
+           x = "cluster")+
+      theme(panel.border = element_rect(colour = "black", fill = NA),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank())
+    
+    
+    ggsave(
+      filename = paste("tmpfigures/mussel_cluster_stats/", "bystreamflow", names(stats)[i], ".png", sep = ""),
+      plot = last_plot(),
+      width = 11,
+      height = 9,
+      units = "cm",
+      dpi = 150)
+  }
+  
+  
+  
+  
+  
+  #####  cluster mussel spp based on the variable values by stream temperature
+  ##### in this code we are using weighted means for each species.
+  ##### for each species, we calucated the weighted mean of each variable (weighted by the proportional abundance at a survey site)
+  ##### then we are using K-means clusting, following a tutorial from this website https://uc-r.github.io/kmeans_clustering
+  
+  
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc12.RData")
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+  
+  #join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
+  occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
+  #there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
+  #present in the mussel_occurrence data file.
+  occ <- occ %>% 
+    data.frame() %>% 
+    filter(!is.na(huc12_name)) %>% 
+    group_by(huc12_name, huc12_tnmid, common_name) %>% 
+    summarise(live_occurrence = max(live_occurrence, na.rm = T),
+              shell_occurrence = max(shell_occurrence, na.rm = T))
+  
+  #join occurrence data by huc12 to the covariate dataset for the model
+  #first need to remove all repeated rows of huc12 covariates
+  mussel_covariates <- mussel_covariates_huc12 %>% 
+    data.frame() %>% 
+    select(-c(UID, state, date, project, source, waterbody, waterbody2,
+              huc8_tnmid, huc8_areasqkm,
+              huc10_tnmid, huc10_areasqkm,huc10_name,
+              geometry)) %>% 
+    unique()
+  
+  
+  
+  test <- left_join(occ, mussel_covariates, by = c("huc12_name", "huc12_tnmid"))
+  
+  #remove rows with incomplete data
+  test <- test[complete.cases(test),]
+  
+  #select only the variables used in the model, calcuate weighted means of each varaible by species, filter for the species that the proportional abunance model converged for.
+  test <- test %>% 
+    ungroup() %>% 
+    select(common_name, 
+           live_occurrence, 
+           annual_mean_summer_temp, 
+           ElevCat,  
+           logWsAreaSqKm) %>%
+    filter(common_name %in% c("alewife floater", "brook floater", "creeper",  "dwarf wedgemussel" ,  
+                              "eastern elliptio", "eastern floater", "eastern lampmussel", "eastern pearlshell",    
+                              "eastern pondmussel", "tidewater mucket", "triangle floater", "yellow lampmussel"),
+           live_occurrence == 1) %>% 
+    select(-live_occurrence) %>% 
+    group_by(common_name) %>% 
+    summarise(annual_mean_summer_temp = median(annual_mean_summer_temp), 
+              ElevCat = median(ElevCat),  
+              logWsAreaSqKm = median(logWsAreaSqKm)) %>% 
+    data.frame()
+  
+  #make the common names column into row names so we can cluster and keep only the final weighted mean values
+  test2 <- test[,-1]
+  rownames(test2) <- test[,1]
+  
+  
+  #scale the variables
+  cluster2 <- scale(test2)
+  
+  #make distance matrix using the factoexta package
+  #default distance computed is the Euclidean
+  distance <- get_dist(cluster2)
+  
+  # visualize distance matrix
+  fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+  
+  #compute k-means into 2-5 clusters
+  k2 <- kmeans(distance, centers = 2, nstart = 25)
+  k3 <- kmeans(distance, centers = 3, nstart = 25)
+  k4 <- kmeans(distance, centers = 4, nstart = 25)
+  str(k2)
+  k2
+  
+  #view clusters. Plotted along the two most influential compoents according to PCA
+  fviz_cluster(k4, data = distance)
+  
+  #make plots of the clusters using 2-5 centroids
+  p1 <- fviz_cluster(k2, geom = "point", data = distance) + ggtitle("k = 2")
+  p2 <- fviz_cluster(k3, geom = "point",  data = distance) + ggtitle("k = 3")
+  p3 <- fviz_cluster(k4, geom = "point",  data = distance) + ggtitle("k = 4")
+  
+  
+  library(gridExtra)
+  grid.arrange(p1, p2, p3, nrow = 2)
+  
+  
+  #determine optimal number of clusters
+  # function to compute total within-cluster sum of square 
+  # elbow method
+  # plot the within cluster variation, when it stops dropping much (the elbow) after adding an adidtional cluster than you can use that numbmer
+  set.seed(123)
+  
+  wss <- function(k) {
+    kmeans(distance, k, nstart = 10 )$tot.withinss
+  }
+  
+  # Compute and plot wss for k = 1 to k = 8
+  k.values <- 1:8
+  
+  # extract wss for 2-8 clusters
+  wss_values <- map_dbl(k.values, wss)
+  
+  plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+  
+  
+  
+  # Another method to determine best number of clusters (the highest point is the best)
+  # function to compute average silhouette for k clusters
+  library(cluster)
+  avg_sil <- function(k) {
+    km.res <- kmeans(distance, centers = k, nstart = 25)
+    ss <- silhouette(km.res$cluster, dist(distance))
+    mean(ss[, 3])
+  }
+  
+  # Compute and plot wss for k = 2 to k = 8
+  k.values <- 2:8
+  
+  # extract avg silhouette for 2-8 clusters
+  avg_sil_values <- map_dbl(k.values, avg_sil)
+  
+  plot(k.values, avg_sil_values,
+       type = "b", pch = 19, frame = FALSE, 
+       xlab = "Number of clusters K",
+       ylab = "Average Silhouettes")
+  
+  
+  #well use 3 as our final cluster number
+  
+  set.seed(123)
+  final <- kmeans(distance, 3, nstart = 25)
+  print(final)
+  finalclust <- data.frame(final$cluster)
+  finalclust$common_name <- rownames(finalclust)
+  rownames(finalclust) <- NULL
+  finalclust <- finalclust %>% 
+    arrange(final.cluster)
+  write.csv(finalclust, "tmpfigures/musselclusters_bytemperature.csv")
+  
+  png(height = 15, width = 15, file = "tmpfigures/kmeanscluster_bytemperature_mussel.png", units = "in", res = 150, type = "cairo")
+  
+  fviz_cluster(final, data = distance,
+               pointsize = 3,
+               labelsize = 25,
+               main = NULL)+
+    theme(legend.key.height= unit(2, 'cm'),
+          legend.key.width= unit(2, 'cm'),
+          legend.text = element_text(size=30),
+          legend.title = element_text(size=30),
+          axis.text = element_text(size = 30),
+          axis.title = element_text(size = 30),
+          panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())
+  
+  dev.off()
+  
+  stats <- test2 %>% 
+    mutate(cluster = final$cluster) %>% 
+    group_by(cluster) %>% 
+    summarise_all("mean") %>% 
+    pivot_longer(cols = 2:4, names_to = "variable") %>% 
+    mutate(mean = round(value, 2)) %>% 
+    select(cluster, variable, mean) %>% 
+    pivot_wider(names_from = variable, values_from = mean)
+  write.csv(stats, "tmpfigures/musselclusters_stats_mean_bytemperature.csv")
+  stats2 <- test2 %>% 
+    mutate(cluster = final$cluster) %>% 
+    group_by(cluster) %>% 
+    summarise_all("sd") %>% 
+    pivot_longer(cols = 2:4, names_to = "variable") %>% 
+    mutate(sd = round(value, 2)) %>% 
+    select(cluster, variable, sd)%>% 
+    pivot_wider(names_from = variable, values_from = sd)
+  write.csv(stats2, "tmpfigures/musselclusters_stats_sd_bytemperature.csv")
+  
+  stats <- test2 %>% 
+    mutate(cluster = final$cluster)
+  
+  
+  for (i in 1:3) {
+    ggplot(data = stats, aes(x = cluster, y = stats[,i], group = cluster))+
+      geom_boxplot()+
+      labs(y = names(stats)[i],
+           x = "cluster")+
+      theme(panel.border = element_rect(colour = "black", fill = NA),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank())
+    
+    
+    ggsave(
+      filename = paste("tmpfigures/mussel_cluster_stats/", "bytemperature", names(stats)[i], ".png", sep = ""),
+      plot = last_plot(),
+      width = 11,
+      height = 9,
+      units = "cm",
+      dpi = 150)
+  }
+  
+  
+  
+  
+  
+  #####  cluster mussel spp based on the variable values by streamflow and stream temperature variables
+  ##### in this code we are using weighted means for each species.
+  ##### for each species, we calucated the weighted mean of each variable (weighted by the proportional abundance at a survey site)
+  ##### then we are using K-means clusting, following a tutorial from this website https://uc-r.github.io/kmeans_clustering
+  
+  
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_covariates_byhuc12.RData")
+  load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
+  
+  #join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
+  occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
+  #there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
+  #present in the mussel_occurrence data file.
+  occ <- occ %>% 
+    data.frame() %>% 
+    filter(!is.na(huc12_name)) %>% 
+    group_by(huc12_name, huc12_tnmid, common_name) %>% 
+    summarise(live_occurrence = max(live_occurrence, na.rm = T),
+              shell_occurrence = max(shell_occurrence, na.rm = T))
+  
+  #join occurrence data by huc12 to the covariate dataset for the model
+  #first need to remove all repeated rows of huc12 covariates
+  mussel_covariates <- mussel_covariates_huc12 %>% 
+    data.frame() %>% 
+    select(-c(UID, state, date, project, source, waterbody, waterbody2,
+              huc8_tnmid, huc8_areasqkm,
+              huc10_tnmid, huc10_areasqkm,huc10_name,
+              geometry)) %>% 
+    unique()
+  
+  
+  
+  test <- left_join(occ, mussel_covariates, by = c("huc12_name", "huc12_tnmid"))
+  
+  #remove rows with incomplete data
+  test <- test[complete.cases(test),]
+  
+  #select only the variables used in the model, calcuate weighted means of each varaible by species, filter for the species that the proportional abunance model converged for.
+  test <- test %>% 
+    ungroup() %>% 
+    select(common_name, 
+           live_occurrence, 
+           BFI_HIST, 
+           LO7Q1DT_HIST,
+           W95_HIST, 
+           ElevCat,
+           annual_mean_summer_temp,
+           logWsAreaSqKm,) %>%
+    filter(common_name %in% c("alewife floater", "brook floater", "creeper",  "dwarf wedgemussel" ,  
+                              "eastern elliptio", "eastern floater", "eastern lampmussel", "eastern pearlshell",    
+                              "eastern pondmussel", "tidewater mucket", "triangle floater", "yellow lampmussel"),
+           live_occurrence == 1) %>% 
+    select(-live_occurrence) %>% 
+    group_by(common_name) %>% 
+    summarise(BFI_HIST = mean(BFI_HIST), 
+              LO7Q1DT_HIST = mean(LO7Q1DT_HIST),
+              W95_HIST = mean(W95_HIST), 
+              ElevCat = mean(ElevCat),
+              annual_mean_summer_temp = mean(annual_mean_summer_temp),
+              logWsAreaSqKm = mean(logWsAreaSqKm)) %>% 
+    data.frame()
+  
+  #make the common names column into row names so we can cluster and keep only the final weighted mean values
+  test2 <- test[,-1]
+  rownames(test2) <- test[,1]
+  
+  
+  #scale the variables
+  cluster2 <- scale(test2)
+  
+  #make distance matrix using the factoexta package
+  #default distance computed is the Euclidean
+  distance <- get_dist(cluster2)
+  
+  # visualize distance matrix
+  fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+  
+  #compute k-means into 2-5 clusters
+  k2 <- kmeans(distance, centers = 2, nstart = 25)
+  k3 <- kmeans(distance, centers = 3, nstart = 25)
+  k4 <- kmeans(distance, centers = 4, nstart = 25)
+  str(k2)
+  k2
+  
+  #view clusters. Plotted along the two most influential compoents according to PCA
+  fviz_cluster(k4, data = distance)
+  
+  #make plots of the clusters using 2-5 centroids
+  p1 <- fviz_cluster(k2, geom = "point", data = distance) + ggtitle("k = 2")
+  p2 <- fviz_cluster(k3, geom = "point",  data = distance) + ggtitle("k = 3")
+  p3 <- fviz_cluster(k4, geom = "point",  data = distance) + ggtitle("k = 4")
+  
+  
+  library(gridExtra)
+  grid.arrange(p1, p2, p3, nrow = 2)
+  
+  
+  #determine optimal number of clusters
+  # function to compute total within-cluster sum of square 
+  # elbow method
+  # plot the within cluster variation, when it stops dropping much (the elbow) after adding an adidtional cluster than you can use that numbmer
+  set.seed(123)
+  
+  wss <- function(k) {
+    kmeans(distance, k, nstart = 10 )$tot.withinss
+  }
+  
+  # Compute and plot wss for k = 1 to k = 8
+  k.values <- 1:8
+  
+  # extract wss for 2-8 clusters
+  wss_values <- map_dbl(k.values, wss)
+  
+  plot(k.values, wss_values,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+  
+  
+  
+  # Another method to determine best number of clusters (the highest point is the best)
+  # function to compute average silhouette for k clusters
+  library(cluster)
+  avg_sil <- function(k) {
+    km.res <- kmeans(distance, centers = k, nstart = 25)
+    ss <- silhouette(km.res$cluster, dist(distance))
+    mean(ss[, 3])
+  }
+  
+  # Compute and plot wss for k = 2 to k = 8
+  k.values <- 2:8
+  
+  # extract avg silhouette for 2-8 clusters
+  avg_sil_values <- map_dbl(k.values, avg_sil)
+  
+  plot(k.values, avg_sil_values,
+       type = "b", pch = 19, frame = FALSE, 
+       xlab = "Number of clusters K",
+       ylab = "Average Silhouettes")
+  
+  
+  #well use 3 as our final cluster number
+  
+  set.seed(123)
+  final <- kmeans(distance, 3, nstart = 25)
+  print(final)
+  finalclust <- data.frame(final$cluster)
+  finalclust$common_name <- rownames(finalclust)
+  rownames(finalclust) <- NULL
+  finalclust <- finalclust %>% 
+    arrange(final.cluster)
+  write.csv(finalclust, "tmpfigures/musselclusters_bystreamflowAndTemp.csv")
+  
+  png(height = 15, width = 15, file = "tmpfigures/kmeanscluster_bystreamflowAndTemp_mussel.png", units = "in", res = 150, type = "cairo")
+  
+  fviz_cluster(final, data = distance,
+               pointsize = 3,
+               labelsize = 25,
+               main = NULL)+
+    theme(legend.key.height= unit(2, 'cm'),
+          legend.key.width= unit(2, 'cm'),
+          legend.text = element_text(size=30),
+          legend.title = element_text(size=30),
+          axis.text = element_text(size = 30),
+          axis.title = element_text(size = 30),
+          panel.border = element_rect(colour = "black", fill = NA),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          panel.background = element_blank())
+  
+  dev.off()
+  
+  stats <- test2 %>% 
+    mutate(cluster = final$cluster) %>% 
+    group_by(cluster) %>% 
+    summarise_all("mean") %>% 
+    pivot_longer(cols = 2:7, names_to = "variable") %>% 
+    mutate(mean = round(value, 2)) %>% 
+    select(cluster, variable, mean) %>% 
+    pivot_wider(names_from = variable, values_from = mean)
+  write.csv(stats, "tmpfigures/musselclusters_stats_mean_bystreamflowAndTemp.csv")
+  stats2 <- test2 %>% 
+    mutate(cluster = final$cluster) %>% 
+    group_by(cluster) %>% 
+    summarise_all("sd") %>% 
+    pivot_longer(cols = 2:7, names_to = "variable") %>% 
+    mutate(sd = round(value, 2)) %>% 
+    select(cluster, variable, sd)%>% 
+    pivot_wider(names_from = variable, values_from = sd)
+  write.csv(stats2, "tmpfigures/musselclusters_stats_sd_bystreamflowAndTemp.csv")
+  
+  stats <- test2 %>% 
+    mutate(cluster = final$cluster)
+  
+  
+  for (i in 1:6) {
+    ggplot(data = stats, aes(x = cluster, y = stats[,i], group = cluster))+
+      geom_boxplot()+
+      geom_jitter(color = "red", width = .2)+
+      labs(y = names(stats)[i],
+           x = "cluster")+
+      theme(panel.border = element_rect(colour = "black", fill = NA),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),
+            panel.background = element_blank())
+    
+    
+    ggsave(
+      filename = paste("tmpfigures/mussel_cluster_stats/", "bystreamflowAndTemp", names(stats)[i], ".png", sep = ""),
+      plot = last_plot(),
+      width = 11,
+      height = 9,
+      units = "cm",
+      dpi = 150)
+  }
+  
+  
+  
+  
+  
+  
+  
+  

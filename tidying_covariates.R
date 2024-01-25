@@ -51,8 +51,22 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/huc8dams.
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowlineV2_join.RData")
 
-#water quality - I added this in later because we'll use it in the mussel model.
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/strmcat_byCOMID_waterquality.RData")
+
+#Riparian NLDC - this is the file Jason prepared - 100m buffer around flowlines and extracts the pixel count for each landcover class
+#I removed X0 and X11 from the total (denominator) becuase open water is mostly just the stream itself
+NLCD <- read.csv("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/NLCD/landuse_100m_buff_NE.csv") %>% 
+  rename(COMID = commid) %>% 
+  mutate(pctforest_ripbuf100 = ((X41 + X42 + X43) / 
+                                  (X0 + X12 + X21 + X22 + X23 + X24 + X31 + X41 + X42 + X43 + X51 + 
+                                     X52 + X71 + X72 + X73 + X74 + X81 + X82 + X90 + X95))*100,
+         pctNatural_ripbuf100 = ((X41 + X42 + X43 + X51 + X52 + X71 + X72 + X73 + X74) / 
+                                   (X0 + X12 + X21 + X22 + X23 + X24 + X31 + X41 + X42 + X43 + X51 + 
+                                      X52 + X71 + X72 + X73 + X74 + X81 + X82 + X90 + X95))*100,
+         pctUrban_ripbuf100 = ((X21 + X22 + X23 + X24) / 
+                                 (X0 + X12 + X21 + X22 + X23 + X24 + X31 + X41 + X42 + X43 + X51 + 
+                                    X52 + X71 + X72 + X73 + X74 + X81 + X82 + X90 + X95))*100
+  ) %>% 
+  select(COMID, pctforest_ripbuf100, pctNatural_ripbuf100, pctUrban_ripbuf100)
 
 
 
@@ -169,6 +183,10 @@ dat <- dat %>%
             PctWdWet_Ws, PctHbWet_Ws,
             PctWdWet_Cat, PctHbWet_Cat))
 
+#join the NCLD data that is the percent forest and scrub in riparian buffer
+dat <- dat %>% 
+  left_join(NLCD, by = "COMID")
+
 #join state dam data
 dat <- left_join(dat, huc12dams, by = c("huc12_tnmid", "huc12_name"))
 dat <- left_join(dat, huc10dams, by = c("huc10_tnmid", "huc10_name"))
@@ -182,7 +200,7 @@ dat <- dat %>%
          "waterbody", "WBAREATYPE", "project", "source", "event_to_flowln_dist_m","REACHCODE", "huc8_name", "huc10_name", "huc12_name",
          "huc8_tnmid", "huc10_tnmid", "huc12_tnmid",
          "LENGTHKM", "huc8_area_new", "huc10_area_new", "huc12_area_new", "WsAreaSqKm", 
-         12:21, 39:120, 122:123, 125:126)
+         12:21, 39:120, 122:123, 125:126, 128:129)
 
 #we did not include 'TOTDASQKM' from the USGS flow metrics because it was identical and sourced from 'WsAreaSqKm' in StreamCat
 #huc10_area_new --> these are new areas caluated in R using the huc12,10,8 spatial datafiles after realzieing that some of the 
@@ -198,12 +216,13 @@ str(dat)
 
 #variance across study area
 
-nzv <- nearZeroVar(dat[,28:122], saveMetrics = T)
+nzv <- nearZeroVar(dat[,28:125], saveMetrics = T)
 
 nzv$metric <- row.names(nzv)
 remove <- nzv$metric[nzv$zeroVar == TRUE | nzv$nzv == TRUE]
-#removes: "mean_n_day_gt_22" "DamDensCat"       "DamNIDStorCat"    "DamNrmStorCat"    "DamDensWs"        "DamNIDStorWs"     "DamNrmStorWs"     "NABD_DensCat"    
-# "NABD_NIDStorCat"  "NABD_NrmStorCat"  "NABD_DensWs"      "NABD_NIDStorWs"   "NABD_NrmStorWs"   "PctIce_Cat"       "PctBl_Cat"        "PctIce_Ws"       
+#removes:  "mean_n_day_gt_22" "DamDensCat"       "DamNIDStorCat"    "DamNrmStorCat"    "DamDensWs"        "DamNIDStorWs"     "DamNrmStorWs"    
+#[8] "NABD_DensCat"     "NABD_NIDStorCat"  "NABD_NrmStorCat"  "NABD_DensWs"      "NABD_NIDStorWs"   "NABD_NrmStorWs"   "PctIce_Cat"      
+#[15] "PctBl_Cat"        "PctIce_Ws"     
 
 dat2 <- dat %>% 
   dplyr::select(-all_of(remove))
@@ -244,7 +263,7 @@ keep3 <- c("MJJA_HIST","BFI_HIST", "LO7Q1DT_HIST", "CFM_HIST", "W95_HIST")
 #             "LO7Q1_HIST", "LO7Q10_HIST"
 
 strmct <- dat2 %>% 
-  dplyr::select(64:100)
+  dplyr::select(64:103)
 strmct <- strmct[complete.cases(strmct),] #remove rows with NA
 cor <- cor(strmct, method = c("spearman")) #make correlation matrix
 
@@ -256,12 +275,12 @@ keep4 <-  c("BFIWs", "ElevCat", "RdDensCatRp100", "RdDensWsRp100", "RdCrsCat", "
             "WtDepWs", "PopDen_Ws", "PctOw_Ws", "PctOw_Cat", 
             "PctImp_Cat", "PctImp_Ws", "PctImp_CatRp100", "PctImp_WsRp100",
             "pctForest_Cat", "pctForest_ws", "pctUrban_Cat", "pctUrban_ws",
-            "pctAg_Ws", "pctWetland_Cat", "pctWetland_Ws")
+            "pctAg_Ws", "pctWetland_Cat", "pctWetland_Ws", "pctforest_ripbuf100", "pctNatural_ripbuf100", "pctUrban_ripbuf100")
 
 
 
 statedams <- dat2 %>% 
-  dplyr::select(101:106)
+  dplyr::select(104:109)
 statedams <- statedams[complete.cases(statedams),] #remove rows with NA
 cor <- cor(statedams, method = c("spearman")) #make correlation matrix
 
@@ -278,7 +297,7 @@ dat3 <- dat2 %>%
 
 #now check for correlation among the retained predictors
 final <- dat3 %>% 
-  dplyr::select(2,3, 9:38)
+  dplyr::select(2,3, 9:41)
 final <- final[complete.cases(final),] #remove rows with NA
 cor <- cor(final, method = c("spearman")) #make correlation matrix
 
@@ -290,9 +309,9 @@ dev.off()
 
 #first make histograms of covariates to see whats normally distributed
 dat4 <- dat3 %>% 
-  dplyr::select(2,3, 9:38)
+  dplyr::select(2,3, 9:41)
 
-for (i in 1:32) {
+for (i in 1:35) {
   
   ggplot(data = dat4, mapping = aes(x = dat4[[i]]))+
     geom_histogram(binwidth = )+
@@ -357,7 +376,11 @@ fishcovariates_byhuc12 <- left_join(fishcovariates, fish_event_huc_join, by = c(
             logWsAreaSqKm = mean(logWsAreaSqKm, na.rm = T),
             logMJJA_HIST = mean(logMJJA_HIST, na.rm = T),
             logRdCrsCat = mean(logRdCrsCat, na.rm = T),
-            logPctOw_Cat = mean(logPctOw_Cat, na.rm = T))
+            logPctOw_Cat = mean(logPctOw_Cat, na.rm = T),
+            pctforest_ripbuf100 = mean(pctforest_ripbuf100, na.rm = T),
+            pctNatural_ripbuf100 = mean(pctNatural_ripbuf100, na.rm = T),
+            pctUrban_ripbuf100 = mean(pctUrban_ripbuf100, na.rm = T))
+
 
 save(fishcovariates_byhuc12, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/model_covariates_byhuc12.RData")
 
@@ -390,7 +413,7 @@ dat <- left_join(NHDplusV2_NewEngCrop, strmcat_byCOMID, by = "COMID")
 
 wq <- dat %>% 
   data.frame %>% 
-  dplyr::select(44:76, -NRSA_Frame, -NARS_Region) 
+  dplyr::select(47:79, -NRSA_Frame, -NARS_Region) 
 wq <- wq[complete.cases(wq),] #remove rows with NA
 cor <- cor(wq, method = c("spearman")) #make correlation matrix
 
@@ -411,7 +434,7 @@ dat <- dat %>%
 
 wq <- dat %>% 
   data.frame %>% 
-  dplyr::select(10:50) 
+  dplyr::select(10:53) 
 wq <- wq[complete.cases(wq),] #remove rows with NA
 cor <- cor(wq, method = c("spearman")) #make correlation matrix
 
@@ -447,12 +470,16 @@ dat_huc10 <- dat %>%
             pctForest_ws = mean(pctForest_ws, na.rm = T),
             pctAg_Ws = mean(pctAg_Ws, na.rm = T),
             pctWetland_Ws = mean(pctWetland_Ws, na.rm = T),
+            pctWetland_Cat = mean(pctWetland_Cat, na.rm = T),
             huc12_damden_sqkm = mean(huc12_damden_sqkm, na.rm = T),
             huc8_damcount = mean(huc8_damcount, na.rm = T),
             logWsAreaSqKm = mean(logWsAreaSqKm, na.rm = T),
             logMJJA_HIST = mean(logMJJA_HIST, na.rm = T),
             logRdCrsCat = mean(logRdCrsCat, na.rm = T),
             logPctOw_Cat = mean(logPctOw_Cat, na.rm = T),
+            pctforest_ripbuf100 = mean(pctforest_ripbuf100, na.rm = T),
+            pctNatural_ripbuf100 = mean(pctNatural_ripbuf100, na.rm = T),
+            pctUrban_ripbuf100 = mean(pctUrban_ripbuf100, na.rm = T),
             CaOWs = mean(CaOWs, na.rm = T),
             KffactWs = mean(KffactWs, na.rm = T),
             RunoffWs = mean(RunoffWs, na.rm = T),
@@ -502,12 +529,16 @@ dat_huc12 <- dat %>%
             pctForest_ws = mean(pctForest_ws, na.rm = T),
             pctAg_Ws = mean(pctAg_Ws, na.rm = T),
             pctWetland_Ws = mean(pctWetland_Ws, na.rm = T),
+            pctWetland_Cat = mean(pctWetland_Cat, na.rm = T),
             huc12_damden_sqkm = mean(huc12_damden_sqkm, na.rm = T),
             huc8_damcount = mean(huc8_damcount, na.rm = T),
             logWsAreaSqKm = mean(logWsAreaSqKm, na.rm = T),
             logMJJA_HIST = mean(logMJJA_HIST, na.rm = T),
             logRdCrsCat = mean(logRdCrsCat, na.rm = T),
             logPctOw_Cat = mean(logPctOw_Cat, na.rm = T),
+            pctforest_ripbuf100 = mean(pctforest_ripbuf100, na.rm = T),
+            pctNatural_ripbuf100 = mean(pctNatural_ripbuf100, na.rm = T),
+            pctUrban_ripbuf100 = mean(pctUrban_ripbuf100, na.rm = T),
             CaOWs = mean(CaOWs, na.rm = T),
             KffactWs = mean(KffactWs, na.rm = T),
             RunoffWs = mean(RunoffWs, na.rm = T),
