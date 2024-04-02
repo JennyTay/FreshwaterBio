@@ -56,6 +56,7 @@ NHDplusV2_NewEngCrop.shp
 WBDHU8_NE.shp
 WBDHU10_NE.shp
 WBDHU12_NE.shp
+all_fish_event.shp
 all_fish_presence.RData
 all_fish_method.RData
 all_fish_count.RData

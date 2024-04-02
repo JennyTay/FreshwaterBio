@@ -51,14 +51,27 @@ This software contains X separate R Markdown files and X R script file that comp
 ### File 1: BiodiversityModel_ClimateChangePaper.Rmd
 
 #### Data inputs:
+fish_count_with_zeros.RData
+all_fish_event.shp
+fish_event_huc_join.RData
+WBDHU8_NE.shp
+NEWENGLAND_POLY.shp
+model_covariates.RData
+model_covariates_byhuc12.RData
+fish_traits.RData
 
 
 #### Overview: 
-example text: This R markdown file generally accomplishes 3 goals: 1. It spatially joins the hydrography data from the USGS National Hydrography Dataset to the fish survey event data such every fish survey is now associated with an NHDplus flowline, an NHDVersion2 flowline, a HUC12 watershed, a HUC10 watershed, and a HUC8 watershed. 2. It prepares the fish occurrence dataset using the 'all_fish_present.RData file'.  It assigns a 'zero' occurrence for all species not identified during each survey, so that now the data is in presence (1) and absence (2) format.  3. It prepares the fish count file in a similar manner - it assigns a zero to each fish species not identified in each survey using the all_fish_count.RData file.  
+This R Markdown file is similar to the BiodiversityModel.Rmd file used in the Paper1, but the models use new covariates that were selected for the climate change paper that better reflect management options.  It fits 53 zero-inflated beta models for each of the fish species considered in this analysis. The models are used to predict proportional abundance and probability of occurrence of each fish species. The first part of the code prepares the dataframe by 1. filtering for the species to be modeled, 2. using the species count data to calculate proportional abundance, 3. joining the species count data to the scaled model covariate files,  and 4. setting aside 20% of the data for model validation.  The first (out of 53) model is fitted to the data and the results and validation metrics are saved in a separate dataframe.  The remaining 52 models are fitted in a 'for' loop and the model results and validation statistics are added progressively into the same results and validation dataframes.  Then a series of figures are made for the manuscript that show the model validation metrics (Figure 1 in paper 1), and a series of odds ratios that are created by averaging together model coefficients of species that fall into the same guilds and clusters (Figures 7 and 8 in paper1).
 
 #### Outputs:
-
-
+53 fish species zero inflated models
+val_zero_prob.csv
+prop_abun_validation.csv
+raw_results.csv
+propabun_results.csv
+zeroinfla_results.csv
+Manuscript Figure 1, 7, and 8
 
 
 
@@ -70,6 +83,7 @@ example text: This R markdown file generally accomplishes 3 goals: 1. It spatial
 
 
 #### Overview: 
+In this script we fit 12 models for the probability of freshwater mussel occurrence at the HUC12 scale for each species individually. First, the host fish covariates are calcuated by loading the fish models and predicting the baseline presence/absence and proportional abundance of each fish species. Then we train 12 logistic regression models for each mussel species using 80% of the mussel occurrence records and saving 20% for model validation. The models are fitted in separately, rather than in a 'for' loop, because host fish specialists had additional covariates beyond the variables used in the generalist models. Additionally, if the species had fewer than 100 postive occurrences in the data set, we used a lower threshold probability of occurrence to assign a 'presence' prediction when validating the model. Validation metrics and the model results are 'rbinded' together.
 
 #### Outputs:
 
@@ -83,6 +97,7 @@ example text: This R markdown file generally accomplishes 3 goals: 1. It spatial
 
 
 #### Overview: 
+In this script, we apply the models that were calibrated in the above .Rmd file to estimate the probability of freshwater fish and freshwater mussel occurrence at the HUC12 scale in five different scenarios: baseline, climate change (cc), cc + riparian imperviousness = 0, cc + riparian natural = 0, cc + watershed forest = 100, cc + dam density = 0, and a final scenario that combines all of the above + cc.  The probabilites of occurrence of each fish species and each mussel species are saved for each of the scenarios.  For each scenario, first the 53 fish models are loaded and fish probablities of occurrence are estimated and then the host fish variables are calcuated. Then the 12 mussel models are loaded and applied using the host fish variables and the mussel probabilies of occurrence are modeled and saved.
 
 
 #### Outputs:
@@ -96,6 +111,7 @@ example text: This R markdown file generally accomplishes 3 goals: 1. It spatial
 
 
 #### Overview: 
+This script makes the final figures for the paper that show probabliies of fish and mussel occurrence after combining species into trait groups and clusters.  Probabilities of occurrence for each fish and mussel species are loaded and then each fish and mussel species is assigned a series of traits. The probabiliesi are then combined by trait and summed proabiles of occurrence are calucted for each scenario. Additionally, mussel species richness is calcuated.
 
 #### Outputs:
 

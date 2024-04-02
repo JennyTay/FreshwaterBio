@@ -33,7 +33,7 @@ In the first chunk, we prepare the host fish covariate data by reading in the fi
 
 In the second part of the script, we use a logistic regression model using environmental covariates and fish host distribution to model each mussel individually 
 
-In the third part of the script we model species richness and shannon index by HUC10
+In the third part of the script we model species richness and shannon index by HUC12
 
 In the forth part of the script we model proportional abundance of mussel traits using a multinomial logistic regression
 
@@ -55,57 +55,6 @@ test <- test[,c(7:8, 10:42)]
 test <- data.frame(scale(test))
 
 NHDplusV2_NewEngCrop <- cbind((NHDplusV2_NewEngCrop)[,c(1:6, 9)], test)
-
-
-
-
-
-
-#fish host covariate with probability of presence by spp (using the logistic regression model)
-# 
-# file.list <- list.files("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects", pattern = "pres_")
-# 
-# i <- 1
-# 
-# mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
-#   
-# predictions <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
-# names(predictions)[1] <- file.list[i]
-# 
-# 
-# 
-# 
-# for (i in 2:57) { 
-#   
-#   
-#    mdl <- readRDS(paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/", file.list[i], sep = ""))
-#   
-#   tmp <- data.frame("test" = predict(mdl, newdata = NHDplusV2_NewEngCrop, type = "response"))
-#   names(tmp)[1] <- file.list[i]
-#   
-#   predictions <- cbind(predictions, tmp)
-#   
-#   
-# }
-# 
-# 
-# #join the predictions to the list of comids
-# NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
-# 
-# #average by HUC10 becuase that is the scale we are modeling mussels
-# fish_host_prob_occ <- NHDplusV2_NewEngCrop_baseline %>%
-#   data.frame() %>% 
-#   select(huc10_name, huc10_tnmid, 40:96) %>% 
-#   filter(!is.na(pres_brook.trout.rds),
-#          !is.na(huc10_name)) %>%
-#   pivot_longer(3:59, names_to = "common_name", values_to = "prob_occ") %>% 
-#   group_by(huc10_name, huc10_tnmid) %>% 
-#   summarise(total_prob_occ = sum(prob_occ))
-#   
-
-
-
-
 
 
 
@@ -146,7 +95,7 @@ colnames(predictions) <- gsub("_Mgmt_Paper_propabun_", "pres_", colnames(predict
 #join the predictions to the list of comids
 NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 
-#average by HUC10 becuase that is the scale we are modeling mussels
+#average by HUC12 becuase that is the scale we are modeling mussels
 fish_host_prob_occ <- NHDplusV2_NewEngCrop_baseline %>%
   data.frame() %>% 
   select(huc12_name, huc12_tnmid, COMID, 43:95) %>% 
@@ -206,7 +155,7 @@ names(predictions) <- gsub("\\.", " ", names(predictions))
 #join the predictions to the list of comids
 NHDplusV2_NewEngCrop_baseline <- cbind(NHDplusV2_NewEngCrop, predictions)
 
-#average by HUC10 becuase that is the scale we are modeling mussels
+#average by HUC12 becuase that is the scale we are modeling mussels
 fish_host_propabun <- NHDplusV2_NewEngCrop_baseline %>%
   data.frame() %>% 
   select(COMID, huc12_name, huc12_tnmid, 43:52) %>% 
@@ -433,13 +382,11 @@ Part 2: logistic regression to model each mussel species presence and absence pr
 
 #mussel data
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_occurrence.RData")
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData")
 fish_shp <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_mussel_event.shp")
 
 #mussel event and hydrography join
 load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_huc_join.RData")
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowline_join.RData")
-load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_event_flowlineV2_join.RData")
+
 
 #watershed shape files
 huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
@@ -457,7 +404,7 @@ load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_co
 
 
 
-#join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
+#join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc12
 occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")
 #there are tons of rows with NA for all the HUC information - this is because we removed all the lentic surveys from the mussel_event_huc_join data file, but those are still
 #present in the mussel_occurrence data file.
@@ -1861,408 +1808,6 @@ ggsave(k, file = "tmpfigures/paper2/CompositORPlots2a.png",
 
 
 
-
-
-
-
-
-
-# #####without host
-# 
-# 
-# #### Rare spp 
-# 
-# dat_rare <- dat %>% 
-#   filter(common_name %in% c("dwarf wedgemussel", "tidewater mucket", "yellow lampmussel", "eastern pondmussel", "brook floater", "alewife floater"))
-# dat2 <- dat_rare %>% 
-#   filter(common_name == "alewife floater")
-# n_obs <- nrow(dat2)
-# permuted_rows <- sample(n_obs)
-# dat2 <- dat2[permuted_rows,]
-# split <- round(n_obs * 0.8)
-# set.seed(32435)
-# train <- dat2[1:split, ]
-# test <- dat2[(split+1):n_obs, ]
-# 
-# 
-# mdl <- glm(live_occurrence ~ 
-#              lat +
-#              long +
-#              ElevCat +
-#              CaOWs +
-#              RunoffWs +
-#              pollutionWs +
-#              WWTPMajorDensWs +
-#              KffactWs +
-#              annual_mean_summer_temp + 
-#              W95_HIST +
-#              logMJJA_HIST + 
-#              pctForest_ws +
-#              PctOw_Ws +  
-#              PctImp_WsRp100 +  
-#              pctAg_Ws + 
-#              huc12_damden_sqkm +
-#              huc8_damcount,
-#              data = train,
-#              family = "binomial")
-# 
-# summary(mdl)
-# saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[1], ".rds", sep = ""))
-# 
-# results <- 
-#   data.frame(
-#     "estimate" = summary(mdl)$coefficients[,1],
-#     "std_er" = summary(mdl)$coefficients[,2],
-#     "p_val" = summary(mdl)$coefficients[,4],
-#     "variable" = rownames(summary(mdl)$coefficients),
-#     "common_name" = "alewife floater")
-# 
-# 
-# #use model to predict on testing data
-# predict_resp <- predict(mdl, test, type = 'response') #the predicted value
-# 
-# 
-# #compare the predicted zeros to the actual zeros
-# compare <- data.frame(
-#   "common_name" = test$common_name,
-#   "occurrence" = factor(test$live_occurrence, levels = c(1,0)),
-#   "pred_occurrence" = factor(ifelse(predict_resp > 0.1, 1, 0), levels = levels(factor(test$live_occurrence, levels = c(1,0))))
-# )
-# 
-# 
-# #validations for the predicted occurrence vs the actual occurrence
-# cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
-# 
-# val_zero_prob <- data.frame(
-#   "common_name" = unique(train$common_name),
-#   "test_dat_pres" = nrow(test[test$live_occurrence == 1,]),
-#   "test_dat_abs" = nrow(test[test$live_occurrence == 0,]),
-#   "train_dat_pres" = nrow(train[train$live_occurrence == 1, ]),
-#   "train_dat_abs" = nrow(train[train$live_occurrence == 0, ]),
-#   "accuracy" = cm$overall[1],
-#   "sensitivity" = cm$byClass[1],
-#   "Specificity" = cm$byClass[2],
-#   "Pos Pred Value" = cm$byClass[3],
-#   "Neg Pred Value" = cm$byClass[4]
-# )
-# 
-# 
-# 
-# 
-# for (i in 2:length(unique(dat_rare$common_name))) {
-#  
-# dat2 <- dat_rare %>% 
-# filter(common_name == unique(dat_rare$common_name)[i])
-# n_obs <- nrow(dat2)
-# permuted_rows <- sample(n_obs)
-# dat2 <- dat2[permuted_rows,]
-# split <- round(n_obs * 0.8)
-# set.seed(32435)
-# train <- dat2[1:split, ]
-# test <- dat2[(split+1):n_obs, ]
-#   
-#  
-# mdl <- glm(live_occurrence ~ 
-#              lat +
-#              long +
-#              ElevCat +
-#              CaOWs +
-#              RunoffWs +
-#              pollutionWs +
-#              WWTPMajorDensWs +
-#              KffactWs +
-#              annual_mean_summer_temp + 
-#              W95_HIST +
-#              logMJJA_HIST + 
-#              pctForest_ws +
-#              PctOw_Ws +  
-#              PctImp_WsRp100 +  
-#              pctAg_Ws + 
-#              huc12_damden_sqkm +
-#              huc8_damcount,
-#              data = train,
-#              family = "binomial")
-# 
-# summary(mdl)
-# saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[i], ".rds", sep = ""))
-# 
-# results2 <- 
-#   data.frame(
-#     "estimate" = summary(mdl)$coefficients[,1],
-#     "std_er" = summary(mdl)$coefficients[,2],
-#     "p_val" = summary(mdl)$coefficients[,4],
-#     "variable" = rownames(summary(mdl)$coefficients),
-#     "common_name" = unique(dat$common_name)[i]) 
-# 
-# results <- rbind(results, results2)
-# 
-# 
-# #use model to predict on testing data
-# predict_resp <- predict(mdl, test, type = 'response') #the predicted value
-# 
-# 
-# #compare the predicted zeros to the actual zeros
-# compare <- data.frame(
-#   "common_name" = test$common_name,
-#   "occurrence" = factor(test$live_occurrence, levels = c(1,0)),
-#   "pred_occurrence" = factor(ifelse(predict_resp > 0.1, 1, 0), levels = levels(factor(test$live_occurrence, levels = c(1,0))))
-# )
-# 
-# 
-# #validations for the predicted occurrence vs the actual occurrence
-# cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
-# 
-# val2 <- data.frame(
-#   "common_name" = unique(train$common_name),
-#   "test_dat_pres" = nrow(test[test$live_occurrence == 1,]),
-#   "test_dat_abs" = nrow(test[test$live_occurrence == 0,]),
-#   "train_dat_pres" = nrow(train[train$live_occurrence == 1, ]),
-#   "train_dat_abs" = nrow(train[train$live_occurrence == 0, ]),
-#   "accuracy" = cm$overall[1],
-#   "sensitivity" = cm$byClass[1],
-#   "Specificity" = cm$byClass[2],
-#   "Pos Pred Value" = cm$byClass[3],
-#   "Neg Pred Value" = cm$byClass[4]
-# )
-# 
-# val_zero_prob <- rbind(val_zero_prob, val2)
-# 
-# print(unique(dat_rare$common_name)[i])
-#   
-#   
-# 
-#  
-# }
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# #common spp
-# 
-# #set aside 20% for validation and put 80% into the calibration dataset
-# dat_common <- dat %>% 
-#   filter(!common_name %in% c("brook floater", "alewife floater", "dwarf wedgemussel", "tidewater mucket", "yellow lampmussel", "eastern pondmussel"))
-# dat2 <- dat_common %>% 
-#   filter(common_name == "creeper")
-# n_obs <- nrow(dat2)
-# permuted_rows <- sample(n_obs)
-# dat2 <- dat2[permuted_rows,]
-# split <- round(n_obs * 0.8)
-# set.seed(32435)
-# train <- dat2[1:split, ]
-# test <- dat2[(split+1):n_obs, ]
-# 
-# 
-# mdl <- glm(live_occurrence ~ 
-#              lat +
-#              long +
-#              ElevCat +
-#              CaOWs +
-#              RunoffWs +
-#              pollutionWs +
-#              WWTPMajorDensWs +
-#              KffactWs +
-#              annual_mean_summer_temp + 
-#              W95_HIST +
-#              logMJJA_HIST + 
-#              pctForest_ws +
-#              PctOw_Ws +  
-#              PctImp_WsRp100 +  
-#              pctAg_Ws + 
-#              huc12_damden_sqkm +
-#              huc8_damcount,
-#              data = train,
-#              family = "binomial")
-# 
-# summary(mdl)
-# saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat$common_name)[1], ".rds", sep = ""))
-# 
-# results <- 
-#   data.frame(
-#     "estimate" = summary(mdl)$coefficients[,1],
-#     "std_er" = summary(mdl)$coefficients[,2],
-#     "p_val" = summary(mdl)$coefficients[,4],
-#     "variable" = rownames(summary(mdl)$coefficients),
-#     "common_name" = "alewife floater")
-# 
-# 
-# #use model to predict on testing data
-# predict_resp <- predict(mdl, test, type = 'response') #the predicted value
-# 
-# 
-# #compare the predicted zeros to the actual zeros
-# compare <- data.frame(
-#   "common_name" = test$common_name,
-#   "occurrence" = factor(test$live_occurrence, levels = c(1,0)),
-#   "pred_occurrence" = factor(ifelse(predict_resp > 0.5, 1, 0), levels = levels(factor(test$live_occurrence, levels = c(1,0))))
-# )
-# 
-# 
-# #validations for the predicted occurrence vs the actual occurrence
-# cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
-# 
-# val_zero_prob_common <- data.frame(
-#   "common_name" = unique(train$common_name),
-#   "test_dat_pres" = nrow(test[test$live_occurrence == 1,]),
-#   "test_dat_abs" = nrow(test[test$live_occurrence == 0,]),
-#   "train_dat_pres" = nrow(train[train$live_occurrence == 1, ]),
-#   "train_dat_abs" = nrow(train[train$live_occurrence == 0, ]),
-#   "accuracy" = cm$overall[1],
-#   "sensitivity" = cm$byClass[1],
-#   "Specificity" = cm$byClass[2],
-#   "Pos Pred Value" = cm$byClass[3],
-#   "Neg Pred Value" = cm$byClass[4]
-# )
-# 
-# 
-# 
-# 
-# for (i in 2:length(unique(dat_common$common_name))) {
-#  
-# dat2 <- dat_common %>% 
-# filter(common_name == unique(dat_common$common_name)[i])
-# n_obs <- nrow(dat2)
-# permuted_rows <- sample(n_obs)
-# dat2 <- dat2[permuted_rows,]
-# split <- round(n_obs * 0.8)
-# set.seed(32435)
-# train <- dat2[1:split, ]
-# test <- dat2[(split+1):n_obs, ]
-#   
-#  
-# mdl <- glm(live_occurrence ~ 
-#              lat +
-#              long +
-#              ElevCat +
-#              CaOWs +
-#              RunoffWs +
-#              pollutionWs +
-#              WWTPMajorDensWs +
-#              KffactWs +
-#              annual_mean_summer_temp + 
-#              W95_HIST +
-#              logMJJA_HIST + 
-#              pctForest_ws +
-#              PctOw_Ws +  
-#              PctImp_WsRp100 +  
-#              pctAg_Ws + 
-#              huc12_damden_sqkm +
-#              huc8_damcount,
-#              data = train,
-#              family = "binomial")
-# 
-# summary(mdl)
-# saveRDS(mdl, paste("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_objects/mussel_", unique(dat_common$common_name)[i], ".rds", sep = ""))
-# 
-# results2 <- 
-#   data.frame(
-#     "estimate" = summary(mdl)$coefficients[,1],
-#     "std_er" = summary(mdl)$coefficients[,2],
-#     "p_val" = summary(mdl)$coefficients[,4],
-#     "variable" = rownames(summary(mdl)$coefficients),
-#     "common_name" = unique(dat_common$common_name)[i]) 
-# 
-# results <- rbind(results, results2)
-# 
-# 
-# #use model to predict on testing data
-# predict_resp <- predict(mdl, test, type = 'response') #the predicted value
-# 
-# 
-# #compare the predicted zeros to the actual zeros
-# compare <- data.frame(
-#   "common_name" = test$common_name,
-#   "occurrence" = factor(test$live_occurrence, levels = c(1,0)),
-#   "pred_occurrence" = factor(ifelse(predict_resp > 0.5, 1, 0), levels = levels(factor(test$live_occurrence, levels = c(1,0))))
-# )
-# 
-# 
-# #validations for the predicted occurrence vs the actual occurrence
-# cm <- confusionMatrix(reference = compare$occurrence, data = compare$pred_occurrence)
-# 
-# val2 <- data.frame(
-#   "common_name" = unique(train$common_name),
-#   "test_dat_pres" = nrow(test[test$live_occurrence == 1,]),
-#   "test_dat_abs" = nrow(test[test$live_occurrence == 0,]),
-#   "train_dat_pres" = nrow(train[train$live_occurrence == 1, ]),
-#   "train_dat_abs" = nrow(train[train$live_occurrence == 0, ]),
-#   "accuracy" = cm$overall[1],
-#   "sensitivity" = cm$byClass[1],
-#   "Specificity" = cm$byClass[2],
-#   "Pos Pred Value" = cm$byClass[3],
-#   "Neg Pred Value" = cm$byClass[4]
-# )
-# 
-# val_zero_prob_common <- rbind(val_zero_prob_common, val2)
-# 
-# print(unique(dat_common$common_name)[i])
-#   
-#   
-# 
-#  
-# }
-# 
-# 
-# val_zero_prob <- rbind(val_zero_prob, val_zero_prob_common)
-# 
-# withouthost <- val_zero_prob
-# write.csv(withouthost, file = "tmpfigures/val_zero_prob_without_host.csv")
-# 
-# 
-# #compare with and without host fish in the  model
-# final <- left_join(withhost, withouthost, by = "common_name")
-# final <- final %>% 
-#   select("common_name", "test_dat_pres.x",  "test_dat_abs.x",  "train_dat_pres.x", "train_dat_abs.x",
-#          "sensitivity.x", "sensitivity.y", "Specificity.x", "Specificity.y") %>% 
-#   rename(test_dat_pres = "test_dat_pres.x",  
-#          test_dat_abs = "test_dat_abs.x",  
-#          train_dat_pres = "train_dat_pres.x", 
-#          train_dat_abs = "train_dat_abs.x",
-#          sen_with_host =  "sensitivity.x",
-#          sen_without_host = "sensitivity.y",
-#          spe_with_host = "Specificity.x",
-#          spe_without_host = "Specificity.y")
-
-
-#experimented with Random Forest
-# rf <- randomForest(as.factor(live_occurrence) ~ 
-#                         lat +
-#                         long +
-#                         ElevCat +
-#                         CaOWs +
-#                         RunoffWs +
-#                         pollutionWs +
-#                         WWTPMajorDensWs +
-#                         KffactWs +
-#                         annual_mean_summer_temp + 
-#                         W95_HIST +
-#                         logMJJA_HIST + 
-#                         pctForest_ws +
-#                        PctOw_Ws +  
-#                         PctImp_WsRp100 +  
-#                         pctAg_Ws + 
-#                         huc12_damden_sqkm +
-#                         huc8_damcount + Percidae,
-#                     data = dat2)
-#  rf
-# 
-
-rownames(results) <- NULL
-
-results <- results %>% 
-  mutate(CIlow = estimate - (1.96*std_er),
-         CIhigh = estimate + (1.96*std_er),
-         OR = exp(estimate),
-         ORCIlow = exp(CIlow),
-         ORCIhigh = exp(CIhigh)) %>% 
-  arrange(OR) %>% 
-  filter(variable != "(Intercept)")
-
 ```
 
 
@@ -2274,6 +1819,8 @@ Part 3: Species richness and shannon index
 
 
 #calcuate species richness by HUC10, HUC8, and then beta (huc10/HUC8)
+
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/mussel_count_with_zeros.RData")
 
 #join mussel_occurrence data to the mussel event huc join so that we can get presence and absence by huc10
 occ <- left_join(mussel_occurrence, mussel_event_huc_join, by = "UID")

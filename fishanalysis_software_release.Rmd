@@ -1,0 +1,387 @@
+---
+title: "fishanalysis_softwarerelease"
+author: "Jenny Rogers"
+date: "2024-02-05"
+output: html_document
+---
+
+load libraries
+
+```{r}
+
+library(tidyverse)
+library(sf)
+library(lwgeom)
+library(lubridate)
+
+
+```
+
+
+load data:
+flowline
+huc12
+huc10
+huc8
+all_fish_event
+
+
+
+Chunk1: load dataframes
+```{r}
+
+flowline_EPA <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplusV2_EPA/NHDplusV2_NewEngCrop.shp")
+huc8 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU8/WBDHU8_NE.shp")
+huc10 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU10/WBDHU10_NE.shp")
+huc12 <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/NHDplus/WBDHU12/WBDHU12_NE.shp")
+
+fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+```
+
+
+Chuck2:
+Spatially join the huc and the flowline data to the all_fish_event. now every fish surveying event is aligned with hdyrologic data.
+These two datasets have removed the lentic surveys.
+
+```{r}
+
+#prepare the huc files - select the attributes we want and remove the duplicated rows
+#21 survey points are lost from falling outside the watershed boundaries that were clipped to the state outlines.
+
+huc8 <- huc8 %>% 
+  select(tnmid, areasqkm, name) %>% 
+  rename(huc8_areasqkm = areasqkm, huc8_name= name, huc8_tnmid = tnmid)
+huc8 <- huc8[!duplicated(huc8$huc8_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc10 <- huc10 %>% 
+  select(TNMID, AreaSqKm , Name)%>% 
+  rename(huc10_areasqkm = AreaSqKm, huc10_name= Name, huc10_tnmid = TNMID)
+huc10 <- huc10[!duplicated(huc10$huc10_tnmid),]#Remove the duplicated TNMID fields
+
+
+
+huc12 <- huc12 %>% 
+  select(tnmid, areasqkm , name) %>% 
+  rename(huc12_areasqkm = areasqkm, huc12_name= name, huc12_tnmid = tnmid)
+huc12 <- huc12[!duplicated(huc12$huc12_tnmid),]#Remove the duplicated TNMID fields
+#this df needs aditional editting
+#Outlet Missisquoi River - HUc12_name this is the same shape, but it actually has two separate tnmid
+#Outlet Sutton River and Riviere Sutton are the same shape, but have different HUC 12 names and have different tnmid
+#Ruiss Coslett-Riviere Aux Brochets vs Groat Creek are the same shape with different names and tmnid
+
+huc12 <- huc12 %>% 
+  filter(huc12_tnmid != "{7964F492-75EA-4AA7-8E77-A96D99348771}",
+         huc12_name != "Riviere Sutton",
+         huc12_name != "Ruiss Coslett-Riviere Aux Brochets")
+
+
+
+#join the huc files to the fish_event file using a spatial join
+#each fish survey event will be associated with a huc8, huc10, and huc12 TNMID
+sf_use_s2(FALSE)
+fish_event_huc_join <- st_join(fish_event, huc8, left = FALSE)
+fish_event_huc_join <- st_join(fish_event_huc_join, huc10, left = FALSE)
+fish_event_huc_join <- st_join(fish_event_huc_join, huc12, left = FALSE)
+
+fish_event_huc_join <- fish_event_huc_join %>% 
+  filter(waterbody == 'lotic')
+
+
+
+
+#join the event data to the NHDplusV2 data set - this is the product that has the COMID, so we will make the same fish event flowline join file, but with this version so that we can use streamcat data and the USFS flow metrics
+
+
+
+
+flowline_EPA <- flowline_EPA %>% st_zm() %>% 
+  filter(FTYPE  == 'StreamRiver') %>% #remove artificial path, connector, canalditch, pipelines, and coastline
+  select(COMID, GNIS_ID, GNIS_NAME, LENGTHKM, REACHCODE)
+
+
+#for the flowline, we want to join the point to the nearest flowline, so we need a different approach.
+nearest <- st_nearest_feature(fish_event, flowline_EPA) #returns a vector of the index of the flowline that is nearest to each point
+dist <- st_distance(fish_event, flowline_EPA[nearest,], by_element = TRUE) #get dist from each point to the flowline
+dist <- as.numeric(dist)
+hist(dist)
+fish_event_flowlineV2_join <- cbind(fish_event, st_drop_geometry(flowline_EPA)[nearest,]) #join flowline to the fish event based on the index value of the 
+fish_event_flowlineV2_join$dist <- dist #add the distence in meters
+fish_event_flowlineV2_join <- fish_event_flowlineV2_join %>%  #just keep lotic sites and remove all lotic sites > than 500m from the stream. I looked on GIS at some examples and 500m is about the point where is becomes obvious which site goes with which stream.
+  filter(waterbody == "lotic" & dist <500) %>%  
+  rename(event_to_flowln_dist_m = dist)
+
+
+
+save(fish_event_huc_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_huc_join.RData")
+
+
+save(fish_event_flowlineV2_join, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_event_flowlineV2_join.RData")
+
+```
+
+
+Preparing the biological data frames:
+presence /absence file.  Only fish presence is currently reported. We want to select only the surveys that were total pick up, and then assign a zero to all fish not observed in each survey. To clarify, all surveys will have a row for every fish and an associated 0 (negative observation) for the fish that were not observed during this survey.
+
+```{r}
+
+#load the fish presence absence data
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_presence.RData')
+
+fish <- unique(fish_presence$common_name)
+
+#remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location. kept white perch per RI suggestion
+remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
+            "bluefish","winter flounder","striped searobin","northern pipefish",
+            "bay anchovy","spot","spotfin mojarra","atlantic tomcod","rainwater killifish",
+            "spotfin killifish","crevalle jack","weakfish","northern searobin",
+            "sheepshead minnow","atlantic needlefish","naked goby","inland silverside",
+            "atlantic menhaden","three-spined stickleback","hogchoker","striped killifish",
+            "atlantic silverside","striped bass","mummichog","fourspine stickleback",
+            "shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
+            "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
+            "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
+            "lake trout", "atlantic sturgeon", "blackspotted stickleback", "muskellunge", "sunapee trout"
+)
+
+
+fish_presence <- fish_presence %>% 
+  filter(!common_name %in% remove,
+         !is.na(common_name)) 
+  
+
+uid <- unique(fish_presence$UID)
+fish <- unique(fish_presence$common_name)
+
+#make a dataframe that has each UID repeated for each fish spp
+absence <- data.frame('UID' = rep(uid, each = 79))
+absence$common_name <- rep(fish, times = 28486)
+#keep only rows in the absence list that are no in the fish_presence list
+keep <- anti_join(absence, fish_presence, by = c("UID", "common_name"))
+#add additional scientific names to the new absence data frame
+scientific_name <- fish_presence %>% 
+  select(common_name, scientific_name, genus) %>% 
+  unique()
+keep <- left_join(keep, scientific_name, by = "common_name")
+
+#add presence absence information
+keep$occurrence <- 0
+fish_presence$occurrence <- 1
+
+keep$stock <- "natural"
+
+#bind the presence and absence columns together
+fish_occurrence <- rbind(fish_presence, keep)
+fish_occurrence <- fish_occurrence %>% 
+  arrange(UID)
+
+rm(absence, fish_presence, keep, scientific_name)
+rm(fish, uid, remove)
+
+
+#read in method data and keep only the electrofish and total pick up - this will give a list of UIDs that we keep in the presence absence data (won't want to assume all other spp are absent if the survey was a targeted survey, for example). number of passes doenst really matter here because its just if the fish was there, not counts or abundance
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+table(method$gear)
+table(method$goal)
+method <- method %>% 
+  filter(goal == "total pick-up",
+         gear %in% c("efish_backpack", "efish_barge", "efish_boat", "efish_misc"))
+
+uid <- unique(method$UID)
+
+#read in the event data and only keep the lotic surveys
+table(fish_event$waterbody)
+lotic <- fish_event %>% 
+  filter(waterbody == "lotic")
+
+#filter fish_occurrence data to only include UIDs in the filtered method
+fish_occurrence <- fish_occurrence %>% 
+  filter(UID %in% uid) %>% 
+  filter(UID %in% lotic$UID)
+
+#fish_occurrence df is the file to use for the presence absence analysis.
+save(fish_occurrence, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+
+```
+
+
+
+
+
+First prepare the fish count data (like we did  for the presence absence data) and add in the zero data from the presence absence data
+keep only records using total pick up, efish, and the ones that listed the reach length so we can calculate count/stream reach length. then rbind to the 'keep' absence dataset abve, which is the absence data for each survey event.  
+join the fish count data to the fish_event_flowline_join, and run a zero inflated regression using lat, long, total upstream drainage area, slope. Use the zero values from the fish_occurrence file 
+
+```{r}
+
+#load the fish count data
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_count.RData')
+
+
+#remove fish that are marine, estuarine, or that have only been observed in 5 or fewer lotic location.
+remove <- c("summer flounder","butterfish","king mackerel","northern kingfish",
+            "bluefish","winter flounder","striped searobin","northern pipefish",
+            "bay anchovy","spot","spotfin mojarra","atlantic tomcod","rainwater killifish",
+            "spotfin killifish","crevalle jack","weakfish","northern searobin",
+            "sheepshead minnow","atlantic needlefish","naked goby","inland silverside",
+            "atlantic menhaden","three-spined stickleback","hogchoker","striped killifish",
+            "atlantic silverside","striped bass","mummichog","fourspine stickleback",
+            "shortnose sturgeon","white crappie","lake whitefish","redear sunfish",
+            "brook silverside","northern brook lamprey","greater redhorse","guppy", "hickory shad", "western mosquitofish",
+            "longnose gar", "northern pearl dace", "gizzard shad", "blackchin shiner", "shorthead redhorse", "tench",
+            "lake trout", "atlantic sturgeon", "blackspotted stickleback", "muskellunge", "sunapee trout"
+)
+
+
+#load in the fish occurrence file just to extract the 0 occurence data, and to extract the UIDs that were already editted in be total pick up, efish only, and lotic surveys
+load(file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_occurrence.RData")
+uid <- fish_occurrence$UID
+
+
+#filter the common names, the UIDs, we will keep all runs, because removing all but the first run removes all of ME and too many observations.
+fish_count <- fish_count %>% 
+  filter(!common_name %in% remove,
+         !is.na(common_name),
+         UID %in% uid)
+
+
+
+#add zero data
+#we cant just take the zeros from the fish_occurrence dataframe.  This is because the fish_occurrence dataframe marked 'presnet' if the fish spp was observed regardless of run number.  The count data only used the first run. Therefore, there will be some fish that were 'present' but not 'counted' and therefore we will be short zeros for all spp observed during runs 2 and greater. well used the same method we used for the fish_occurrence data
+
+fish <- unique(fish_count$common_name)
+uid <- unique(fish_count$UID)
+#make a dataframe that has each UID repeated for each fish spp
+absence <- data.frame('UID' = rep(uid, each = length(fish)))
+absence$common_name <- rep(fish, times = length(uid))
+#keep only rows in the absence list that are not in the fish_count list
+keep <- anti_join(absence, fish_count, by = c("UID", "common_name"))
+#add additional scientific names to the new absence data frame
+scientific_name <- fish_count %>% 
+  select(common_name, scientific_name, genus) %>% 
+  unique()
+keep <- left_join(keep, scientific_name, by = "common_name")
+
+#add absence information
+keep$count <- 0
+keep$run_num <- 1
+
+keep$stock <- "natural"
+
+
+#bind the presence and absence columns together
+fish_count_with_zeros <- rbind(fish_count, keep)
+fish_count_with_zeros <- fish_count_with_zeros %>% 
+  arrange(UID)
+
+
+
+
+
+#join the method data because we will include reach length as a predictor variable
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+colSums(is.na(method))
+method <- method %>% 
+  select(-daylight, -target, -Comments, -Data_Comments)
+fish_count_with_zeros <- left_join(fish_count_with_zeros, method, by = "UID")
+
+
+#fish_count_with_zeros df is the file to use for the zero inflated poisson regression analysis and for the clustering sites based on abundance.
+save(fish_count_with_zeros, file =  "C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData") 
+
+
+ 
+
+
+
+
+
+
+
+```
+
+
+
+
+
+Calcuate some stats for the biodiversity paper
+1. Total fish surveying events
+2. Total fish surveying events since 1985
+3. Percentage of all fish surveying events that were lotic (vs lentic)
+4. Percentage of all fish surveying events that used backback efish
+5. Percentage of all fish surveying events that were total pick up
+6. percentgae of surveys left after making the exclusions 3-5
+7. Of the included surveys (lotic, backack efish, total pick up) - how many surveys per agency
+8. of the included surveys, the date range by agency
+```{r}
+
+load('C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata/all_fish_method.RData')
+fish_event <- st_read("C:/Users/jenrogers/Documents/necascFreshwaterBio/SpatialData/sppdata/all_fish_event.shp")
+
+table(method$gear)
+table(method$goal)
+table(fish_event$waterbody)
+
+
+
+#1
+nrow(fish_event) #31325
+#2
+nrow(fish_event[fish_event$date>mdy(01011985),])/nrow(fish_event) #0.9235435
+#3
+nrow(fish_event[fish_event$waterbody == "lotic",])/nrow(fish_event) #0.9304709
+#4
+nrow(method[method$gear == "efish_backpack",])/nrow(method) #0.8797965
+#5
+nrow(method[method$goal == "total pick-up",])/nrow(method) #0.9389286
+#6
+df <- fish_event %>% 
+  filter(waterbody == "lotic")
+df2 <- method %>% 
+  filter(gear == "efish_backpack" & goal == "total pick-up")
+
+df3 <- fish_event %>% 
+  filter(UID %in% c(df$UID) & UID %in% (df2$UID))
+nrow(df3)/nrow(fish_event) #0.8011492
+
+test <- left_join(df3, method, by = "UID")
+table(test$waterbody)
+table(test$goal)
+table(test$gear)
+
+#7
+head(test)
+table(test$source)
+#8
+test <- test %>% 
+  group_by(source) %>% 
+  summarise(min = min(date),
+            max = max(date))
+#9
+load("C:/Users/jenrogers/Documents/necascFreshwaterBio/model_datafiles/fish_count_with_zeros.RData") 
+#filter for the fish species that we included in the analysis
+
+fish_count_with_zeros_filtered <- fish_count_with_zeros %>% 
+  filter(common_name %in% c("american eel", "white perch", "rosyside dace",  
+                            "spotfin shiner", "mimic shiner", "finescale dace", "american brook lamprey", 
+                            "eastern silvery minnow", "rosyface shiner", "cutlips minnow", "green sunfish", 
+                            "brook stickleback", "common carp", "central mudminnow", "northern pike", "bridle shiner", 
+                            "swamp darter", "lake chub", "banded killifish", "margined madtom", "burbot", "black crappie", 
+                            "spottail shiner", "redbelly dace", "creek chubsucker", "banded sunfish", "fathead minnow", 
+                            "bluntnose minnow", "redbreast sunfish", "rock bass", "rainbow trout", "longnose sucker", 
+                            "smallmouth bass", "yellow bullhead", "redfin pickerel", "yellow perch", "brown bullhead", 
+                            "atlantic salmon", "golden shiner", "chain pickerel", "bluegill", "brown trout", "tessellated darter", 
+                            "largemouth bass", "fallfish", "common shiner", "creek chub", "pumpkinseed", "slimy sculpin", 
+                            "longnose dace", "white sucker", "eastern blacknose dace", "brook trout"))
+df2 <- fish_count_with_zeros_filtered %>% 
+  left_join(fish_event, by = "UID") %>% 
+  filter(count>0) %>% 
+  select(source, common_name) %>% 
+  unique() %>% 
+  group_by(source) %>% 
+  summarize(count = n())
+
+```
