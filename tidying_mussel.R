@@ -1574,10 +1574,24 @@ all_mussel_length <- bind_rows(ma_mussel_length, ri_mussel_length, nh_mussel_len
 
 #bind method data
 
+ma_mussel_method <- ma_mussel_method %>% select(UID, survey_method)
+me_mussel_method <- me_mussel_method %>% select(UID, survey_method)
+ri_mussel_method <- ri_mussel_method %>% select(UID, survey_method)
+nh_mussel_method <- nh_mussel_method %>% select(UID)
+vt_mussel_method <- vt_mussel_method %>% select(UID, survey_method)
+ct_mussel_method <- ct_mussel_method %>% select(UID, survey_method)
+
+
 all_mussel_method <- bind_rows(ma_mussel_method, me_mussel_method, ri_mussel_method, 
                                nh_mussel_method, vt_mussel_pdf_method, ct_mussel_method) #this needs more cleaning
 
+all_mussel_method$survey_method <- tolower(all_mussel_method$survey_method)
 
+all_mussel_method$survey_method[all_mussel_method$survey_method == "scuba and snorkel"] <- "snorkel & scuba"
+all_mussel_method$survey_method[all_mussel_method$survey_method == "scuba+snorkle"] <- "snorkel & scuba"
+all_mussel_method$survey_method[all_mussel_method$survey_method == "scuba and snorkel"] <- "snorkel & scuba"
+all_mussel_method$survey_method[all_mussel_method$survey_method == "wading"] <- "wade"
+all_mussel_method$survey_method[all_mussel_method$survey_method == "snorkel & wading"] <- "snorkel and wade"
 
 save(all_mussel_event, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_event.RData")
 save(all_mussel_occurrence, file = "C:/Users/jenrogers/Documents/necascFreshwaterBio/spp_data/tidydata_mussel/all_mussel_occurrence.RData")
