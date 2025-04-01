@@ -1,0 +1,178 @@
+---
+title: "Untitled"
+author: "Jenny Rogers"
+date: "2023-12-15"
+output: html_document
+---
+
+# Freshwater fish biodiversity and distribution in the Northeastern United States 
+
+##Authors
+
+Jennifer B. Rogers, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA
+
+Graziella V. DiRenzo, U.S. Geological Survey, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA 
+
+Rebecca M. Quiñones, Massachusetts Division of Fisheries and Wildlife, 1 Rabbit Hill, Westborough, MA 01581, USA
+
+Todd Richards, Massachusetts Division of Fisheries and Wildlife, 1 Rabbit Hill, Westborough, MA 01581, USA
+
+Allison H. Roy, U.S. Geological Survey, Massachusetts Cooperative Fish and Wildlife Research Unit, Department of Environmental Conservation, University of Massachusetts, Amherst, MA 01003, USA
+
+
+##Information
+
+Repository Type: Program R scripts
+
+Year of Origin: 2021
+
+Year of Version: 2023
+
+Version: 
+
+Digital Object Identifier (DOI): 
+
+USGS Information Product Data System (IPDS) no.:
+
+## Suggested Citation for Software
+Rogers, J.B., G.V. DiRenzo, R.M. Quiñones, T.Richards, A. H. Roy. 2023. Freshwater fish biodiversity and distribution in the Northeastern United States. Version 1.0.0: U.S. Geological Survey software release, https://doi.org/xxxxxx
+
+## Abstract
+
+This software contains 3 separate R Markdown files and 2 R script file that comprise an analysis to 1. collate freshwater fish survey data from within the northeastern United States, 2. develop separate models to predict the probability of occurrence and the proportional abundance of 53 freshwater fish species, and 3. combine model results by fish species traits and habitat characteristics into novel biodiversity groups to investigate the drivers and distribution of these groups within the study region. 
+
+
+
+
+# Data Preparation File
+
+
+
+### File 1: fishanalysis.Rmd
+
+#### Data inputs:
+NHDflowline_NE.shp
+NHDplusV2_NewEngCrop.shp
+WBDHU8_NE.shp
+WBDHU10_NE.shp
+WBDHU12_NE.shp
+all_fish_event.shp
+all_fish_presence.RData
+all_fish_method.RData
+all_fish_count.RData
+all_fish_size.RData
+
+#### Overview: 
+This R markdown file generally accomplishes 3 goals: 1. It spatially joins the hydrography data from the USGS National Hydrography Dataset to the fish survey event data such every fish survey is now associated with an NHDplus flowline, an NHDVersion2 flowline, a HUC12 watershed, a HUC10 watershed, and a HUC8 watershed. 2. It prepares the fish occurrence dataset using the 'all_fish_present.RData file'.  It assigns a 'zero' occurrence for all species not identified during each survey, so that now the data is in presence (1) and absence (2) format.  3. It prepares the fish count file in a similar manner - it assigns a zero to each fish species not identified in each survey using the all_fish_count.RData file.  
+
+#### Outputs:
+fish_event_huc_join.RData
+fish_event_flowline_join.RData
+fish_event_flowlineV2_join.RData
+fish_occurrence.RData
+fish_count_with_zeros.RData
+
+
+
+
+# Analysis Files
+
+
+
+
+### File 2: BiodiversityModel.Rmd
+
+#### Data inputs:
+fish_occurrence.RData
+fish_count_with_zeros.RData
+all_fish_event.shp
+fish_event_huc_join.RData
+fish_event_flowline_join.RData
+fish_event_flowlineV2_join.RData
+WBDHU8_NE.shp
+NEWENGLAND_POLY.shp
+model_covariates.RData
+model_covariates_byhuc12.RData
+fish_traits.RData
+thermalpref_origin_tolerance.xlsx
+fishclusters_bytemperature.csv
+fishclusters_bystreamflow.csv
+
+#### Overview: 
+This R Markdown file fits 53 zero-inflated beta models for each of the fish species considered in this analysis. The models are used to predict proportional abundance and probability of occurrence of each fish species. The first part of the code prepares the dataframe by 1. filtering for the species to be modeled, 2. using the species count data to calculate proportional abundance, 3. joining the species count data to the scaled model covariate files,  and 4. setting aside 20% of the data for model validation.  The first (out of 53) model is fitted to the data and the results and validation metrics are saved in a separate dataframe.  The remaining 52 models are fitted in a 'for' loop and the model results and validation statistics are added progressively into the same results and validation dataframes.  Then a series of figures are made for the manuscript that show the model validation metrics (Figure 1), and a series of odds ratios that are created by averaging together model coefficients of species that fall into the same guilds and clusters (Figures 7 and 8). 
+
+#### Outputs:
+val_zero_prob.csv
+prop_abun_validation.csv
+zeroinfla_results.csv
+propabun_results.csv
+Manuscript: Figure 1, Figure 7, Figure 8
+
+
+
+
+
+### File 3: BiodiversityModelPrediction_Fish.Rmd
+
+#### Data inputs:
+NHDplusV2_NewEngCrop_covariates.RData
+WBDHU12_NE.shp
+fish_traits.RData
+thermalpref_origin_tolerance.xlsx
+fishclusters_bytemperature.csv
+fishclusters_bystreamflow.csv
+.rds model files for each species zero-inflated beta model
+fishspp_lookup_rq_comments.xlsx
+
+#### Overview: 
+This R Markdown file uses the zero-inflated beta models developed in 'File 2' to predict the proportional abundance of each of the 53 species of freshwater fish within each stream reach in the study region. Then, each species is assigned a temperature cluster, a streamflow cluster, a temperature guild, a habitat guild, or an origin group.  The proportional abundance of each species within the overarching group is summed within the stream reach (the model scale) and then averaged over each hUC12 (the scale used to present results). Plots are then made to visualize the spatial distribution of each biodiversity group, the distribution of values of each biodiversity group using boxplots, and the correlations between the different biodiversity groups. 
+
+
+#### Outputs:
+sppgroups.csv
+Manuscript Table 3
+Figures 2, 3, 4, 5, and 6
+
+
+
+### File 4: SpeciesClustersByHabitat.R
+
+
+#### Data inputs:
+1. model_covariates.RData
+2. fish_count_with_zeros.RData
+
+#### Overview: 
+This R script clusters fish species based on the environmental attributes that are associated with the locations where each species is found during  fish surveys.  We use K-means clustering.  For each species we calculated the weighted mean of each environmental variable, weighted by the proportional abundance of that species at a survey site, such that ultimately, each of the 53 fish species are assigned a single value for each variable (i.e. mean annual stream temperature, percent of imperiousness within the upstream watershed, etc.).  We then clustered the species using all of the environmental variables that we used in the fish zero-inflated beta models, and using different subsets of the variables.  Ultimately for this project, we used two different final clusters: 1. fish species clustered by stream temperature, watershed area, and catchment elevation, which starts on line 962, and 2. fish species clustered by stream flow variables and watershed area and catchment elevation, which starts on line 726. We then calculated means and standard deviations of the values of each variable by clusters.
+
+#### Outputs:
+1. fishclusters_bystreamflow.csv
+2. fishclusters_stats_mean_bystreamflow.csv
+3. fishclusters_stats_sd_bystreamflow.csv
+4. fishclusters_bytemperature.csv
+5. fishclusters_stats_mean_bytemperature.csv
+6. fishclusters_stats_sd_bytemperature.csv
+Manuscript:
+Table 4 and Table 5 
+
+
+
+
+
+### File 5: Biplots.R
+
+
+#### Data inputs:
+1. model_covariates.RData
+2. fish_count_with_zeros.RData
+
+#### Overview: 
+This R script creates the biplots in Figure 2 of the manuscipt.  It uses the weighted mean of each environmental variable, weighted by the proportional abundance of that species at a survey site, such that ultimately, each of the 53 fish species are assigned a single value for each variable (i.e. mean annual stream temperature, percent of imperiousness within the upstream watershed, etc.).  We then used ordination to plot the similarity of each species in a 2-D figure, and we colored each species' point by the cluster. We also used arrows to show the direction of the relationship with the environmental variables.
+
+#### Outputs:
+
+Manuscript:
+Figure 2
+
+
+
